@@ -1,16 +1,16 @@
-package com.dataiku.dss.intellij;
+package com.dataiku.dss.intellij.actions.checkout;
 
 import javax.swing.*;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.dataiku.dss.Logger;
+import com.dataiku.dss.intellij.RecipeUtils;
 import com.dataiku.dss.intellij.config.DssServer;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.model.DSSClient;
-import com.dataiku.dss.model.Recipe;
-import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.diagnostic.Logger;
+import com.dataiku.dss.model.dss.Recipe;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.project.Project;
@@ -183,9 +183,9 @@ public class CheckoutDSSItemDialog extends DialogWrapper {
     }
 
     private static class DssProject {
-        private final com.dataiku.dss.model.Project project;
+        private final com.dataiku.dss.model.dss.Project project;
 
-        DssProject(com.dataiku.dss.model.Project project) {
+        DssProject(com.dataiku.dss.model.dss.Project project) {
             this.project = project;
         }
 

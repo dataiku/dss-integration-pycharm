@@ -1,4 +1,4 @@
-package com.dataiku.dss.intellij;
+package com.dataiku.dss.intellij.actions.checkout;
 
 import java.io.IOException;
 import java.util.Collections;

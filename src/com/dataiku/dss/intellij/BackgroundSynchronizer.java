@@ -1,18 +1,22 @@
 package com.dataiku.dss.intellij;
 
+import static com.dataiku.dss.intellij.SynchronizerUtils.saveRecipeToDss;
+import static com.dataiku.dss.intellij.VirtualFileUtils.getContentHash;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
+import java.io.IOException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.intellij.AppTopics;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.components.ApplicationComponent;
-import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.fileEditor.FileDocumentManager;
 import com.intellij.openapi.fileEditor.FileDocumentManagerAdapter;
@@ -25,10 +29,16 @@ import com.intellij.util.messages.MessageBusConnection;
 
 public class BackgroundSynchronizer implements ApplicationComponent {
     private static final Logger log = Logger.getInstance(BackgroundSynchronizer.class);
+
+    private final MonitoredFilesIndex monitoredFilesIndex;
+    private final DssSettings dssSettings;
+
     private ScheduledFuture<?> scheduledFuture;
     private SyncProjectManagerAdapter projectManagerAdapter;
 
-    public BackgroundSynchronizer() {
+    public BackgroundSynchronizer(DssSettings dssSettings, MonitoredFilesIndex monitoredFilesIndex) {
+        this.dssSettings = dssSettings;
+        this.monitoredFilesIndex = monitoredFilesIndex;
     }
 
     @NotNull
@@ -42,7 +52,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
         ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
 
         // At startup, synchronize everything
-        executorService.schedule(this::runGlobalSynchronizer, 0, MINUTES);
+        executorService.schedule(this::runSynchronizer, 0, MINUTES);
 
         // Then poll DSS every minute if one (or more) monitored recipes has been updated on DSS side.
         scheduledFuture = executorService.scheduleWithFixedDelay(this::runDssToLocalSynchronizer, 1, 1, MINUTES);
@@ -66,29 +76,27 @@ public class BackgroundSynchronizer implements ApplicationComponent {
         scheduledFuture.cancel(false);
     }
 
-    private void runGlobalSynchronizer() {
-        DssSettings dssSettings = DssSettings.getInstance();
-        RecipeCache recipeCache = new RecipeCache(dssSettings);
-        new GlobalSynchronizer(dssSettings, recipeCache).run();
+    private void runSynchronizer() {
+        new SynchronizerWorker(dssSettings, newRecipeCache(), monitoredFilesIndex, true).run();
     }
 
     private void runDssToLocalSynchronizer() {
-        DssSettings dssSettings = DssSettings.getInstance();
-        RecipeCache recipeCache = new RecipeCache(dssSettings);
-        new DssToLocalSynchronizer(dssSettings, recipeCache).run();
+        new SynchronizerWorker(dssSettings, newRecipeCache(), monitoredFilesIndex, false).run();
     }
 
-    private void runLocalToDssSynchronizer(VirtualFile modifiedFile) {
-        DssSettings dssSettings = DssSettings.getInstance();
-        RecipeCache recipeCache = new RecipeCache(dssSettings);
-        new LocalToDssSynchronizer(dssSettings, recipeCache, modifiedFile).run();
+    private RecipeCache newRecipeCache() {
+        return new RecipeCache(dssSettings);
     }
 
     private class SyncProjectManagerAdapter implements VetoableProjectManagerListener {
+        @Override
+        public void projectOpened(Project project) {
+            runSynchronizer(); // Index all files present in newly opened project
+        }
 
         @Override
         public void projectClosingBeforeSave(@NotNull Project project) {
-            runGlobalSynchronizer();
+            runSynchronizer();
         }
 
         @Override
@@ -103,9 +111,25 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             VirtualFile modifiedFile = FileDocumentManager.getInstance().getFile(document);
             if (modifiedFile != null) {
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    System.out.println("Synchronize " + modifiedFile);
-                    runLocalToDssSynchronizer(modifiedFile);
+                    MonitoredFile monitoredFile = monitoredFilesIndex.getMonitoredFile(modifiedFile);
+                    if (monitoredFile != null) {
+                        log.info(String.format("Detected save operation on monitored file '%s'.", modifiedFile));
+                        syncModifiedFile(monitoredFile);
+
+                    }
                 });
+            }
+        }
+
+        private void syncModifiedFile(MonitoredFile monitoredFile) {
+            try {
+                String fileContent = ReadAction.compute(() -> VirtualFileUtils.readFile(monitoredFile.file));
+                if (getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
+                    log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS server", monitoredFile.recipe));
+                    saveRecipeToDss(dssSettings, monitoredFile, fileContent);
+                }
+            } catch (IOException e) {
+                log.warn(String.format("Unable to synchronize recipe '%s'.", monitoredFile.recipe), e);
             }
         }
     }

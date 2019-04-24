@@ -1,8 +1,6 @@
-package com.dataiku.dss.intellij.metadata;
+package com.dataiku.dss.model.metadata;
 
 import java.util.List;
-
-import com.dataiku.dss.intellij.CheckoutDSSItemDialog;
 
 public class DssMetadata {
     public int version;

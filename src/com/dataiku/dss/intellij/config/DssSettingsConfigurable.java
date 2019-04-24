@@ -5,10 +5,11 @@ import javax.swing.*;
 
 import org.jetbrains.annotations.Nls;
 
+import com.dataiku.dss.intellij.ComponentUtils;
 import com.intellij.openapi.options.Configurable;
 
 public class DssSettingsConfigurable implements Configurable, Configurable.NoScroll {
-    private final DssSettings settings = (DssSettings) Utils.get(DssSettings.class);
+    private final DssSettings settings = (DssSettings) ComponentUtils.getComponent(DssSettings.class);
     private JPanel rootPanel;
     private DssSettingsPanel serversPanel;
 

@@ -3,7 +3,7 @@ package com.dataiku.dss;
 import java.util.List;
 
 import com.dataiku.dss.model.DSSClient;
-import com.dataiku.dss.model.Project;
+import com.dataiku.dss.model.dss.Project;
 
 public class Test {
     public static void main(String[] args) {

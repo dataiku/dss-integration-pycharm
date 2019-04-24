@@ -7,18 +7,20 @@ import java.util.List;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.intellij.ComponentUtils;
+import com.dataiku.dss.model.DSSClient;
 import com.google.common.base.Preconditions;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
+import com.intellij.openapi.util.PasswordUtil;
 
 @State(name = "DssConfig", storages = {@Storage("dataiku-dss.xml")})
 public final class DssSettings implements ApplicationComponent, PersistentStateComponent<DssSettings.DssConfig> {
 
     public static DssSettings getInstance() {
-        return ApplicationManager.getApplication().getComponent(DssSettings.class);
+        return ComponentUtils.getComponent(DssSettings.class);
     }
 
     public static class DssConfig {
@@ -80,5 +82,14 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
             }
         }
         return null;
+    }
+
+    @NotNull
+    public DSSClient getDssClient(String instanceName) {
+        DssServer dssServer = getDssServer(instanceName);
+        if (dssServer == null) {
+            throw new IllegalStateException(String.format("Unknown DSS server name: '%s'", instanceName));
+        }
+        return new DSSClient(dssServer.baseUrl, PasswordUtil.decodePassword(dssServer.encryptedApiKey));
     }
 }

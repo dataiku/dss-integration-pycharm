@@ -18,6 +18,10 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.model.dss.DssException;
+import com.dataiku.dss.model.dss.Project;
+import com.dataiku.dss.model.dss.Recipe;
+import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.google.common.io.ByteStreams;
 import com.google.gson.GsonBuilder;
 
@@ -96,7 +100,6 @@ public class DSSClient {
 
     private <T> T executeGet(HttpClient client, String url, Class<T> clazz) throws IOException, DssException {
         String body = executeGet(client, url);
-        System.out.println(body);
         return new GsonBuilder().create().fromJson(body, clazz);
     }
 

@@ -1,4 +1,4 @@
-package com.dataiku.dss.model;
+package com.dataiku.dss.model.dss;
 
 public class Recipe {
     // Taggable Object

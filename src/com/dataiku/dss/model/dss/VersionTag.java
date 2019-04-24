@@ -1,4 +1,4 @@
-package com.dataiku.dss.model;
+package com.dataiku.dss.model.dss;
 
 import com.google.common.base.Preconditions;
 

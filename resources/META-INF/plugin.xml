@@ -34,13 +34,22 @@
             <interface-class>com.dataiku.dss.intellij.config.DssSettings</interface-class>
         </component>
         <component>
+            <implementation-class>com.dataiku.dss.intellij.MonitoredFilesIndex</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.MonitoredFilesIndex</interface-class>
+        </component>
+        <component>
+            <implementation-class>com.dataiku.dss.intellij.MetadataFilesIndex</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.MetadataFilesIndex</interface-class>
+        </component>
+        <component>
             <implementation-class>com.dataiku.dss.intellij.BackgroundSynchronizer</implementation-class>
             <interface-class>com.dataiku.dss.intellij.BackgroundSynchronizer</interface-class>
         </component>
     </application-components>
 
     <actions>
-        <action id="com.dataiku.dss.intellij.CheckoutDSSItemAction" class="com.dataiku.dss.intellij.CheckoutDSSItemAction" text="Checkout DSS item..." description="Checkout a DSS recipe or plugin">
+        <action id="com.dataiku.dss.intellij.actions.checkout.CheckoutDSSItemAction" class="com.dataiku.dss.intellij.actions.checkout.CheckoutDSSItemAction"
+                text="Checkout DSS item..." description="Checkout a DSS recipe or plugin">
             <add-to-group group-id="FileOpenGroup" anchor="after" relative-to-action="OpenFile"/>
         </action>
     </actions>

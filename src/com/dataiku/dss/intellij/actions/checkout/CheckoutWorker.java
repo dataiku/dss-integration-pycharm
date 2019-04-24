@@ -1,4 +1,4 @@
-package com.dataiku.dss.intellij;
+package com.dataiku.dss.intellij.actions.checkout;
 
 import static com.dataiku.dss.intellij.VirtualFileUtils.getContentHash;
 import static com.dataiku.dss.intellij.VirtualFileUtils.getOrCreateVirtualFile;
@@ -7,12 +7,16 @@ import java.io.IOException;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.intellij.MetadataFile;
+import com.dataiku.dss.intellij.MetadataFilesIndex;
+import com.dataiku.dss.intellij.MonitoredFilesIndex;
+import com.dataiku.dss.intellij.RecipeUtils;
+import com.dataiku.dss.intellij.VirtualFileUtils;
 import com.dataiku.dss.intellij.config.DssServer;
-import com.dataiku.dss.intellij.metadata.DssMetadataManager;
-import com.dataiku.dss.intellij.metadata.DssRecipeMetadata;
 import com.dataiku.dss.model.DSSClient;
-import com.dataiku.dss.model.Recipe;
-import com.dataiku.dss.model.RecipeAndPayload;
+import com.dataiku.dss.model.dss.Recipe;
+import com.dataiku.dss.model.dss.RecipeAndPayload;
+import com.dataiku.dss.model.metadata.DssRecipeMetadata;
 import com.google.common.base.Preconditions;
 import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.util.PasswordUtil;
@@ -36,31 +40,30 @@ public class CheckoutWorker {
             recipeContent = "";
         }
 
-        // Retrieve IntelliJ module
-        ModuleRootManager module = ModuleRootManager.getInstance(item.module);
-
-        // Read the metadata
-        //...
-
         // Write recipe file
-        Object requestor = this;
-        VirtualFile moduleRootFolder = getModuleRootFolder(module);
-
+        VirtualFile moduleRootFolder = getModuleRootFolder(ModuleRootManager.getInstance(item.module));
         String serverName = item.server.name;
         String filename = getFilename(item.recipe);
+        Object requestor = this;
         VirtualFile result = getOrCreateVirtualFile(requestor, moduleRootFolder, serverName, projectKey, filename);
         VirtualFileUtils.writeToFile(result, recipeContent);
 
         // Write metadata
-        DssRecipeMetadata fileMetadata = new DssRecipeMetadata();
-        fileMetadata.path = serverName + "/" + projectKey + "/" + filename;
-        fileMetadata.contentDssVersion = recipeAndPayload.recipe.versionTag.versionNumber;
-        fileMetadata.contentHash = getContentHash(recipeContent);
-        fileMetadata.projectKey = projectKey;
-        fileMetadata.recipeName = item.recipe.name;
-        fileMetadata.instance = serverName;
+        MetadataFile metadata = MetadataFilesIndex.getInstance().getOrCreateMetadata(moduleRootFolder);
 
-        DssMetadataManager.updateRecipeMetadata(requestor, moduleRootFolder, fileMetadata);
+        DssRecipeMetadata recipeMetadata = new DssRecipeMetadata();
+        recipeMetadata.path = serverName + "/" + projectKey + "/" + filename;
+        recipeMetadata.versionNumber = recipeAndPayload.recipe.versionTag.versionNumber;
+        recipeMetadata.contentHash = getContentHash(recipeContent);
+        recipeMetadata.projectKey = projectKey;
+        recipeMetadata.recipeName = item.recipe.name;
+        recipeMetadata.instance = serverName;
+
+        metadata.addOrUpdateRecipe(recipeMetadata);
+
+        // Monitor the file so that if the underlying recipe is edited on DSS side, the file is updated and vice-versa.
+        MonitoredFilesIndex.getInstance().index(result, metadata, recipeMetadata);
+
         return result;
     }
 
@@ -69,7 +72,7 @@ public class CheckoutWorker {
     }
 
     @NotNull
-    private VirtualFile getModuleRootFolder(ModuleRootManager module) {
+    private static VirtualFile getModuleRootFolder(ModuleRootManager module) {
         VirtualFile[] contentRoots = module.getContentRoots();
         VirtualFile contentRoot = contentRoots.length == 0 ? null : contentRoots[0];
         if (contentRoot == null) {

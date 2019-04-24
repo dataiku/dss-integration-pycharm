@@ -7,7 +7,7 @@ import java.util.Map;
 import com.dataiku.dss.intellij.config.DssServer;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.model.DSSClient;
-import com.dataiku.dss.model.Recipe;
+import com.dataiku.dss.model.dss.Recipe;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.intellij.openapi.util.PasswordUtil;

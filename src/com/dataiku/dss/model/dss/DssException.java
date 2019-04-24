@@ -1,6 +1,8 @@
-package com.dataiku.dss.model;
+package com.dataiku.dss.model.dss;
 
-public class DssException extends RuntimeException {
+import java.io.IOException;
+
+public class DssException extends IOException {
     private final int code;
 
     public DssException(int code, String message) {

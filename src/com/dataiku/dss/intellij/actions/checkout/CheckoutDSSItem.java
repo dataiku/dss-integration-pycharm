@@ -1,7 +1,7 @@
-package com.dataiku.dss.intellij;
+package com.dataiku.dss.intellij.actions.checkout;
 
 import com.dataiku.dss.intellij.config.DssServer;
-import com.dataiku.dss.model.Recipe;
+import com.dataiku.dss.model.dss.Recipe;
 import com.intellij.openapi.module.Module;
 
 public class CheckoutDSSItem {
