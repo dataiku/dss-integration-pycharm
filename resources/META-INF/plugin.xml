@@ -1,0 +1,47 @@
+<idea-plugin>
+    <id>com.dataiku.dss.intellij</id>
+    <name>Dataiku DSS</name>
+    <version>0.4.1</version>
+    <vendor email="support@dataiku.com" url="http://www.dataiku.com">Dataiku</vendor>
+
+    <description><![CDATA[
+        Enter short description for your plugin here.<br>
+        <em>most HTML tags may be used</em>
+    ]]></description>
+
+    <change-notes><![CDATA[
+        Add change notes here.<br>
+        <em>most HTML tags may be used</em>
+    ]]>
+    </change-notes>
+
+    <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html for description -->
+    <idea-version since-build="162"/>
+
+    <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
+         on how to target different products -->
+    <depends>com.intellij.modules.lang</depends>
+    <!-- com.intellij.modules.python for PyCharm -->
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable id="dataikuDssApp" displayName="Dataiku DSS Settings" instance="com.dataiku.dss.intellij.config.DssSettingsConfigurable"/>
+    </extensions>
+
+    <!-- Plugin's application components -->
+    <application-components>
+        <component>
+            <implementation-class>com.dataiku.dss.intellij.config.DssSettings</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.config.DssSettings</interface-class>
+        </component>
+        <component>
+            <implementation-class>com.dataiku.dss.intellij.BackgroundSynchronizer</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.BackgroundSynchronizer</interface-class>
+        </component>
+    </application-components>
+
+    <actions>
+        <action id="com.dataiku.dss.intellij.CheckoutDSSItemAction" class="com.dataiku.dss.intellij.CheckoutDSSItemAction" text="Checkout DSS item..." description="Checkout a DSS recipe or plugin">
+            <add-to-group group-id="FileOpenGroup" anchor="after" relative-to-action="OpenFile"/>
+        </action>
+    </actions>
+</idea-plugin>
