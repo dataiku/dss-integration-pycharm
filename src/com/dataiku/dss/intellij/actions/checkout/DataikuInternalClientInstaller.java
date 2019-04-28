@@ -5,51 +5,22 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.Os;
 import com.dataiku.dss.intellij.config.DssServer;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.intellij.execution.RunManager;
-import com.intellij.execution.configurations.RunConfiguration;
-import com.intellij.openapi.module.Module;
-import com.intellij.openapi.project.Project;
 
+@SuppressWarnings("WeakerAccess")
 public class DataikuInternalClientInstaller {
     private static Logger log = Logger.getInstance(DataikuInternalClientInstaller.class);
-
-    public boolean isInstalled(RunConfiguration runConfiguration) {
-        String interpreterPath = getInterpreterPath(runConfiguration);
-        if (interpreterPath == null) {
-            throw new IllegalStateException("Unable to retrieve the path of the default python interpreter.");
-        }
-        return isInstalled(interpreterPath);
-    }
-
-    public boolean isInstalled(String interpreterPath) {
-        Preconditions.checkNotNull(interpreterPath, "interpreterPath");
-        File workingDir = new File(interpreterPath).getParentFile();
-        String pipCommand = Os.isWindows() ? "pip" : "./pip";
-        ProcessBuilder pipList = new ProcessBuilder()
-                .command(pipCommand, "list")
-                .redirectErrorStream(true)
-                .directory(workingDir);
-        ProcessOutcome pipListOutcome = executeProcess(pipList);
-        if (pipListOutcome.exitCode != 0) {
-            throw new IllegalStateException(String.format("pip list command exited with non zero error code: %d", pipListOutcome.exitCode));
-        }
-        return pipListOutcome.output.stream().anyMatch(s -> s.startsWith("dataiku-internal-client"));
-    }
 
     public String getInstalledVersion(String interpreterPath) {
         Preconditions.checkNotNull(interpreterPath, "interpreterPath");
@@ -68,61 +39,6 @@ public class DataikuInternalClientInstaller {
                 .findFirst()
                 .map(s -> s.substring("dataiku-internal-client".length()).trim())
                 .orElse(null);
-    }
-
-    public void install(Module module, DssServer dssServer, String recipeName) {
-        Preconditions.checkNotNull(module, "module");
-        Preconditions.checkNotNull(dssServer, "dssServer");
-        Preconditions.checkNotNull(recipeName, "recipeName");
-
-        Project project = module.getProject();
-        RunManager runManager = RunManager.getInstance(project);
-        Optional<RunConfiguration> existingConfiguration = runManager.getAllConfigurationsList().stream().filter(c -> recipeName.equalsIgnoreCase(c.getName())).findAny();
-        if (!existingConfiguration.isPresent()) {
-            throw new IllegalStateException(String.format("Unable to find a Run Configuration named '%s'", recipeName));
-        }
-        RunConfiguration runConfiguration = existingConfiguration.get();
-
-        String interpreterPath = getInterpreterPath(runConfiguration);
-        if (interpreterPath == null) {
-            throw new IllegalStateException("Unable to retrieve the path of the default python interpreter.");
-        }
-        File workingDir = new File(interpreterPath).getParentFile();
-        String pipCommand = Os.isWindows() ? "pip" : "./pip";
-        boolean internalClientInstalled = isInstalled(runConfiguration);
-        if (!internalClientInstalled) {
-            ProcessBuilder pipInstall = new ProcessBuilder()
-                    .command(pipCommand, "install", "--upgrade", clientTarGzUrl(dssServer))
-                    .redirectErrorStream(true)
-                    .directory(workingDir);
-            executeProcess(pipInstall);
-        }
-    }
-
-    public void install(RunConfiguration runConfiguration, DssServer dssServer) {
-        Preconditions.checkNotNull(dssServer, "dssServer");
-
-        String interpreterPath = getInterpreterPath(runConfiguration);
-        if (interpreterPath == null) {
-            throw new IllegalStateException("Unable to retrieve the path of the default python interpreter.");
-        }
-        boolean internalClientInstalled = isInstalled(runConfiguration);
-        if (!internalClientInstalled) {
-            install(interpreterPath, dssServer);
-        }
-    }
-
-    public void install(String interpreterPath, DssServer dssServer) {
-        Preconditions.checkNotNull(dssServer, "dssServer");
-        Preconditions.checkNotNull(interpreterPath, "interpreterPath");
-
-        File workingDir = new File(interpreterPath).getParentFile();
-        String pipCommand = Os.isWindows() ? "pip" : "./pip";
-        ProcessBuilder pipInstall = new ProcessBuilder()
-                .command(pipCommand, "install", "--upgrade", clientTarGzUrl(dssServer))
-                .redirectErrorStream(true)
-                .directory(workingDir);
-        executeProcess(pipInstall);
     }
 
     public Process installAsync(String interpreterPath, DssServer dssServer) throws IOException {
@@ -211,18 +127,7 @@ public class DataikuInternalClientInstaller {
     }
 
     @NotNull
-    private String clientTarGzUrl(DssServer dssServer) {
+    public static String clientTarGzUrl(DssServer dssServer) {
         return dssServer.baseUrl + "/public/packages/dataiku-internal-client.tar.gz";
-    }
-
-    @Nullable
-    @SuppressWarnings({"SameParameterValue", "JavaReflectionMemberAccess"})
-    private String getInterpreterPath(RunConfiguration configuration) {
-        try {
-            return (String) configuration.getClass().getMethod("getInterpreterPath").invoke(configuration);
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            log.warn("Unable to retrieve the Python interpreter path for the new Run Configuration", e);
-            return null;
-        }
     }
 }

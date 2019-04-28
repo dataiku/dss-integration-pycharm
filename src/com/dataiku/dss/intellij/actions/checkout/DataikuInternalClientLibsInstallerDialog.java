@@ -74,7 +74,7 @@ public class DataikuInternalClientLibsInstallerDialog extends DialogWrapper {
     }
 
     private void startInstallation() throws IOException, InterruptedException {
-        textArea.append("> pip install --upgrade " + dssServer.baseUrl + "/public/packages/dataiku-internal-client.tar.gz\n");
+        textArea.append("> pip install --upgrade " + DataikuInternalClientInstaller.clientTarGzUrl(dssServer) + "\n");
         installProcess = new DataikuInternalClientInstaller().installAsync(sdk.getHomePath(), dssServer);
         new Thread(new ProcessOutput(installProcess.getInputStream())).start();
     }
