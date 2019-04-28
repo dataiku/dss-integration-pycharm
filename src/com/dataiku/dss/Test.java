@@ -3,10 +3,11 @@ package com.dataiku.dss;
 import java.util.List;
 
 import com.dataiku.dss.model.DSSClient;
+import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.Project;
 
 public class Test {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws DssException {
         final String baseUrl = "http://localhost:8082/";
         final String apiKey = "QjU4CPJcxSgn1jskvDXIsUvHuzCwY5ZQ";
         DSSClient dssClient = new DSSClient(baseUrl, apiKey);

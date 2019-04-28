@@ -7,6 +7,7 @@ import java.util.Map;
 import com.dataiku.dss.intellij.config.DssServer;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.model.DSSClient;
+import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.Recipe;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
@@ -20,7 +21,7 @@ public class RecipeCache {
         this.dssSettings = dssSettings;
     }
 
-    public Recipe getRecipe(String dssServerName, String projectKey, String recipeName) {
+    public Recipe getRecipe(String dssServerName, String projectKey, String recipeName) throws DssException {
         Preconditions.checkNotNull(dssServerName, "dssServerName");
         Preconditions.checkNotNull(projectKey, "projectKey");
         Preconditions.checkNotNull(recipeName, "recipeName");
@@ -33,7 +34,7 @@ public class RecipeCache {
         return null;
     }
 
-    private List<Recipe> getProjectRecipes(String dssServerName, String projectKey) {
+    private List<Recipe> getProjectRecipes(String dssServerName, String projectKey) throws DssException {
         RecipeCacheProject dssProject = new RecipeCacheProject(dssServerName, projectKey);
         List<Recipe> projectRecipes = cachedRecipes.get(dssProject);
         if (projectRecipes == null) {

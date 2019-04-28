@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -22,13 +23,14 @@ import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.Project;
 import com.dataiku.dss.model.dss.Recipe;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
+import com.google.common.base.Joiner;
 import com.google.common.io.ByteStreams;
 import com.google.gson.GsonBuilder;
 
 public class DSSClient {
 
-    private final String baseUrl; // = "http://localhost:8082/";
-    private final String apiKey; // = "QjU4CPJcxSgn1jskvDXIsUvHuzCwY5ZQ";
+    private final String baseUrl;
+    private final String apiKey;
 
     public DSSClient(String baseUrl, String apiKey) {
         this.baseUrl = fixBaseUrl(baseUrl);
@@ -44,8 +46,27 @@ public class DSSClient {
         }
     }
 
-    public List<Project> listProjects() throws DssException {
-        String url = baseUrl + "public/api/" + "projects/";
+    public String getDssVersion() {
+        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
+            HttpGet request = new HttpGet(baseUrl + "public/api/projects/");
+            HttpResponse response = executeRequest(client, request);
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode != 200) {
+                throw new DssException(statusCode, "DSS returned error code " + statusCode);
+            }
+            Header header = response.getFirstHeader("DSS-Version");
+            if (header != null) {
+                return header.getValue();
+            }
+        } catch (IOException e) {
+            return null;
+        }
+        return null;
+    }
+
+    public List<Project> listProjects(String... tags) throws DssException {
+        String tagPart = Joiner.on(",").join(tags);
+        String url = baseUrl + "public/api/" + "projects/" + tagPart;
 
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             Project[] projects = executeGet(client, url, Project[].class);
@@ -98,17 +119,15 @@ public class DSSClient {
         }
     }
 
-    private <T> T executeGet(HttpClient client, String url, Class<T> clazz) throws IOException, DssException {
+    private <T> T executeGet(HttpClient client, String url, Class<T> clazz) throws IOException {
         String body = executeGet(client, url);
         return new GsonBuilder().create().fromJson(body, clazz);
     }
 
     @NotNull
-    private String executeGet(HttpClient client, String url) throws IOException, DssException {
+    private String executeGet(HttpClient client, String url) throws IOException {
         HttpGet request = new HttpGet(url);
-        request.addHeader("content-type", "application/json");
-        request.addHeader(HttpHeaders.AUTHORIZATION, "Basic " + new String(encodeBase64((apiKey + ":").getBytes(ISO_8859_1))));
-        HttpResponse response = client.execute(request);
+        HttpResponse response = executeRequest(client, request);
         int statusCode = response.getStatusLine().getStatusCode();
         if (statusCode != 200) {
             throw new DssException(statusCode, "DSS returned error code " + statusCode);
@@ -117,8 +136,14 @@ public class DSSClient {
         return new String(ByteStreams.toByteArray(response.getEntity().getContent()), UTF_8);
     }
 
+    private HttpResponse executeRequest(HttpClient client, HttpGet request) throws IOException {
+        request.addHeader("content-type", "application/json");
+        request.addHeader(HttpHeaders.AUTHORIZATION, "Basic " + new String(encodeBase64((apiKey + ":").getBytes(ISO_8859_1))));
+        return client.execute(request);
+    }
+
     @NotNull
-    private String executePut(HttpClient client, String url, String body) throws IOException, DssException {
+    private String executePut(HttpClient client, String url, String body) throws IOException {
         HttpPut request = new HttpPut(url);
         request.addHeader("content-type", "application/json");
         request.addHeader(HttpHeaders.AUTHORIZATION, "Basic " + new String(encodeBase64((apiKey + ":").getBytes(ISO_8859_1))));

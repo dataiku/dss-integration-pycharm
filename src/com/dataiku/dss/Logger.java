@@ -10,7 +10,7 @@ import com.google.common.io.FileWriteMode;
 import com.google.common.io.Files;
 
 public class Logger {
-    private static boolean DEBUG_MODE = true;
+    @SuppressWarnings("FieldCanBeLocal") private static boolean DEBUG_MODE = true;
     private static PrintStream ADDITIONAL_LOGGER = createAdditionalLogger();
 
     private com.intellij.openapi.diagnostic.Logger logger;
@@ -23,9 +23,24 @@ public class Logger {
         logger = com.intellij.openapi.diagnostic.Logger.getInstance(clazz);
     }
 
+    public void debug(String msg) {
+        logger.debug(msg);
+        log("DEBUG - " + msg);
+    }
+
+    public void debug(String msg, Throwable t) {
+        logger.debug(msg, t);
+        log("DEBUG - " + msg, t);
+    }
+
     public void info(String msg) {
         logger.info(msg);
         log("INFO - " + msg);
+    }
+
+    public void info(String msg, Throwable t) {
+        logger.info(msg, t);
+        log("INFO - " + msg, t);
     }
 
     public void warn(String msg) {

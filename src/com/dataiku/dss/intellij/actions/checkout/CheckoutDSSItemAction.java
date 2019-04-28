@@ -1,7 +1,7 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
 import java.io.IOException;
-import java.util.Collections;
+import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -30,13 +30,15 @@ public class CheckoutDSSItemAction extends AnAction implements DumbAware {
     }
 
     private void prepareFileChooserAndOpen(Project project) {
-        CheckoutDSSItemDialog dialog = new CheckoutDSSItemDialog(project);
-        if (dialog.showAndGet()) {
-            CheckoutDSSItem selectedItem = dialog.getSelectedItem();
+        CheckoutDSSItemWizard wizard = new CheckoutDSSItemWizard(project);
+        if (wizard.showAndGet()) {
+            CheckoutDSSItemModel model = wizard.getModel();
             try {
-                VirtualFile file = new CheckoutWorker().checkout(selectedItem);
-                NonProjectFileWritingAccessProvider.allowWriting(Collections.singletonList(file));
-                PsiNavigationSupport.getInstance().createNavigatable(project, file, -1).navigate(true);
+                List<VirtualFile> files = new CheckoutWorker().checkout(model);
+                NonProjectFileWritingAccessProvider.allowWriting(files);
+                for (VirtualFile file : files) {
+                    PsiNavigationSupport.getInstance().createNavigatable(project, file, -1).navigate(true);
+                }
             } catch (IOException e) {
                 Messages.showErrorDialog(e.getMessage(), "I/O Error");
             } catch (IllegalStateException e) {

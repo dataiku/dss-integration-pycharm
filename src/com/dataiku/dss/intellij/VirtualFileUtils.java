@@ -73,7 +73,9 @@ public class VirtualFileUtils {
 
     @NotNull
     public static VirtualFile getOrCreateVirtualFile(Object requestor, VirtualFile parent, String... names) throws IOException {
-        if (names.length == 1) {
+        if (names.length == 0) {
+            return parent;
+        } else if (names.length == 1) {
             VirtualFile file = parent.findChild(names[0]);
             if (file != null) {
                 return file;
