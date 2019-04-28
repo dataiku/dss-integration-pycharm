@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.dataiku.dss.intellij</id>
     <name>Dataiku DSS</name>
-    <version>0.4.1</version>
+    <version>0.8.0</version>
     <vendor email="support@dataiku.com" url="http://www.dataiku.com">Dataiku</vendor>
 
     <description><![CDATA[
