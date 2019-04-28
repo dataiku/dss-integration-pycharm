@@ -47,6 +47,11 @@ public class MetadataFile {
     }
 
     private static void writeMetadata(File metadataFile, DssMetadata metadata) throws IOException {
+        if (!metadataFile.getParentFile().exists()) {
+            if (!metadataFile.getParentFile().mkdirs()) {
+                throw new IOException("Unable to create directory " + metadataFile.getParentFile().getPath());
+            }
+        }
         Files.write(toJson(metadata).getBytes(UTF_8), metadataFile);
     }
 
