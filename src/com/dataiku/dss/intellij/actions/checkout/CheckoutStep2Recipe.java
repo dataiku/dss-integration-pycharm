@@ -19,7 +19,6 @@ import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.Os;
 import com.dataiku.dss.intellij.RecipeUtils;
 import com.dataiku.dss.intellij.config.DssServer;
-import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.Recipe;
 import com.google.common.base.Joiner;
@@ -35,7 +34,7 @@ import com.intellij.openapi.projectRoots.SdkType;
 import com.intellij.openapi.roots.ModuleRootManager;
 
 public class CheckoutStep2Recipe extends AbstractWizardStepEx {
-    public static final Object ID = "CheckoutStep2Recipe";
+    static final Object ID = "CheckoutStep2Recipe";
     private static final Logger log = Logger.getInstance(CheckoutStep2Recipe.class);
     private static final RecipeItem NO_RECIPE = new RecipeItem(null);
 
@@ -57,8 +56,8 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private JPanel sdkPanel;
     private JLabel sdkLabel;
 
-    public CheckoutStep2Recipe(CheckoutDSSItemModel model) {
-        super("Checkout DSS Recipe/Plugin");
+    CheckoutStep2Recipe(CheckoutDSSItemModel model) {
+        super("Recipe");
         this.model = model;
 
         projectComboBox.addActionListener(e -> {
@@ -74,9 +73,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
         });
         recipesList.setModel(recipesListItems);
         recipesList.setCellRenderer(new RecipeListCellRenderer());
-        recipesList.addListSelectionListener(e -> {
-            updateRunConfiguration();
-        });
+        recipesList.addListSelectionListener(e -> updateRunConfiguration());
         runConfigurationCheckBox.addActionListener(e -> {
             boolean selected = runConfigurationCheckBox.isSelected();
             installClientLibsPanel.setEnabled(selected);
@@ -107,7 +104,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
         ProjectItem projectItem = (ProjectItem) projectComboBox.getSelectedItem();
         recipesListItems.removeAllElements();
         if (projectItem != null) {
-            projectItem.dssClient.listRecipes(projectItem.projectKey).stream()
+            model.serverClient.listRecipes(projectItem.projectKey).stream()
                     .filter(recipe -> RecipeUtils.isEditableRecipe(recipe.type))
                     .forEach(recipe -> recipesListItems.addElement(new RecipeItem(recipe)));
         }
@@ -166,6 +163,10 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
 
     @Override
     public void commit(CommitType commitType) throws CommitStepException {
+        if (commitType == CommitType.Prev) {
+            return; // Ignore everything.
+        }
+
         // Project
         ProjectItem selectedProject = (ProjectItem) projectComboBox.getSelectedItem();
         if (selectedProject == null) {
@@ -222,7 +223,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
                     label = label + " (" + p.projectKey + ")";
                 }
                 labels.add(label);
-                projectComboBox.addItem(new ProjectItem(p.projectKey, label, dssServer, model.serverClient));
+                projectComboBox.addItem(new ProjectItem(p.projectKey, label, dssServer));
             }
         }
         // Fill SDKs model
@@ -272,17 +273,16 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
         return projectComboBox;
     }
 
+    @SuppressWarnings("WeakerAccess")
     private class ProjectItem {
         public final String projectKey;
         public final String label;
         public final DssServer dssServer;
-        public final DSSClient dssClient;
 
-        public ProjectItem(String projectKey, String label, DssServer dssServer, DSSClient dssClient) {
+        public ProjectItem(String projectKey, String label, DssServer dssServer) {
             this.projectKey = projectKey;
             this.label = label;
             this.dssServer = dssServer;
-            this.dssClient = dssClient;
         }
 
         @Override
@@ -354,7 +354,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
         }
     }
 
-    public static java.util.List<Sdk> getAllPythonSdks() {
+    private static java.util.List<Sdk> getAllPythonSdks() {
         java.util.List<Sdk> result = new ArrayList<>();
         SdkType pythonSdkType = Arrays.stream(SdkType.getAllTypes()).filter(sdk -> sdk.getName().equals("Python SDK")).findFirst().orElse(null);
         if (pythonSdkType != null) {
@@ -383,7 +383,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     }
 
     @Nullable
-    public static Sdk findPythonSdk(@Nullable Module module) {
+    private static Sdk findPythonSdk(@Nullable Module module) {
         if (module == null) {
             return null;
         }
@@ -412,9 +412,9 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     }
 
     private static class SdkItem {
-        public Sdk sdk;
+        Sdk sdk;
 
-        public SdkItem(Sdk sdk) {
+        SdkItem(Sdk sdk) {
             this.sdk = sdk;
         }
 

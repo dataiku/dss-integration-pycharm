@@ -19,13 +19,14 @@ public class CheckoutDSSItemWizard {
 
     private void init(Project project, CheckoutDSSItemModel model) {
         List<AbstractWizardStepEx> steps = createSteps(project, model);
-        wizard = new Wizard("Checkout DSS Recipe/Plugin", project, steps);
+        wizard = new Wizard("Checkout DSS Item", project, steps);
     }
 
     private static List<AbstractWizardStepEx> createSteps(Project project, CheckoutDSSItemModel model) {
         List<AbstractWizardStepEx> steps = new ArrayList<>();
         steps.add(new CheckoutStep1(model, project));
         steps.add(new CheckoutStep2Recipe(model));
+        steps.add(new CheckoutStep2Plugin(model));
         return steps;
     }
 

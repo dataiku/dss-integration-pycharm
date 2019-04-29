@@ -59,6 +59,7 @@ public class MetadataFilesIndex implements ApplicationComponent {
                     dssMetadata = new DssMetadata();
                     dssMetadata.version = 1;
                     dssMetadata.recipes = new ArrayList<>();
+                    dssMetadata.plugins = new ArrayList<>();
                     dssMetadataFile = new MetadataFile(moduleContentRoot, dssMetadata);
                     dssMetadataFile.flush();
                 }
@@ -74,10 +75,17 @@ public class MetadataFilesIndex implements ApplicationComponent {
         if (metadataFile == null || !metadataFile.isValid() || !metadataFile.exists()) {
             return null;
         }
-        return new GsonBuilder().create().fromJson(VirtualFileUtils.readFile(metadataFile), DssMetadata.class);
+        DssMetadata result = new GsonBuilder().create().fromJson(VirtualFileUtils.readVirtualFile(metadataFile), DssMetadata.class);
+        if (result.plugins == null) {
+            result.plugins = new ArrayList<>();
+        }
+        if (result.recipes == null) {
+            result.recipes = new ArrayList<>();
+        }
+        return result;
     }
 
     private static VirtualFile getMetadataFile(VirtualFile moduleRootFolder) {
-        return moduleRootFolder.findFileByRelativePath(".dss/recipes.json");
+        return moduleRootFolder.findFileByRelativePath(".dss/metadata.json");
     }
 }

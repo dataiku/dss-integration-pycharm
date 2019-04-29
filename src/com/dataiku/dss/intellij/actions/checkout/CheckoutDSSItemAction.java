@@ -10,7 +10,6 @@ import com.intellij.ide.util.PsiNavigationSupport;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.fileEditor.impl.NonProjectFileWritingAccessProvider;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
@@ -34,8 +33,7 @@ public class CheckoutDSSItemAction extends AnAction implements DumbAware {
         if (wizard.showAndGet()) {
             CheckoutDSSItemModel model = wizard.getModel();
             try {
-                List<VirtualFile> files = new CheckoutWorker().checkout(model);
-                NonProjectFileWritingAccessProvider.allowWriting(files);
+                List<VirtualFile> files = new CheckoutWorker(model).checkout();
                 for (VirtualFile file : files) {
                     PsiNavigationSupport.getInstance().createNavigatable(project, file, -1).navigate(true);
                 }

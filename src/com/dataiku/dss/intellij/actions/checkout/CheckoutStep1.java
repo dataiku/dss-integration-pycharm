@@ -50,7 +50,9 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
     @Nullable
     @Override
     public Object getNextStepId() {
-        return CheckoutStep2Recipe.ID;
+        return "Plugin".equals(itemTypeComboBox.getSelectedItem()) ?
+                CheckoutStep2Plugin.ID :
+                CheckoutStep2Recipe.ID;
     }
 
     @Nullable

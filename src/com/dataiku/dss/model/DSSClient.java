@@ -1,25 +1,31 @@
 package com.dataiku.dss.model;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.util.Arrays.asList;
 import static org.apache.commons.codec.Charsets.UTF_8;
 import static org.apache.commons.codec.binary.Base64.encodeBase64;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.model.dss.DssException;
+import com.dataiku.dss.model.dss.FolderContent;
+import com.dataiku.dss.model.dss.Plugin;
 import com.dataiku.dss.model.dss.Project;
 import com.dataiku.dss.model.dss.Recipe;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
@@ -28,6 +34,11 @@ import com.google.common.io.ByteStreams;
 import com.google.gson.GsonBuilder;
 
 public class DSSClient {
+    private static final String PUBLIC_API = "public/api";
+    private static final String PROJECTS = "projects";
+    private static final String RECIPES = "recipes";
+    private static final String PLUGINS = "plugins";
+    private static final String CONTENTS = "contents";
 
     private final String baseUrl;
     private final String apiKey;
@@ -48,12 +59,8 @@ public class DSSClient {
 
     public String getDssVersion() {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
-            HttpGet request = new HttpGet(baseUrl + "public/api/projects/");
-            HttpResponse response = executeRequest(client, request);
-            int statusCode = response.getStatusLine().getStatusCode();
-            if (statusCode != 200) {
-                throw new DssException(statusCode, "DSS returned error code " + statusCode);
-            }
+            String url = buildUrl(PROJECTS, "");
+            HttpResponse response = executeRequest(new HttpGet(url), client);
             Header header = response.getFirstHeader("DSS-Version");
             if (header != null) {
                 return header.getValue();
@@ -65,36 +72,20 @@ public class DSSClient {
     }
 
     public List<Project> listProjects(String... tags) throws DssException {
-        String tagPart = Joiner.on(",").join(tags);
-        String url = baseUrl + "public/api/" + "projects/" + tagPart;
+        String tagPart = Joiner.on(',').join(tags);
+        String url = buildUrl(PROJECTS, tagPart);
 
-        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
-            Project[] projects = executeGet(client, url, Project[].class);
-            return Arrays.asList(projects);
-        } catch (IOException e) {
-            throw new DssException(e);
-        }
+        return asList(executeGet(url, Project[].class));
     }
 
     public List<Recipe> listRecipes(String projectKey) throws DssException {
-        String url = baseUrl + "public/api/" + "projects/" + projectKey + "/recipes/";
-
-        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
-            Recipe[] recipes = executeGet(client, url, Recipe[].class);
-            return Arrays.asList(recipes);
-        } catch (IOException e) {
-            throw new DssException(e);
-        }
+        String url = buildUrl(PROJECTS, projectKey, RECIPES, "");
+        return asList(executeGet(url, Recipe[].class));
     }
 
     public RecipeAndPayload loadRecipe(String projectKey, String recipeName) throws DssException {
-        String url = baseUrl + "public/api/" + "projects/" + projectKey + "/recipes/" + recipeName;
-
-        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
-            return executeGet(client, url, RecipeAndPayload.class);
-        } catch (IOException e) {
-            throw new DssException(e);
-        }
+        String url = buildUrl(PROJECTS, projectKey, RECIPES, recipeName);
+        return executeGet(url, RecipeAndPayload.class);
     }
 
     public Recipe getRecipe(String projectKey, String recipeName) throws DssException {
@@ -111,58 +102,117 @@ public class DSSClient {
         recipeAndPayload.payload = payload;
         String body = new GsonBuilder().setPrettyPrinting().create().toJson(recipeAndPayload);
 
-        String url = baseUrl + "public/api/projects/" + recipe.projectKey + "/recipes/" + recipe.name;
-        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
-            executePut(client, url, body);
+        String url = buildUrl(PROJECTS, recipe.projectKey, RECIPES, recipe.name);
+        executePut(url, body);
+    }
+
+    public List<Plugin> listPlugins() throws DssException {
+        String url = baseUrl + PUBLIC_API + "/" + PLUGINS + "/";
+
+        try {
+            return asList(executeGet(url, Plugin[].class));
         } catch (IOException e) {
             throw new DssException(e);
         }
     }
 
-    private <T> T executeGet(HttpClient client, String url, Class<T> clazz) throws IOException {
-        String body = executeGet(client, url);
+    public List<Plugin> listPluginsInDevelopment() throws DssException {
+        return listPlugins().stream().filter(plugin -> plugin.isDev).collect(Collectors.toList());
+    }
+
+    public List<FolderContent> listPluginFiles(String pluginId) throws DssException {
+        String url = buildUrl(PLUGINS, pluginId, CONTENTS, "");
+        return asList(executeGet(url, FolderContent[].class));
+    }
+
+    public byte[] downloadPluginFile(String pluginId, String path) throws DssException {
+        String url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
+        return executeGetAndReturnByteArray(url);
+    }
+
+    public void uploadPluginFile(String pluginId, String path, byte[] content) throws DssException {
+        String url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
+        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
+            HttpPost request = new HttpPost(url);
+            request.setEntity(new ByteArrayEntity(content));
+            executeRequest(request, client);
+        } catch (IOException e) {
+            throw new DssException(e);
+        }
+    }
+
+    @NotNull
+    @SuppressWarnings("UnusedReturnValue")
+    private String executePut(String url, String body) throws DssException {
+        return new String(executePutAndReturnByteArray(url, body), UTF_8);
+    }
+
+    private byte[] executePutAndReturnByteArray(String url, String body) throws DssException {
+        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
+            HttpPut request = new HttpPut(url);
+            request.setEntity(new StringEntity(body));
+            HttpResponse response = executeRequest(request, client);
+            return ByteStreams.toByteArray(response.getEntity().getContent());
+        } catch (IOException e) {
+            throw new DssException(e);
+        }
+    }
+
+    private <T> T executeGet(String url, Class<T> clazz) throws DssException {
+        String body = executeGet(url);
         return new GsonBuilder().create().fromJson(body, clazz);
     }
 
     @NotNull
-    private String executeGet(HttpClient client, String url) throws IOException {
-        HttpGet request = new HttpGet(url);
-        HttpResponse response = executeRequest(client, request);
-        int statusCode = response.getStatusLine().getStatusCode();
-        if (statusCode != 200) {
-            throw new DssException(statusCode, "DSS returned error code " + statusCode);
-        }
-
-        return new String(ByteStreams.toByteArray(response.getEntity().getContent()), UTF_8);
-    }
-
-    private HttpResponse executeRequest(HttpClient client, HttpGet request) throws IOException {
-        request.addHeader("content-type", "application/json");
-        request.addHeader(HttpHeaders.AUTHORIZATION, "Basic " + new String(encodeBase64((apiKey + ":").getBytes(ISO_8859_1))));
-        return client.execute(request);
+    private String executeGet(String url) throws DssException {
+        return new String(executeGetAndReturnByteArray(url), UTF_8);
     }
 
     @NotNull
-    private String executePut(HttpClient client, String url, String body) throws IOException {
-        HttpPut request = new HttpPut(url);
-        request.addHeader("content-type", "application/json");
-        request.addHeader(HttpHeaders.AUTHORIZATION, "Basic " + new String(encodeBase64((apiKey + ":").getBytes(ISO_8859_1))));
-        request.setEntity(new StringEntity(body));
-        HttpResponse response = client.execute(request);
+    private byte[] executeGetAndReturnByteArray(String url) throws DssException {
+        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
+            HttpResponse response = executeRequest(new HttpGet(url), client);
+            return ByteStreams.toByteArray(response.getEntity().getContent());
+        } catch (IOException e) {
+            throw new DssException(e);
+        }
+    }
+
+    @NotNull
+    private HttpResponse executeRequest(HttpRequestBase request, HttpClient client) throws DssException {
+        addJsonContentTypeHeader(request);
+        addAuthorizationHeader(request);
+        HttpResponse response;
+        try {
+            response = client.execute(request);
+        } catch (IOException e) {
+            throw new DssException(e);
+        }
         int statusCode = response.getStatusLine().getStatusCode();
         if (statusCode != 200) {
             throw new DssException(statusCode, "DSS returned error code " + statusCode);
         }
+        return response;
+    }
 
-        return new String(ByteStreams.toByteArray(response.getEntity().getContent()), UTF_8);
+    private void addJsonContentTypeHeader(HttpRequestBase request) {
+        request.addHeader("content-type", "application/json");
+    }
+
+    private void addAuthorizationHeader(HttpRequestBase request) {
+        request.addHeader(HttpHeaders.AUTHORIZATION, "Basic " + new String(encodeBase64((apiKey + ":").getBytes(ISO_8859_1))));
+    }
+
+    @NotNull
+    private String buildUrl(String... parts) {
+        return baseUrl + PUBLIC_API + '/' + Joiner.on('/').join(parts);
     }
 
     private static String fixBaseUrl(String url) {
         String result = url;
         if (!result.endsWith("/")) {
-            result += "/";
+            result += '/';
         }
         return result;
     }
-
 }

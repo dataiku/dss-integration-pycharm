@@ -80,7 +80,7 @@ class SynchronizerWorker {
                 monitoredFile.metadataFile.removeRecipe(recipe);
                 return;
             } else {
-                String fileContent = ReadAction.compute(() -> VirtualFileUtils.readFile(monitoredFile.file));
+                String fileContent = ReadAction.compute(() -> VirtualFileUtils.readVirtualFile(monitoredFile.file));
                 if (VirtualFileUtils.getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
                     // File has been updated locally, update it in DSS.
                     log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS server", monitoredFile.recipe));

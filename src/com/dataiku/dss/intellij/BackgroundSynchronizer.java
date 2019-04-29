@@ -123,7 +123,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
         private void syncModifiedFile(MonitoredFile monitoredFile) {
             try {
-                String fileContent = ReadAction.compute(() -> VirtualFileUtils.readFile(monitoredFile.file));
+                String fileContent = ReadAction.compute(() -> VirtualFileUtils.readVirtualFile(monitoredFile.file));
                 if (getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
                     log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS server", monitoredFile.recipe));
                     saveRecipeToDss(dssSettings, monitoredFile, fileContent);
