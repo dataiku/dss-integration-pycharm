@@ -68,26 +68,38 @@ class SynchronizerWorker {
 
             MonitoredFilesIndex.getInstance().removeFromIndex(monitoredFile);
             monitoredFile.metadataFile.removeRecipe(recipe);
-
-        } else {
-            String fileContent = ReadAction.compute(() -> VirtualFileUtils.readFile(monitoredFile.file));
-            if (monitorLocalChanges && VirtualFileUtils.getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
-                // File has been updated locally, update it in DSS.
-                log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS server", monitoredFile.recipe));
-                saveRecipeToDss(dssSettings, monitoredFile, fileContent);
-
-            } else if (dssRecipe.versionTag.versionNumber != recipe.versionNumber) {
-                // Recipe updated on DSS server. We update the file directly on the file system so that if the developer
-                // has also updated the file in the editor, IntelliJ/PyCharm displays a nice dialog to choose which version
-                // to keep.
-                log.info(String.format("Recipe '%s' has been updated on remote DSS server (remote version: %d, local version: %d). Updating local file %s",
-                        recipe,
-                        dssRecipe.versionTag.versionNumber,
-                        recipe.versionNumber,
-                        monitoredFile.file.getCanonicalPath()));
-
-                updateLocalRecipe(monitoredFile);
+            return;
+        }
+        if (monitorLocalChanges) {
+            if (!monitoredFile.file.exists() || !monitoredFile.file.isValid()) {
+                // File deleted locally, stop synchronizing it.
+                log.info(String.format("File '%s' has been deleted locally. Stop synchronizing changes with recipe '%s'.",
+                        monitoredFile.file.getCanonicalPath(),
+                        recipe));
+                MonitoredFilesIndex.getInstance().removeFromIndex(monitoredFile);
+                monitoredFile.metadataFile.removeRecipe(recipe);
+                return;
+            } else {
+                String fileContent = ReadAction.compute(() -> VirtualFileUtils.readFile(monitoredFile.file));
+                if (VirtualFileUtils.getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
+                    // File has been updated locally, update it in DSS.
+                    log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS server", monitoredFile.recipe));
+                    saveRecipeToDss(dssSettings, monitoredFile, fileContent);
+                    return;
+                }
             }
+        }
+        if (dssRecipe.versionTag.versionNumber != recipe.versionNumber) {
+            // Recipe updated on DSS server. We update the file directly on the file system so that if the developer
+            // has also updated the file in the editor, IntelliJ/PyCharm displays a nice dialog to choose which version
+            // to keep.
+            log.info(String.format("Recipe '%s' has been updated on remote DSS server (remote version: %d, local version: %d). Updating local file %s",
+                    recipe,
+                    dssRecipe.versionTag.versionNumber,
+                    recipe.versionNumber,
+                    monitoredFile.file.getCanonicalPath()));
+
+            updateLocalRecipe(monitoredFile);
         }
     }
 
