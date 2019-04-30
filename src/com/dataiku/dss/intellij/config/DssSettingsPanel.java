@@ -15,6 +15,7 @@ import javax.swing.border.Border;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.DataikuImages;
 import com.intellij.openapi.Disposable;
 import com.intellij.ui.AnActionButton;
 import com.intellij.ui.AnActionButtonRunnable;
@@ -24,7 +25,6 @@ import com.intellij.ui.IdeBorderFactory;
 import com.intellij.ui.ToolbarDecorator;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBList;
-import com.dataiku.dss.DataikuImages;
 
 public class DssSettingsPanel implements Disposable {
     private JPanel panel;
@@ -36,7 +36,7 @@ public class DssSettingsPanel implements Disposable {
 
     private void create() {
         serverList = new JBList<>();
-        serverList.getEmptyText().setText("No servers");
+        serverList.getEmptyText().setText("No instances");
         serverList.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent evt) {
                 if (evt.getClickCount() == 2) {
@@ -52,10 +52,10 @@ public class DssSettingsPanel implements Disposable {
         toolbarDecorator.setMoveUpAction(new MoveUpServerAction());
         toolbarDecorator.setMoveDownAction(new MoveDownServerAction());
         serversPanel.add(toolbarDecorator.createPanel(), "Center");
-        JBLabel emptyLabel = new JBLabel("No server selected", 0);
+        JBLabel emptyLabel = new JBLabel("No instance selected", 0);
         JPanel emptyPanel = new JPanel(new BorderLayout());
         emptyPanel.add(emptyLabel, "Center");
-        Border b = IdeBorderFactory.createTitledBorder("Servers");
+        Border b = IdeBorderFactory.createTitledBorder("Instances");
         panel = new JPanel(new BorderLayout());
         panel.setBorder(b);
         panel.add(serversPanel);
