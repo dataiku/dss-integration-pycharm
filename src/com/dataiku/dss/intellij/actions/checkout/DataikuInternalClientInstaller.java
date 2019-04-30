@@ -1,5 +1,7 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
+import static java.util.Arrays.asList;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -14,20 +16,26 @@ import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.config.DssServer;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.intellij.openapi.util.SystemInfo;
 
 @SuppressWarnings("WeakerAccess")
 public class DataikuInternalClientInstaller {
+    private static final String DATAIKU_INTERNAL_CLIENT = "dataiku-internal-client";
     private static Logger log = Logger.getInstance(DataikuInternalClientInstaller.class);
+
+    @NotNull
+    public static String getInstallCommandPreview(DssServer dssServer) {
+        return Joiner.on(" ").join(getInstallCommandList(dssServer, true));
+    }
 
     public String getInstalledVersion(String interpreterPath) {
         Preconditions.checkNotNull(interpreterPath, "interpreterPath");
         File workingDir = new File(interpreterPath).getParentFile();
-        String pipCommand = SystemInfo.isWindows ? "pip" : "./pip";
         ProcessBuilder pipList = new ProcessBuilder()
-                .command(pipCommand, "list")
+                .command(getPipCommand(false), "list")
                 .redirectErrorStream(true)
                 .directory(workingDir);
         ProcessOutcome pipListOutcome = executeProcess(pipList);
@@ -35,9 +43,9 @@ public class DataikuInternalClientInstaller {
             throw new IllegalStateException(String.format("pip list command exited with non zero error code: %d", pipListOutcome.exitCode));
         }
         return pipListOutcome.output.stream()
-                .filter(s -> s.startsWith("dataiku-internal-client"))
+                .filter(s -> s.startsWith(DATAIKU_INTERNAL_CLIENT))
                 .findFirst()
-                .map(s -> s.substring("dataiku-internal-client".length()).trim())
+                .map(s -> s.substring(DATAIKU_INTERNAL_CLIENT.length()).trim())
                 .orElse(null);
     }
 
@@ -46,9 +54,8 @@ public class DataikuInternalClientInstaller {
         Preconditions.checkNotNull(interpreterPath, "interpreterPath");
 
         File workingDir = new File(interpreterPath).getParentFile();
-        String pipCommand = SystemInfo.isWindows ? "pip" : "./pip";
         ProcessBuilder pipInstall = new ProcessBuilder()
-                .command(pipCommand, "install", "--upgrade", clientTarGzUrl(dssServer))
+                .command(getInstallCommandList(dssServer, false))
                 .redirectErrorStream(true)
                 .directory(workingDir);
         return pipInstall.start();
@@ -127,7 +134,37 @@ public class DataikuInternalClientInstaller {
     }
 
     @NotNull
-    public static String clientTarGzUrl(DssServer dssServer) {
+    @VisibleForTesting
+    static String extractHostAndPort(String baseUrl) {
+        String prefix = "://";
+        int baseIndex = baseUrl.indexOf(prefix);
+        if (baseIndex < 0) {
+            throw new IllegalArgumentException("Missing '://' string in server base URL: " + baseUrl);
+        }
+        int endIndex = baseUrl.indexOf("/", baseIndex + prefix.length());
+        return (endIndex < 0) ? baseUrl.substring(baseIndex + prefix.length()) : baseUrl.substring(baseIndex + prefix.length(), endIndex);
+    }
+
+    @NotNull
+    private static String getPipCommand(boolean forDisplay) {
+        if (forDisplay) {
+            return "pip";
+        } else {
+            return SystemInfo.isWindows ? "pip" : "./pip";
+        }
+    }
+
+    private static List<String> getInstallCommandList(DssServer dssServer, boolean forDisplay) {
+        List<String> commands = new ArrayList<>(asList(getPipCommand(forDisplay), "install", "--upgrade"));
+        if (dssServer.noCheckCertificate) {
+            commands.add("--trusted-host=" + extractHostAndPort(dssServer.baseUrl));
+        }
+        commands.add(clientTarGzUrl(dssServer));
+        return commands;
+    }
+
+    @NotNull
+    private static String clientTarGzUrl(DssServer dssServer) {
         return dssServer.baseUrl + "/public/packages/dataiku-internal-client.tar.gz";
     }
 }
