@@ -37,7 +37,7 @@ public class CheckoutWorker {
 
     private final CheckoutDSSItemModel model;
 
-    public CheckoutWorker(CheckoutDSSItemModel model) {
+    CheckoutWorker(CheckoutDSSItemModel model) {
         Preconditions.checkNotNull(model, "model");
         this.model = model;
     }
@@ -103,11 +103,9 @@ public class CheckoutWorker {
         Preconditions.checkNotNull(model, "item");
 
         // Retrieve recipe & its payload
-        DssServer dssServer = model.server;
         DSSClient dssClient = model.serverClient;
 
         VirtualFile moduleRootFolder = getModuleRootFolder(ModuleRootManager.getInstance(model.module));
-        String[] checkoutLocation = new String[0];
 
         MetadataFile metadata = MetadataFilesIndex.getInstance().getOrCreateMetadata(moduleRootFolder);
 
@@ -170,9 +168,6 @@ public class CheckoutWorker {
                 pluginMetadata.contentHash = getContentHash(fileContent);
                 pluginMetadata.isFolder = false;
                 metadata.addOrUpdatePluginFile(pluginMetadata);
-
-                // Monitor the file so that if the underlying recipe is edited on DSS side, the file is updated and vice-versa.
-                //TODO: MonitoredFilesIndex.getInstance().index(file, metadata, recipeMetadata);
 
                 createdFileList.add(file);
             }

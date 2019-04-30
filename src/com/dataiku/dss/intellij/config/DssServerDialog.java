@@ -1,5 +1,11 @@
 package com.dataiku.dss.intellij.config;
 
+import static com.intellij.uiDesigner.core.GridConstraints.ANCHOR_CENTER;
+import static com.intellij.uiDesigner.core.GridConstraints.ANCHOR_WEST;
+import static com.intellij.uiDesigner.core.GridConstraints.FILL_NONE;
+import static com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_FIXED;
+import static com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_WANT_GROW;
+
 import java.awt.*;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -11,7 +17,6 @@ import javax.swing.*;
 
 import org.jetbrains.annotations.Nullable;
 
-import com.dataiku.dss.model.DSSClient;
 import com.intellij.ide.wizard.CommitStepException;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.Messages;
@@ -30,6 +35,7 @@ public class DssServerDialog extends DialogWrapper {
     private JBTextField urlText;
     private JTextField nameField;
     private JPasswordField apiKeyField;
+    private JCheckBox disableSslCertificateCheckBox;
 
     public DssServerDialog(DssServer serverToEdit) {
         this(serverToEdit, Collections.emptySet());
@@ -50,6 +56,7 @@ public class DssServerDialog extends DialogWrapper {
             server.name = serverToEdit.name;
             server.baseUrl = serverToEdit.baseUrl;
             server.encryptedApiKey = serverToEdit.encryptedApiKey;
+            server.noCheckCertificate = serverToEdit.noCheckCertificate;
         }
 
         init();
@@ -63,30 +70,35 @@ public class DssServerDialog extends DialogWrapper {
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
-        panel = new JPanel(new GridLayoutManager(3, 2));
-        panel.setPreferredSize(new Dimension(480, 100));
+        panel = new JPanel(new GridLayoutManager(4, 2));
+        panel.setPreferredSize(new Dimension(480, 120));
 
-        panel.add(new JLabel("Name"), newConstraints(0, 0, GridConstraints.FILL_NONE));
+        panel.add(new JLabel("Name:"), newConstraints(0, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
         nameField = new JTextField();
         nameField.setMinimumSize(new Dimension(320, 28));
         nameField.setPreferredSize(new Dimension(320, 28));
         nameField.setToolTipText("Name of this server (mandatory field)");
-        panel.add(nameField, newConstraints(0, 1, GridConstraints.FILL_HORIZONTAL));
+        panel.add(nameField, newConstraints(0, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
 
-        panel.add(new JLabel("Base URL"), newConstraints(1, 0, GridConstraints.FILL_NONE));
+        panel.add(new JLabel("Base URL:"), newConstraints(1, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
         urlText = new JBTextField();
-        urlText.getEmptyText().setText("Example: http://localhost:11200");
+        urlText.getEmptyText().setText("https://dss-server:11200");
         urlText.setToolTipText("URL to connect to this server (mandatory field)");
-        panel.add(urlText, newConstraints(1, 1, GridConstraints.FILL_HORIZONTAL));
+        panel.add(urlText, newConstraints(1, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
 
-        panel.add(new JLabel("API Key"), newConstraints(2, 0, GridConstraints.FILL_NONE));
+        panel.add(new JLabel("API Key:"), newConstraints(2, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
         apiKeyField = new JPasswordField();
         apiKeyField.setToolTipText("API key to connect to this server (mandatory field)");
-        panel.add(apiKeyField, newConstraints(2, 1, GridConstraints.FILL_HORIZONTAL));
+        panel.add(apiKeyField, newConstraints(2, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
+
+        disableSslCertificateCheckBox = new JCheckBox("Disable SSL certificate checks");
+        GridConstraints constraints = newConstraints(3, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED);
+        constraints.setColSpan(2);
+        panel.add(disableSslCertificateCheckBox, constraints);
 
         fillFields();
 
-        return panel;
+        return this.panel;
     }
 
     @Override
@@ -122,6 +134,7 @@ public class DssServerDialog extends DialogWrapper {
         if (!isBlank(server.encryptedApiKey)) {
             apiKeyField.setText(API_KEY_PLACEHOLDER);
         }
+        disableSslCertificateCheckBox.setSelected(server.noCheckCertificate);
     }
 
     private void commit() throws CommitStepException {
@@ -161,6 +174,8 @@ public class DssServerDialog extends DialogWrapper {
         }
         clearPasswordArray(apiKey);
 
+        server.noCheckCertificate = disableSslCertificateCheckBox.isSelected();
+
         // Verify that we can connect to the server
         if (!checkConnection()) {
             throw new CommitStepException("Unable to connect to DSS using the provided URL and credentials.");
@@ -169,7 +184,7 @@ public class DssServerDialog extends DialogWrapper {
 
     private boolean checkConnection() throws CommitStepException {
         try {
-            return new DSSClient(server.baseUrl, PasswordUtil.decodePassword(server.encryptedApiKey)).canConnect();
+            return server.createClient().canConnect();
         } catch (RuntimeException e) {
             return false;
         }
@@ -188,11 +203,13 @@ public class DssServerDialog extends DialogWrapper {
         return str == null || str.trim().isEmpty();
     }
 
-    private static GridConstraints newConstraints(int row, int column, int fill) {
+    private static GridConstraints newConstraints(int row, int column, int fill, int anchor, int hSizePolicy) {
         GridConstraints result = new GridConstraints();
         result.setRow(row);
         result.setColumn(column);
         result.setFill(fill);
+        result.setAnchor(anchor);
+        result.setHSizePolicy(hSizePolicy);
         return result;
     }
 }

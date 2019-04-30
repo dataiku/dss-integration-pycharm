@@ -20,7 +20,7 @@ public class MetadataFile {
 
     MetadataFile(VirtualFile moduleContentRoot, DssMetadata metadata) {
         this.metadata = metadata;
-        this.metadataFile = new File(new File(moduleContentRoot.getCanonicalPath(), ".dss"), "metadata.json");
+        this.metadataFile = new File(new File(moduleContentRoot.getCanonicalPath(), ".dataiku"), "metadata.json");
     }
 
     public synchronized void addOrUpdateRecipe(DssRecipeMetadata fileMetadata) throws IOException {

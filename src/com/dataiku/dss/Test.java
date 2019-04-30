@@ -11,7 +11,7 @@ public class Test {
     public static void main(String[] args) throws DssException {
         final String baseUrl = "http://localhost:11200/";
         final String apiKey = "tBj824dO47XYbYvtjSbdGheBO7uolR2P";
-        DSSClient dssClient = new DSSClient(baseUrl, apiKey);
+        DSSClient dssClient = new DSSClient(baseUrl, apiKey, true);
         List<Plugin> projects = dssClient.listPluginsInDevelopment();
         projects.stream().map(plugin -> plugin.id).forEach(System.out::println);
         List<FolderContent> folderContents = dssClient.listPluginFiles("PyCharmDemo");

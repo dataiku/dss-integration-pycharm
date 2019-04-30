@@ -13,10 +13,10 @@ import java.util.List;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.Os;
 import com.dataiku.dss.intellij.config.DssServer;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.intellij.openapi.util.SystemInfo;
 
 @SuppressWarnings("WeakerAccess")
 public class DataikuInternalClientInstaller {
@@ -25,7 +25,7 @@ public class DataikuInternalClientInstaller {
     public String getInstalledVersion(String interpreterPath) {
         Preconditions.checkNotNull(interpreterPath, "interpreterPath");
         File workingDir = new File(interpreterPath).getParentFile();
-        String pipCommand = Os.isWindows() ? "pip" : "./pip";
+        String pipCommand = SystemInfo.isWindows ? "pip" : "./pip";
         ProcessBuilder pipList = new ProcessBuilder()
                 .command(pipCommand, "list")
                 .redirectErrorStream(true)
@@ -46,7 +46,7 @@ public class DataikuInternalClientInstaller {
         Preconditions.checkNotNull(interpreterPath, "interpreterPath");
 
         File workingDir = new File(interpreterPath).getParentFile();
-        String pipCommand = Os.isWindows() ? "pip" : "./pip";
+        String pipCommand = SystemInfo.isWindows ? "pip" : "./pip";
         ProcessBuilder pipInstall = new ProcessBuilder()
                 .command(pipCommand, "install", "--upgrade", clientTarGzUrl(dssServer))
                 .redirectErrorStream(true)

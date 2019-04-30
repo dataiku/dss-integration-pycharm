@@ -14,7 +14,6 @@ import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
-import com.intellij.openapi.util.PasswordUtil;
 
 @State(name = "DssConfig", storages = {@Storage("dataiku-dss.xml")})
 public final class DssSettings implements ApplicationComponent, PersistentStateComponent<DssSettings.DssConfig> {
@@ -90,6 +89,6 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         if (dssServer == null) {
             throw new IllegalStateException(String.format("Unknown DSS server name: '%s'", instanceName));
         }
-        return new DSSClient(dssServer.baseUrl, PasswordUtil.decodePassword(dssServer.encryptedApiKey));
+        return dssServer.createClient();
     }
 }

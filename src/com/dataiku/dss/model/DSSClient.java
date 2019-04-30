@@ -6,8 +6,10 @@ import static org.apache.commons.codec.Charsets.UTF_8;
 import static org.apache.commons.codec.binary.Base64.encodeBase64;
 
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.net.ssl.SSLContext;
 
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
@@ -17,10 +19,14 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.conn.ssl.TrustStrategy;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.ssl.SSLContextBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.model.dss.DssException;
@@ -42,10 +48,12 @@ public class DSSClient {
 
     private final String baseUrl;
     private final String apiKey;
+    private final boolean noCheckCertificate;
 
-    public DSSClient(String baseUrl, String apiKey) {
+    public DSSClient(String baseUrl, String apiKey, boolean noCheckCertificate) {
         this.baseUrl = fixBaseUrl(baseUrl);
         this.apiKey = apiKey;
+        this.noCheckCertificate = noCheckCertificate;
     }
 
     public boolean canConnect() {
@@ -58,14 +66,14 @@ public class DSSClient {
     }
 
     public String getDssVersion() {
-        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
+        try (CloseableHttpClient client = createHttpClient()) {
             String url = buildUrl(PROJECTS, "");
             HttpResponse response = executeRequest(new HttpGet(url), client);
             Header header = response.getFirstHeader("DSS-Version");
             if (header != null) {
                 return header.getValue();
             }
-        } catch (IOException e) {
+        } catch (IOException | GeneralSecurityException e) {
             return null;
         }
         return null;
@@ -132,11 +140,11 @@ public class DSSClient {
 
     public void uploadPluginFile(String pluginId, String path, byte[] content) throws DssException {
         String url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
-        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
+        try (CloseableHttpClient client = createHttpClient()) {
             HttpPost request = new HttpPost(url);
             request.setEntity(new ByteArrayEntity(content));
             executeRequest(request, client);
-        } catch (IOException e) {
+        } catch (IOException | GeneralSecurityException e) {
             throw new DssException(e);
         }
     }
@@ -148,12 +156,12 @@ public class DSSClient {
     }
 
     private byte[] executePutAndReturnByteArray(String url, String body) throws DssException {
-        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
+        try (CloseableHttpClient client = createHttpClient()) {
             HttpPut request = new HttpPut(url);
             request.setEntity(new StringEntity(body));
             HttpResponse response = executeRequest(request, client);
             return ByteStreams.toByteArray(response.getEntity().getContent());
-        } catch (IOException e) {
+        } catch (IOException | GeneralSecurityException e) {
             throw new DssException(e);
         }
     }
@@ -170,12 +178,27 @@ public class DSSClient {
 
     @NotNull
     private byte[] executeGetAndReturnByteArray(String url) throws DssException {
-        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
-            HttpResponse response = executeRequest(new HttpGet(url), client);
-            return ByteStreams.toByteArray(response.getEntity().getContent());
-        } catch (IOException e) {
+        try {
+            try (CloseableHttpClient client = createHttpClient()) {
+                HttpResponse response = executeRequest(new HttpGet(url), client);
+                return ByteStreams.toByteArray(response.getEntity().getContent());
+            }
+        } catch (IOException | GeneralSecurityException e) {
             throw new DssException(e);
         }
+    }
+
+    private CloseableHttpClient createHttpClient() throws GeneralSecurityException {
+        HttpClientBuilder httpClientBuilder = HttpClientBuilder.create();
+        if (noCheckCertificate) {
+            SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
+            sslContextBuilder.loadTrustMaterial(null, (TrustStrategy) (chain, authType) -> true);
+            SSLContext sslContext = sslContextBuilder.build();
+
+            httpClientBuilder.setSSLSocketFactory(new SSLConnectionSocketFactory(sslContext));
+            httpClientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+        }
+        return httpClientBuilder.build();
     }
 
     @NotNull

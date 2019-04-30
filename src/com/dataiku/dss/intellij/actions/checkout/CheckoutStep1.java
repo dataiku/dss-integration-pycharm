@@ -13,7 +13,6 @@ import com.intellij.ide.wizard.CommitStepException;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.PasswordUtil;
 
 public class CheckoutStep1 extends AbstractWizardStepEx {
     public static final Object ID = "CheckoutStep1";
@@ -128,7 +127,7 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
 
         ServerItem(DssServer dssServer) {
             this.server = dssServer;
-            this.client = new DSSClient(dssServer.baseUrl, PasswordUtil.decodePassword(dssServer.encryptedApiKey));
+            this.client = dssServer.createClient();
         }
 
         @Override

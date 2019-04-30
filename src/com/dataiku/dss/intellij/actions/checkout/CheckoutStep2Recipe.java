@@ -16,7 +16,6 @@ import org.jetbrains.annotations.Nullable;
 
 import com.dataiku.dss.Icons;
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.Os;
 import com.dataiku.dss.intellij.RecipeUtils;
 import com.dataiku.dss.intellij.config.DssServer;
 import com.dataiku.dss.model.dss.DssException;
@@ -32,6 +31,7 @@ import com.intellij.openapi.projectRoots.ProjectJdkTable;
 import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.projectRoots.SdkType;
 import com.intellij.openapi.roots.ModuleRootManager;
+import com.intellij.openapi.util.SystemInfo;
 
 public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     static final Object ID = "CheckoutStep2Recipe";
@@ -184,7 +184,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
         String checkoutLocation = locationTextField.getText().trim();
         if (!checkoutLocation.isEmpty()) {
             List<String> directories = new ArrayList<>();
-            for (String directory : checkoutLocation.trim().split(Os.isWindows() ? "[/|\\\\]" : "/")) {
+            for (String directory : checkoutLocation.trim().split(SystemInfo.isWindows ? "[/|\\\\]" : "/")) {
                 if (directory.isEmpty()) {
                     throw new CommitStepException("Invalid checkout location. It must not contains empty directories.");
                 }

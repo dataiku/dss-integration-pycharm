@@ -6,12 +6,10 @@ import java.util.Map;
 
 import com.dataiku.dss.intellij.config.DssServer;
 import com.dataiku.dss.intellij.config.DssSettings;
-import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.Recipe;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.intellij.openapi.util.PasswordUtil;
 
 public class RecipeCache {
     private final DssSettings dssSettings;
@@ -42,8 +40,7 @@ public class RecipeCache {
             if (dssServer == null) {
                 throw new IllegalStateException("Unknown DSS server name: " + dssServerName);
             }
-            DSSClient dssClient = new DSSClient(dssServer.baseUrl, PasswordUtil.decodePassword(dssServer.encryptedApiKey));
-            projectRecipes = dssClient.listRecipes(projectKey);
+            projectRecipes = dssServer.createClient().listRecipes(projectKey);
             cachedRecipes.put(dssProject, projectRecipes);
         }
         return projectRecipes;
