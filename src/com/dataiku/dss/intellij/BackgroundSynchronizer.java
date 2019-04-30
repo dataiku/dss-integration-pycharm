@@ -125,7 +125,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             try {
                 String fileContent = ReadAction.compute(() -> VirtualFileUtils.readVirtualFile(monitoredFile.file));
                 if (getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
-                    log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS server", monitoredFile.recipe));
+                    log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS instance", monitoredFile.recipe));
                     saveRecipeToDss(dssSettings, monitoredFile, fileContent);
                 }
             } catch (IOException e) {

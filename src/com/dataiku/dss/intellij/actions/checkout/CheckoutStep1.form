@@ -59,7 +59,7 @@
               </grid>
             </constraints>
             <properties>
-              <text value="DSS Server:"/>
+              <text value="DSS instance:"/>
             </properties>
           </component>
           <component id="51318" class="javax.swing.JComboBox" binding="instanceComboBox">

@@ -60,9 +60,9 @@ class SynchronizerWorker {
         DssRecipeMetadata recipe = monitoredFile.recipe;
         Recipe dssRecipe = recipeCache.getRecipe(recipe.instance, recipe.projectKey, recipe.recipeName);
         if (dssRecipe == null) {
-            // Recipe deleted on DSS server. We don't want to delete the file (because it might still be useful
+            // Recipe deleted on DSS instance. We don't want to delete the file (because it might still be useful
             // locally), but we'll stop synchronizing it for once.
-            log.info(String.format("Recipe '%s' has been deleted on remote DSS server. Stop synchronizing changes with local file %s",
+            log.info(String.format("Recipe '%s' has been deleted on remote DSS instance. Stop synchronizing changes with local file %s",
                     recipe,
                     monitoredFile.file.getCanonicalPath()));
 
@@ -83,17 +83,17 @@ class SynchronizerWorker {
                 String fileContent = ReadAction.compute(() -> VirtualFileUtils.readVirtualFile(monitoredFile.file));
                 if (VirtualFileUtils.getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
                     // File has been updated locally, update it in DSS.
-                    log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS server", monitoredFile.recipe));
+                    log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS instance", monitoredFile.recipe));
                     saveRecipeToDss(dssSettings, monitoredFile, fileContent);
                     return;
                 }
             }
         }
         if (dssRecipe.versionTag.versionNumber != recipe.versionNumber) {
-            // Recipe updated on DSS server. We update the file directly on the file system so that if the developer
+            // Recipe updated on DSS instance. We update the file directly on the file system so that if the developer
             // has also updated the file in the editor, IntelliJ/PyCharm displays a nice dialog to choose which version
             // to keep.
-            log.info(String.format("Recipe '%s' has been updated on remote DSS server (remote version: %d, local version: %d). Updating local file %s",
+            log.info(String.format("Recipe '%s' has been updated on remote DSS instance (remote version: %d, local version: %d). Updating local file %s",
                     recipe,
                     dssRecipe.versionTag.versionNumber,
                     recipe.versionNumber,

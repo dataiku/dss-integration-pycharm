@@ -149,7 +149,7 @@ public class DssServerDialog extends DialogWrapper {
             throw new CommitStepException("Please provide a name.");
         }
         if (existingNames.contains(name)) {
-            throw new CommitStepException("There is already a Dataiku DSS server with that name. Please choose another name.");
+            throw new CommitStepException("There is already a Dataiku DSS instance with that name. Please choose another name.");
         }
     }
 

@@ -67,7 +67,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
                     updateRecipes();
                     updateCheckoutLocation();
                 } catch (Exception ex) {
-                    showError("Can't list recipes for selected project and DSS server.", ex);
+                    showError("Can't list recipes for selected project and DSS instance.", ex);
                 }
             }
         });
@@ -124,7 +124,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
         try {
             init();
         } catch (DssException e) {
-            showError("Unable to retrieve projects from DSS server (more details in tooltip).", e);
+            showError("Unable to retrieve projects from DSS instance (more details in tooltip).", e);
         }
     }
 

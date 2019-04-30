@@ -38,7 +38,7 @@ public class RecipeCache {
         if (projectRecipes == null) {
             DssServer dssServer = dssSettings.getDssServer(dssServerName);
             if (dssServer == null) {
-                throw new IllegalStateException("Unknown DSS server name: " + dssServerName);
+                throw new IllegalStateException("Unknown DSS instance name: " + dssServerName);
             }
             projectRecipes = dssServer.createClient().listRecipes(projectKey);
             cachedRecipes.put(dssProject, projectRecipes);

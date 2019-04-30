@@ -25,7 +25,7 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
     private JPanel panel;
 
     public CheckoutStep1(CheckoutDSSItemModel model, Project project) {
-        super("Checkout DSS Recipe/Plugin");
+        super("DSS instance and Item Type");
         this.model = model;
         this.project = project;
         init();
@@ -71,7 +71,7 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
 
         ServerItem serverItem = (ServerItem) instanceComboBox.getSelectedItem();
         if (serverItem == null) {
-            throw new CommitStepException("Please select a server");
+            throw new CommitStepException("Please select a DSS instance");
         }
         model.server = validateDssServer(serverItem);
         model.serverClient = serverItem.client;
@@ -105,7 +105,7 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
 
     private DssServer validateDssServer(ServerItem serverItem) throws CommitStepException {
         if (!serverItem.client.canConnect()) {
-            throw new CommitStepException("Unable to connect to the selected DSS server. Make sure it is running and reachable from your computer.");
+            throw new CommitStepException("Unable to connect to the selected DSS instance. Make sure it is running and reachable from your computer.");
         }
         return serverItem.server;
     }
