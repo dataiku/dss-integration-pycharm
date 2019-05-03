@@ -132,7 +132,7 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
 
         @Override
         public String toString() {
-            return server.name;
+            return server.name + " [" + server.baseUrl + "]";
         }
     }
 }

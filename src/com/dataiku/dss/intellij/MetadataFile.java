@@ -4,6 +4,7 @@ import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Objects;
 
 import com.dataiku.dss.model.metadata.DssMetadata;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
@@ -42,14 +43,14 @@ public class MetadataFile {
         flush();
     }
 
-    public synchronized void addOrUpdatePlugin(String pluginId) throws IOException {
-        Preconditions.checkNotNull(pluginId, "pluginId");
+    public synchronized void addOrUpdatePlugin(DssPluginMetadata plugin) throws IOException {
+        Preconditions.checkNotNull(plugin, "plugin");
+        Preconditions.checkNotNull(plugin.path, "plugin.path");
+        Preconditions.checkNotNull(plugin.instance, "plugin.instance");
 
         // Update our recipe
-        DssPluginMetadata pluginMetadata = metadata.getPluginById(pluginId);
-        if (pluginMetadata == null) {
-            metadata.plugins.add(new DssPluginMetadata(pluginId));
-        }
+        metadata.plugins.removeIf(p -> plugin.pluginId.equals(p.pluginId));
+        metadata.plugins.add(plugin);
 
         // Write the file back
         flush();
@@ -67,18 +68,16 @@ public class MetadataFile {
         }
     }
 
-
     public synchronized void addOrUpdatePluginFile(DssPluginFileMetadata fileMetadata) throws IOException {
         Preconditions.checkNotNull(fileMetadata, "fileMetadata");
 
         // Update our recipe
         DssPluginMetadata pluginMetadata = metadata.getPluginById(fileMetadata.pluginId);
-        if (pluginMetadata != null) {
-            pluginMetadata.files.removeIf(f -> f.path.equals(fileMetadata.path));
-        } else {
-            pluginMetadata = new DssPluginMetadata(fileMetadata.pluginId);
-            metadata.plugins.add(pluginMetadata);
+        if (pluginMetadata == null) {
+            throw new IllegalArgumentException("Untracked plugin: " + fileMetadata.pluginId);
         }
+
+        pluginMetadata.files.removeIf(f -> f.path.equals(fileMetadata.path));
         pluginMetadata.files.add(fileMetadata);
 
         // Write the file back
@@ -114,5 +113,21 @@ public class MetadataFile {
         return new GsonBuilder().setPrettyPrinting().create().toJson(obj);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        MetadataFile that = (MetadataFile) o;
+        return Objects.equals(metadataFile, that.metadataFile);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(metadataFile);
+    }
 }
 

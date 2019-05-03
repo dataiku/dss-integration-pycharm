@@ -86,6 +86,6 @@ public class MetadataFilesIndex implements ApplicationComponent {
     }
 
     private static VirtualFile getMetadataFile(VirtualFile moduleRootFolder) {
-        return moduleRootFolder.findFileByRelativePath(".dss/metadata.json");
+        return moduleRootFolder.findFileByRelativePath(".dataiku/metadata.json");
     }
 }

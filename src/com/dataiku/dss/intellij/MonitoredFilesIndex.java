@@ -9,6 +9,7 @@ import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
+import com.dataiku.dss.model.metadata.DssPluginMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
 import com.google.common.base.Preconditions;
 import com.intellij.openapi.components.ApplicationComponent;
@@ -26,6 +27,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
     private static final Logger log = Logger.getInstance(MonitoredFilesIndex.class);
 
     private final Map<String/*Path of file*/, MonitoredFile> monitoredFiles = new HashMap<>();
+    private final Map<String/*Path of plugin base directory*/, MonitoredPlugin> monitoredPlugins = new HashMap<>();
     private final MetadataFilesIndex metadataFilesIndex;
 
     public static MonitoredFilesIndex getInstance() {
@@ -54,6 +56,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
     @Override
     public void disposeComponent() {
         monitoredFiles.clear();
+        monitoredPlugins.clear();
     }
 
     public synchronized void index(VirtualFile monitoredFile, MetadataFile metadataFile, DssRecipeMetadata recipe) {
@@ -68,6 +71,12 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         Preconditions.checkNotNull(monitoredFile, "monitoredFile");
         log.info(String.format("Start tracking file '%s' corresponding to recipe '%s'.", monitoredFile.file, monitoredFile.recipe));
         monitoredFiles.put(monitoredFile.file.getCanonicalPath(), monitoredFile);
+    }
+
+    public synchronized void index(MonitoredPlugin monitoredPlugin) {
+        Preconditions.checkNotNull(monitoredPlugin, "monitoredPlugin");
+        log.info(String.format("Start tracking directory '%s' corresponding to plugin '%s'.", monitoredPlugin.pluginBaseDir, monitoredPlugin.plugin.pluginId));
+        monitoredPlugins.put(monitoredPlugin.pluginBaseDir.getCanonicalPath(), monitoredPlugin);
     }
 
     public synchronized void removeFromIndex(MonitoredFile monitoredFile) {
@@ -87,6 +96,10 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         return new ArrayList<>(monitoredFiles.values());
     }
 
+    public synchronized List<MonitoredPlugin> getMonitoredPlugins() {
+        return new ArrayList<>(monitoredPlugins.values());
+    }
+
     private void index(Project[] projects) {
         for (VirtualFile moduleContentRoot : listModulesRoot(projects)) {
             try {
@@ -96,6 +109,12 @@ public class MonitoredFilesIndex implements ApplicationComponent {
                         VirtualFile recipeFile = moduleContentRoot.findFileByRelativePath(recipe.path);
                         if (recipeFile != null && recipeFile.isValid()) {
                             index(new MonitoredFile(recipeFile, metadataFile, recipe));
+                        }
+                    }
+                    for (DssPluginMetadata plugin : metadataFile.metadata.plugins) {
+                        VirtualFile pluginBaseDir = moduleContentRoot.findFileByRelativePath(plugin.path);
+                        if (pluginBaseDir != null && pluginBaseDir.isValid()) {
+                            index(new MonitoredPlugin(pluginBaseDir, metadataFile, plugin));
                         }
                     }
                 }

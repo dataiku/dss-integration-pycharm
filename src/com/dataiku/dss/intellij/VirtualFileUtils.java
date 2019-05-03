@@ -59,6 +59,12 @@ public class VirtualFileUtils {
         }
     }
 
+    public static byte[] readVirtualFileAsByteArray(VirtualFile file) throws IOException {
+        try (InputStream inputStream = file.getInputStream()) {
+            return ByteStreams.toByteArray(inputStream);
+        }
+    }
+
     public static void writeToVirtualFile(final VirtualFile file, final String content) throws IOException {
         writeToVirtualFile(file, content.getBytes(UTF_8), UTF_8);
     }
@@ -76,6 +82,18 @@ public class VirtualFileUtils {
                 if (charset != null) {
                     file.setCharset(charset);
                 }
+                return null;
+            });
+        }
+    }
+
+    public static void renameVirtualFile(final Object requestor, final VirtualFile file, String newName) throws IOException {
+        Application application = ApplicationManager.getApplication();
+        if (application.isWriteAccessAllowed()) {
+            file.rename(requestor, newName);
+        } else {
+            application.runWriteAction((ThrowableComputable<Object, IOException>) () -> {
+                file.rename(requestor, newName);
                 return null;
             });
         }

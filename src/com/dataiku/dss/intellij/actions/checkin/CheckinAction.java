@@ -1,45 +1,40 @@
-package com.dataiku.dss.intellij.actions.checkout;
+package com.dataiku.dss.intellij.actions.checkin;
 
 import java.io.IOException;
-import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.intellij.MonitoredFilesIndex;
 import com.intellij.icons.AllIcons;
-import com.intellij.ide.util.PsiNavigationSupport;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.wm.impl.welcomeScreen.NewWelcomeScreen;
 
-public class CheckoutDSSItemAction extends AnAction implements DumbAware {
+public class CheckinAction extends AnAction implements DumbAware {
 
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
         final Project project = e.getProject();
         if (project == null) {
-            Messages.showErrorDialog("Cannot checkout DSS item outside a project", "No Active Project");
+            Messages.showErrorDialog("Cannot synchronize DSS recipes or plugins outside a project. Create or open a project and try again.", "No Active Project");
             return;
         }
         ApplicationManager.getApplication().invokeLater(() -> prepareAndShowWizard(project));
     }
 
     private void prepareAndShowWizard(Project project) {
-        CheckoutDSSItemWizard wizard = new CheckoutDSSItemWizard(project);
+        CheckinWizard wizard = new CheckinWizard(project, MonitoredFilesIndex.getInstance());
         if (wizard.showAndGet()) {
-            CheckoutDSSItemModel model = wizard.getModel();
+            CheckinModel model = wizard.getModel();
             try {
-                List<VirtualFile> files = new CheckoutWorker(model).checkout();
-                for (VirtualFile file : files) {
-                    PsiNavigationSupport.getInstance().createNavigatable(project, file, -1).navigate(true);
-                }
+                new CheckinWorker(model).checkin();
             } catch (IOException e) {
                 Messages.showErrorDialog(e.getMessage(), "I/O Error");
-            } catch (IllegalStateException e) {
+            } catch (RuntimeException e) {
                 Messages.showErrorDialog(e.getMessage(), "Error");
             }
         }
@@ -48,7 +43,7 @@ public class CheckoutDSSItemAction extends AnAction implements DumbAware {
     @Override
     public void update(@NotNull AnActionEvent e) {
         if (NewWelcomeScreen.isNewWelcomeScreen(e)) {
-            e.getPresentation().setIcon(AllIcons.Actions.Menu_open);
+            e.getPresentation().setIcon(AllIcons.Actions.Menu_saveall);
         }
     }
 }

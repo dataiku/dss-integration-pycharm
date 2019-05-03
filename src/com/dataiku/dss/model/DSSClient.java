@@ -15,6 +15,7 @@ import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
@@ -138,6 +139,11 @@ public class DSSClient {
         return executeGetAndReturnByteArray(url);
     }
 
+    public void deletePluginFile(String pluginId, String path) throws DssException {
+        String url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
+        executeDelete(url);
+    }
+
     public void uploadPluginFile(String pluginId, String path, byte[] content) throws DssException {
         String url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
         try (CloseableHttpClient client = createHttpClient()) {
@@ -188,6 +194,15 @@ public class DSSClient {
         }
     }
 
+    private void executeDelete(String url) throws DssException {
+        try {
+            try (CloseableHttpClient client = createHttpClient()) {
+                executeRequest(new HttpDelete(url), client);
+            }
+        } catch (IOException | GeneralSecurityException e) {
+            throw new DssException(e);
+        }
+    }
     private CloseableHttpClient createHttpClient() throws GeneralSecurityException {
         HttpClientBuilder httpClientBuilder = HttpClientBuilder.create();
         if (noCheckCertificate) {

@@ -49,8 +49,12 @@
 
     <actions>
         <action id="com.dataiku.dss.intellij.actions.checkout.CheckoutDSSItemAction" class="com.dataiku.dss.intellij.actions.checkout.CheckoutDSSItemAction"
-                text="Checkout DSS item..." description="Checkout a DSS recipe or plugin">
-            <add-to-group group-id="FileOpenGroup" anchor="after" relative-to-action="OpenFile"/>
+                text="New Dataiku DSS Item..." description="Checkout a Dataiku DSS Recipe or Plugin">
+            <add-to-group group-id="FileOpenGroup" anchor="before" relative-to-action="OpenFile"/>
+        </action>
+        <action id="com.dataiku.dss.intellij.actions.checkin.CheckinAction" class="com.dataiku.dss.intellij.actions.checkin.CheckinAction"
+                text="Synchronize with DSS..." description="Checkin a Dataiku DSS Recipe or Plugin">
+            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Synchronize"/>
         </action>
     </actions>
 </idea-plugin>

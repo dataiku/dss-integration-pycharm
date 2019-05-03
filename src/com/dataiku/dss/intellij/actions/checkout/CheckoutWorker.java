@@ -25,6 +25,7 @@ import com.dataiku.dss.model.dss.Plugin;
 import com.dataiku.dss.model.dss.Recipe;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
+import com.dataiku.dss.model.metadata.DssPluginMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -113,14 +114,16 @@ public class CheckoutWorker {
         List<Plugin> plugins = model.plugins;
         for (Plugin plugin : plugins) {
             // Track plugin
-            metadata.addOrUpdatePlugin(plugin.id);
+            DssPluginMetadata pluginMetadata = new DssPluginMetadata(model.server.name, plugin.id, plugin.id);
 
             // Create folder for plugin
             VirtualFile folder = getOrCreateVirtualDirectory(this, moduleRootFolder, plugin.id);
 
             // Checkout plugin files
             List<FolderContent> folderContents = dssClient.listPluginFiles(plugin.id);
-            checkoutFolder(plugin.id, metadata, createdFileList, folder, folderContents);
+            checkoutFolder(pluginMetadata, plugin.id, createdFileList, folder, folderContents);
+
+            metadata.addOrUpdatePlugin(pluginMetadata);
         }
 
         NonProjectFileWritingAccessProvider.allowWriting(createdFileList);
@@ -128,7 +131,7 @@ public class CheckoutWorker {
         return importantFiles.isEmpty() ? createdFileList : importantFiles;
     }
 
-    private void checkoutFolder(String pluginId, MetadataFile metadata, List<VirtualFile> createdFileList, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
+    private void checkoutFolder(DssPluginMetadata pluginMetadata, String pluginId, List<VirtualFile> createdFileList, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
         Object requestor = this;
         for (FolderContent pluginFile : folderContents) {
             if (pluginFile.mimeType == null || "null".equals(pluginFile.mimeType)) {
@@ -139,17 +142,18 @@ public class CheckoutWorker {
                 VirtualFile file = getOrCreateVirtualDirectory(requestor, parent, pluginFile.name);
 
                 // Write metadata
-                DssPluginFileMetadata pluginMetadata = new DssPluginFileMetadata();
-                pluginMetadata.pluginId = pluginId;
-                pluginMetadata.instance = model.server.name;
-                pluginMetadata.path = pluginId + "/" + pluginFile.path;
-                pluginMetadata.contentHash = 0;
-                pluginMetadata.isFolder = true;
-                metadata.addOrUpdatePluginFile(pluginMetadata);
+                DssPluginFileMetadata pluginFileMetadata = new DssPluginFileMetadata();
+                pluginFileMetadata.pluginId = pluginId;
+                pluginFileMetadata.instance = model.server.name;
+                pluginFileMetadata.path = pluginId + "/" + pluginFile.path;
+                pluginFileMetadata.remotePath = pluginFile.path;
+                pluginFileMetadata.contentHash = 0;
+                pluginFileMetadata.isFolder = true;
+                pluginMetadata.files.add(pluginFileMetadata);
 
                 // Recurse if necessary
                 if (pluginFile.children != null && !pluginFile.children.isEmpty()) {
-                    checkoutFolder(pluginId, metadata, createdFileList, file, pluginFile.children);
+                    checkoutFolder(pluginMetadata, pluginId, createdFileList, file, pluginFile.children);
                 }
             } else {
                 // Regular file
@@ -161,13 +165,14 @@ public class CheckoutWorker {
                 VirtualFileUtils.writeToVirtualFile(file, fileContent, UTF_8);
 
                 // Write metadata
-                DssPluginFileMetadata pluginMetadata = new DssPluginFileMetadata();
-                pluginMetadata.pluginId = pluginId;
-                pluginMetadata.instance = model.server.name;
-                pluginMetadata.path = pluginId + "/" + pluginFile.path;
-                pluginMetadata.contentHash = getContentHash(fileContent);
-                pluginMetadata.isFolder = false;
-                metadata.addOrUpdatePluginFile(pluginMetadata);
+                DssPluginFileMetadata pluginFileMetadata = new DssPluginFileMetadata();
+                pluginFileMetadata.pluginId = pluginId;
+                pluginFileMetadata.instance = model.server.name;
+                pluginFileMetadata.path = pluginId + "/" + pluginFile.path;
+                pluginFileMetadata.remotePath = pluginFile.path;
+                pluginFileMetadata.contentHash = getContentHash(fileContent);
+                pluginFileMetadata.isFolder = false;
+                pluginMetadata.files.add(pluginFileMetadata);
 
                 createdFileList.add(file);
             }

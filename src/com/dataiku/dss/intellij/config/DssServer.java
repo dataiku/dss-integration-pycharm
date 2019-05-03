@@ -39,7 +39,7 @@ public class DssServer {
     }
 
     public String toString() {
-        return name;
+        return name + " [" + baseUrl + "]";
     }
 
     public DSSClient createClient() {
