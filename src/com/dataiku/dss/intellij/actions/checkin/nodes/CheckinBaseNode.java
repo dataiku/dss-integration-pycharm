@@ -57,7 +57,7 @@ public abstract class CheckinBaseNode extends DefaultMutableTreeNode {
         int childCount = getChildCount();
         for (int i = 0; i < childCount; ++i) {
             TreeNode child = getChildAt(i);
-            if (child.getClass().equals(clazz)) {
+            if (clazz.isAssignableFrom(child.getClass())) {
                 result.add((T) child);
             }
         }
@@ -72,6 +72,10 @@ public abstract class CheckinBaseNode extends DefaultMutableTreeNode {
             } else if (aggState != child.selectionState) {
                 return SelectionState.PARTLY_SELECTED;
             }
+        }
+        if (aggState == null) {
+            List<CheckinBaseNode> checkinBaseNodes = listChildren();
+            System.out.println("Pouf");
         }
         return aggState;
     }

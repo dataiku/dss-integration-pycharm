@@ -27,7 +27,6 @@ public class DataikuInternalClientLibsInstallerDialog extends DialogWrapper {
     private final DssServer dssServer;
     private JTextArea textArea;
     private Process installProcess;
-    private JBScrollPane scroll;
 
     public DataikuInternalClientLibsInstallerDialog(Sdk sdk, DssServer dssServer) {
         super(true); // use current window as parent
@@ -44,7 +43,7 @@ public class DataikuInternalClientLibsInstallerDialog extends DialogWrapper {
         textArea = new JTextArea();
         textArea.setEnabled(true);
         textArea.setMinimumSize(new Dimension(240, 240));
-        scroll = new JBScrollPane(textArea);
+        JBScrollPane scroll = new JBScrollPane(textArea);
         scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
         scroll.setMinimumSize(new Dimension(240, 240));
 
@@ -94,7 +93,6 @@ public class DataikuInternalClientLibsInstallerDialog extends DialogWrapper {
     public class ProcessOutput implements Runnable {
         private final ArrayDeque<String> output = new ArrayDeque<>();
         private final InputStream inputStream;
-        public volatile boolean done;
 
         private ProcessOutput(InputStream inputStream) {
             this.inputStream = inputStream;
@@ -117,7 +115,6 @@ public class DataikuInternalClientLibsInstallerDialog extends DialogWrapper {
             } catch (IOException e) {
                 log.debug("An error occurred while consuming process output stream", e);
             }
-            done = true;
             SwingUtilities.invokeLater(() -> {
                 updateTextArea();
                 setOKActionEnabled(true);

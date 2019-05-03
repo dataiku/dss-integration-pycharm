@@ -2,20 +2,15 @@ package com.dataiku.dss.intellij.actions.checkin;
 
 import java.util.ArrayList;
 import java.util.List;
-import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.TreeNode;
 
 import com.dataiku.dss.intellij.MonitoredFile;
 import com.dataiku.dss.intellij.MonitoredFilesIndex;
 import com.dataiku.dss.intellij.MonitoredPlugin;
-import com.dataiku.dss.intellij.actions.checkin.nodes.PluginFileTreeNode;
-import com.dataiku.dss.intellij.actions.checkin.nodes.PluginFolderTreeNode;
 import com.dataiku.dss.intellij.actions.checkin.nodes.PluginTreeNode;
 import com.dataiku.dss.intellij.actions.checkin.nodes.RecipeTreeNode;
 import com.dataiku.dss.intellij.actions.checkin.nodes.RootNode;
 import com.dataiku.dss.intellij.config.DssServer;
 import com.dataiku.dss.intellij.config.DssSettings;
-import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.intellij.ide.BrowserUtil;
 import com.intellij.ide.wizard.AbstractWizardEx;
 import com.intellij.ide.wizard.AbstractWizardStepEx;
@@ -31,11 +26,11 @@ public class CheckinWizard {
     }
 
     private void init(Project project, CheckinModel model) {
-        List<AbstractWizardStepEx> steps = createSteps(project, model);
-        wizard = new Wizard("Check in DSS Items", project, steps);
+        List<AbstractWizardStepEx> steps = createSteps(model);
+        wizard = new Wizard("Synchronize with DSS", project, steps);
     }
 
-    private static List<AbstractWizardStepEx> createSteps(Project project, CheckinModel model) {
+    private static List<AbstractWizardStepEx> createSteps(CheckinModel model) {
         List<AbstractWizardStepEx> steps = new ArrayList<>();
         steps.add(new CheckinStep1(model));
         return steps;
@@ -83,8 +78,6 @@ public class CheckinWizard {
             if (dssInstance != null) {
                 PluginTreeNode pluginTreeNode = new PluginTreeNode(monitoredPlugin);
                 root.getOrAddInstanceNode(dssInstance).getOrAddPluginsNode().add(pluginTreeNode);
-
-                //monitoredPlugin.plugin.files.forEach(pluginFile -> addToPluginHierarchy(pluginTreeNode, pluginFile, pluginFile.remotePath.split("/")));
             }
         });
     }
@@ -99,37 +92,5 @@ public class CheckinWizard {
                         .add(new RecipeTreeNode(monitoredFile));
             }
         });
-    }
-
-    private void addToPluginHierarchy(DefaultMutableTreeNode parent, DssPluginFileMetadata pluginFile, String[] path) {
-        if (path.length == 0) {
-            throw new IllegalStateException("Zero-length path...");
-        }
-        if (path.length == 1) {
-            parent.add(pluginFile.isFolder ? new PluginFolderTreeNode(pluginFile, path[0]) : new PluginFileTreeNode(pluginFile, path[0]));
-        } else {
-            PluginFolderTreeNode treeNode = getOrCreatePluginFolderTreeNode(parent, pluginFile, path[0]);
-            String[] newPath = new String[path.length - 1];
-            System.arraycopy(path, 1, newPath, 0, path.length - 1);
-            addToPluginHierarchy(treeNode, pluginFile, newPath);
-        }
-    }
-
-    private PluginFolderTreeNode getOrCreatePluginFolderTreeNode(DefaultMutableTreeNode parent, DssPluginFileMetadata pluginFile, String name) {
-        int childCount = parent.getChildCount();
-        for (int i = 0; i < childCount; i++) {
-            TreeNode child = parent.getChildAt(i);
-            if (child instanceof PluginFolderTreeNode) {
-                PluginFolderTreeNode folderTreeNode = (PluginFolderTreeNode) child;
-                if (name.equals(folderTreeNode.name)) {
-                    return folderTreeNode;
-                }
-            }
-        }
-
-        // Not found, create one.
-        PluginFolderTreeNode newPluginFolder = new PluginFolderTreeNode(pluginFile, name);
-        parent.add(newPluginFolder);
-        return newPluginFolder;
     }
 }

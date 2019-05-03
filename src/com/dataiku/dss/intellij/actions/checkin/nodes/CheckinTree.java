@@ -26,18 +26,7 @@ public class CheckinTree extends Tree {
     private static class MyCellRenderer extends ColoredTreeCellRenderer {
         @Override
         public void customizeCellRenderer(@NotNull JTree tree, Object value, boolean selected, boolean expanded, boolean leaf, int row, boolean hasFocus) {
-            if (value instanceof PluginFileTreeNode) {
-                String filename = ((PluginFileTreeNode) value).name.toLowerCase();
-                if (filename.endsWith(".json")) {
-                    setIcon(AllIcons.FileTypes.Json);
-                } else if (filename.endsWith(".java")) {
-                    setIcon(AllIcons.FileTypes.Java);
-                } else if (filename.endsWith(".js")) {
-                    setIcon(AllIcons.FileTypes.JavaScript);
-                } else {
-                    setIcon(AllIcons.FileTypes.Any_type);
-                }
-            } else if (value instanceof RecipeTreeNode) {
+            if (value instanceof RecipeTreeNode) {
                 RecipeTreeNode x = (RecipeTreeNode) value;
                 String filename = x.recipe.file.getName().toLowerCase();
                 if (filename.endsWith(".py")) {
@@ -51,6 +40,8 @@ public class CheckinTree extends Tree {
                 } else {
                     setIcon(AllIcons.FileTypes.Any_type);
                 }
+            } else if (value instanceof PluginTreeNode) {
+                setIcon(AllIcons.Nodes.Plugin);
             } else {
                 setIcon(AllIcons.Nodes.Folder);
             }

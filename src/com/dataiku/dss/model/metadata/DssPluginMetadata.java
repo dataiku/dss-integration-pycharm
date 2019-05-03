@@ -15,7 +15,4 @@ public class DssPluginMetadata {
         this.path = path;
         this.files = new ArrayList<>();
     }
-
-    public DssPluginMetadata() {
-    }
 }

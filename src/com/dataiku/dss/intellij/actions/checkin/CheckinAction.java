@@ -31,7 +31,7 @@ public class CheckinAction extends AnAction implements DumbAware {
         if (wizard.showAndGet()) {
             CheckinModel model = wizard.getModel();
             try {
-                new CheckinWorker(model).checkin();
+                new SynchronizeWorker(model).synchronizeWithDSS();
             } catch (IOException e) {
                 Messages.showErrorDialog(e.getMessage(), "I/O Error");
             } catch (RuntimeException e) {

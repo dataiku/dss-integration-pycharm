@@ -54,13 +54,15 @@ public class SynchronizeWorker {
         this.model = model;
     }
 
-    public void synchronize() throws IOException {
+    public void synchronizeWithDSS() throws IOException {
         for (DssServerTreeNode instanceNode : model.synchronizeStepRootNode.getInstanceNodes()) {
             RecipesTreeNode recipesNode = instanceNode.getRecipesNode();
             if (recipesNode != null) {
                 for (RecipeProjectTreeNode projectNode : recipesNode.getProjectNodes()) {
                     for (RecipeTreeNode recipeNode : projectNode.getRecipeNodes()) {
-                        synchronizeRecipe(instanceNode.dssServer, recipeNode.recipe);
+                        if (recipeNode.selectionState == SelectionState.SELECTED) {
+                            synchronizeRecipe(instanceNode.dssServer, recipeNode.recipe);
+                        }
                     }
                 }
             }
@@ -91,15 +93,15 @@ public class SynchronizeWorker {
         long remoteVersionNumber = recipeAndPayload.recipe.versionTag.versionNumber;
         int originalHash = monitoredFile.recipe.contentHash;
         long originalVersionNumber = monitoredFile.recipe.versionNumber;
-        String fileContent = VirtualFileUtils.readVirtualFile(monitoredFile.file);
-        int localHash = getContentHash(fileContent);
+        String localFileContent = VirtualFileUtils.readVirtualFile(monitoredFile.file);
+        int localHash = getContentHash(localFileContent);
 
         if (remoteVersionNumber == originalVersionNumber) {
             // No change on remote server since last synchronization.
             if (localHash != originalHash) {
                 // File locally modified => Upload it to DSS
                 log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS instance", monitoredFile.recipe));
-                saveRecipeToDss(dssClient, monitoredFile, fileContent, false);
+                saveRecipeToDss(dssClient, monitoredFile, localFileContent, false);
                 dirtyMetadataFiles.add(monitoredFile.metadataFile);
             } else {
                 log.info(String.format("Recipe '%s' has not been locally or remote modified since last synchronization.", monitoredFile.recipe));
@@ -113,13 +115,21 @@ public class SynchronizeWorker {
                 monitoredFile.recipe.versionNumber = remoteVersionNumber;
                 dirtyMetadataFiles.add(monitoredFile.metadataFile);
             } else {
-                // Conflict!! Save remote file as .remote and send the local version to DSS
-                log.info(String.format("Conflict detected for recipe '%s' Uploading it and saving remote version locally with '.remote' extension.", monitoredFile.recipe));
-                saveRecipeToDss(dssClient, monitoredFile, fileContent, false);
-                dirtyMetadataFiles.add(monitoredFile.metadataFile);
+                if (localHash == originalHash) {
+                    log.info(String.format("Recipe '%s' has been remotely modified but not modified locally since last synchronization. Updating local copy of the recipe.", monitoredFile.recipe));
+                    VirtualFileUtils.writeToVirtualFile(monitoredFile.file, recipeAndPayload.payload);
+                    monitoredFile.recipe.contentHash = remoteHash;
+                    monitoredFile.recipe.versionNumber = remoteVersionNumber;
+                    dirtyMetadataFiles.add(monitoredFile.metadataFile);
+                } else {
+                    // Conflict!! Save remote file as .remote and send the local version to DSS
+                    log.info(String.format("Conflict detected for recipe '%s' Uploading it and saving remote version locally with '.remote' extension.", monitoredFile.recipe));
+                    saveRecipeToDss(dssClient, monitoredFile, localFileContent, false);
+                    dirtyMetadataFiles.add(monitoredFile.metadataFile);
 
-                VirtualFile newFile = VirtualFileUtils.getOrCreateVirtualFile(requestor, monitoredFile.file.getParent(), monitoredFile.file.getName() + ".remote");
-                VirtualFileUtils.writeToVirtualFile(newFile, recipeAndPayload.payload.getBytes(UTF_8), UTF_8);
+                    VirtualFile newFile = VirtualFileUtils.getOrCreateVirtualFile(requestor, monitoredFile.file.getParent(), monitoredFile.file.getName() + ".remote");
+                    VirtualFileUtils.writeToVirtualFile(newFile, recipeAndPayload.payload.getBytes(UTF_8), UTF_8);
+                }
             }
         }
     }
@@ -143,9 +153,9 @@ public class SynchronizeWorker {
             @Override
             public boolean visitFile(@NotNull VirtualFile file) {
                 String fileUrl = file.getUrl();
-                if (fileUrl.startsWith(baseUrl)) {
-                    String path = fileUrl.substring(baseUrl.length());
-                    if (!index.containsKey(path) && !file.isDirectory()) {
+                if (fileUrl.startsWith(baseUrl) && fileUrl.length() > baseUrl.length()) {
+                    String path = fileUrl.substring(baseUrl.length() + 1);
+                    if (!index.containsKey(path) && !file.isDirectory() && !file.getName().endsWith(".remote")) {
                         missingFiles.add(file);
                     }
                 }
@@ -184,14 +194,14 @@ public class SynchronizeWorker {
             DssPluginFileMetadata trackedFile = findFile(monitoredPlugin.plugin.files, pluginFile.path);
             if (pluginFile.mimeType == null || "null".equals(pluginFile.mimeType)) {
                 // Folder
-                log.info(String.format("Synchronize plugin folder '%s' (path=%s)", pluginFile.name, pluginFile.path));
+                log.info(String.format("Synchronize plugin folder '%s'", pluginFile.path));
 
                 if (trackedFile == null) {
                     // Create folder
-                    log.info(String.format("Creating plugin folder '%s' (path=%s)", pluginFile.name, pluginFile.path));
+                    log.info(" - Creating folder: it has been added remotely since last synchronization.");
                     VirtualFile file = getOrCreateVirtualDirectory(requestor, parent, pluginFile.name);
-                    updatePluginFileMetadata(pluginFile, 0, true, monitoredPlugin);
-                    // Recurse if necessary
+                    updatePluginFileMetadata(pluginFile, 0, monitoredPlugin);
+
                     if (pluginFile.children != null && !pluginFile.children.isEmpty()) {
                         synchronizePluginFolder(dssClient, monitoredPlugin, file, pluginFile.children);
                     }
@@ -210,14 +220,14 @@ public class SynchronizeWorker {
 
             } else {
                 // Regular file
-                log.info(String.format("Synchronize plugin file '%s' (path=%s)", pluginFile.name, pluginFile.path));
+                log.info(String.format("Synchronize plugin file '%s'", pluginFile.path));
 
                 byte[] fileContent = pluginFile.size == 0 ? new byte[0] : dssClient.downloadPluginFile(pluginId, pluginFile.path);
                 if (trackedFile == null) {
-                    log.info(String.format("Creating plugin file '%s' (path=%s)", pluginFile.name, pluginFile.path));
+                    log.info(" - Creating file: it has been added remotely since last synchronization.");
                     VirtualFile file = VirtualFileUtils.getOrCreateVirtualFile(requestor, parent, pluginFile.name);
                     VirtualFileUtils.writeToVirtualFile(file, fileContent, UTF_8);
-                    updatePluginFileMetadata(pluginFile, getContentHash(fileContent), false, monitoredPlugin);
+                    updatePluginFileMetadata(pluginFile, getContentHash(fileContent), monitoredPlugin);
                 } else {
                     VirtualFile file = VirtualFileUtils.getVirtualFile(parent, pluginFile.name);
                     if (file == null || !file.exists() || !file.isValid()) {
@@ -231,29 +241,33 @@ public class SynchronizeWorker {
                             // No change on remote server since last synchronization.
                             if (localHash != originalHash) {
                                 // File locally modified => Upload it to DSS
-                                log.info(String.format("Uploading plugin file '%s' (path=%s)", pluginFile.name, pluginFile.path));
+                                log.info(" - Uploading file. It has been locally modified and left untouched remotely since last synchronization.");
                                 dssClient.uploadPluginFile(pluginId, pluginFile.path, VirtualFileUtils.readVirtualFileAsByteArray(file));
-                                updatePluginFileMetadata(pluginFile, localHash, false, monitoredPlugin);
+                                updatePluginFileMetadata(pluginFile, localHash, monitoredPlugin);
                             } else {
                                 // All files are identical, nothing to do.
-                                log.info(String.format("Ignoring plugin file '%s' (path=%s): Not updated locally or remotely since last synchronization.", pluginFile.name, pluginFile.path));
+                                log.info(" - Files are identical.");
                             }
                         } else {
                             // Changed on remote server since last synchronization
                             if (remoteHash == localHash) {
                                 // Both files have been changed in the same way. Just update the metadata on our side.
-                                log.info(String.format("Ignoring plugin file '%s' (path=%s): Updated identically both locally and remotely since last synchronization.", pluginFile.name, pluginFile.path));
+                                log.info(" - Updated identically both locally and remotely since last synchronization.");
                                 trackedFile.contentHash = remoteHash;
-                                updatePluginFileMetadata(pluginFile, remoteHash, false, monitoredPlugin);
+                                updatePluginFileMetadata(pluginFile, remoteHash, monitoredPlugin);
+                            } else if (localHash == originalHash) {
+                                // File has not been modified locally, retrieve the remote version.
+                                log.warn(" - Updating local file: it has been updated remotely but not locally.");
+                                VirtualFileUtils.writeToVirtualFile(file, fileContent, UTF_8);
+                                updatePluginFileMetadata(pluginFile, remoteHash, monitoredPlugin);
                             } else {
                                 // Conflict!! Checkout remote file as .remote and send the local version to DSS
-                                log.warn(String.format("Conflict detected for plugin file '%s' (path=%s). Uploading it and saving remote version locally with .remote extension.", pluginFile.name, pluginFile.path));
+                                log.warn(" - Conflict detected. Uploading it and saving remote version locally with '.remote' extension.");
                                 dssClient.uploadPluginFile(pluginId, pluginFile.path, VirtualFileUtils.readVirtualFileAsByteArray(file));
-                                updatePluginFileMetadata(pluginFile, localHash, false, monitoredPlugin);
+                                updatePluginFileMetadata(pluginFile, localHash, monitoredPlugin);
 
                                 VirtualFile newFile = getOrCreateVirtualFile(requestor, parent, pluginFile.name + ".remote");
                                 VirtualFileUtils.writeToVirtualFile(newFile, fileContent, UTF_8);
-                                updatePluginFileMetadata(pluginFile, getContentHash(fileContent), false, monitoredPlugin);
                             }
                         }
                     }
@@ -274,7 +288,7 @@ public class SynchronizeWorker {
         removeFile(monitoredPlugin.plugin.files, pluginFile.path);
     }
 
-    private void updatePluginFileMetadata(FolderContent pluginFile, int contentHash, boolean isFolder, MonitoredPlugin monitoredPlugin) throws IOException {
+    private void updatePluginFileMetadata(FolderContent pluginFile, int contentHash, MonitoredPlugin monitoredPlugin) throws IOException {
         DssPluginMetadata pluginMetadata = monitoredPlugin.plugin;
         String pluginId = monitoredPlugin.plugin.pluginId;
         DssPluginFileMetadata pluginFileMetadata = findFile(pluginMetadata.files, pluginFile.path);
@@ -288,7 +302,6 @@ public class SynchronizeWorker {
         pluginFileMetadata.path = pluginId + "/" + pluginFile.path;
         pluginFileMetadata.remotePath = pluginFile.path;
         pluginFileMetadata.contentHash = contentHash;
-        pluginFileMetadata.isFolder = isFolder;
         dirtyMetadataFiles.add(monitoredPlugin.metadataFile);
     }
 

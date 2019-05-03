@@ -148,7 +148,6 @@ public class CheckoutWorker {
                 pluginFileMetadata.path = pluginId + "/" + pluginFile.path;
                 pluginFileMetadata.remotePath = pluginFile.path;
                 pluginFileMetadata.contentHash = 0;
-                pluginFileMetadata.isFolder = true;
                 pluginMetadata.files.add(pluginFileMetadata);
 
                 // Recurse if necessary
@@ -171,7 +170,6 @@ public class CheckoutWorker {
                 pluginFileMetadata.path = pluginId + "/" + pluginFile.path;
                 pluginFileMetadata.remotePath = pluginFile.path;
                 pluginFileMetadata.contentHash = getContentHash(fileContent);
-                pluginFileMetadata.isFolder = false;
                 pluginMetadata.files.add(pluginFileMetadata);
 
                 createdFileList.add(file);

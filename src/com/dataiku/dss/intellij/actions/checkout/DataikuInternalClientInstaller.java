@@ -95,7 +95,6 @@ public class DataikuInternalClientInstaller {
     public static class ProcessOutput implements Runnable {
         private final ArrayDeque<String> output = new ArrayDeque<>();
         private final InputStream inputStream;
-        public volatile boolean done;
 
         private ProcessOutput(InputStream inputStream) {
             this.inputStream = inputStream;
@@ -118,7 +117,6 @@ public class DataikuInternalClientInstaller {
             } catch (IOException e) {
                 log.debug("An error occurred while consuming process output stream", e);
             }
-            done = true;
         }
 
         private void consume(InputStream inputStream) throws IOException {
