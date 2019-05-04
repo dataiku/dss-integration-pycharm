@@ -1,4 +1,4 @@
-package com.dataiku.dss.intellij.actions.checkin;
+package com.dataiku.dss.intellij.actions.synchronize;
 
 import java.util.List;
 import javax.swing.*;
@@ -8,40 +8,30 @@ import javax.swing.tree.TreeNode;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.dataiku.dss.intellij.actions.checkin.nodes.CheckinTree;
-import com.dataiku.dss.intellij.actions.checkin.nodes.DssServerTreeNode;
+import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeDssInstance;
+import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeTree;
 import com.intellij.ide.wizard.AbstractWizardStepEx;
 import com.intellij.ide.wizard.CommitStepException;
 
-public class CheckinStep1 extends AbstractWizardStepEx {
-    private CheckinTree selectionTree;
+public class SynchronizeStep1 extends AbstractWizardStepEx {
+    private SynchronizeTree selectionTree;
     private JPanel mainPanel;
 
-    public CheckinStep1(CheckinModel model) {
+    public SynchronizeStep1(SynchronizeModel model) {
         super("");
 
         // If there is only one DSS instance, start the tree from this node, otherwise start from the root node.
-        List<DssServerTreeNode> instanceNodes = model.synchronizeStepRootNode.getInstanceNodes();
-        TreeNode rootNode = instanceNodes.size() == 1 ? instanceNodes.get(0) : model.synchronizeStepRootNode;
+        List<SynchronizeNodeDssInstance> instanceNodes = model.selectionRootNode.getInstanceNodes();
+        TreeNode rootNode = instanceNodes.size() == 1 ? instanceNodes.get(0) : model.selectionRootNode;
         selectionTree.setModel(new DefaultTreeModel(rootNode));
         selectionTree.setShowsRootHandles(false);
         expandAllNodes(selectionTree, 0, selectionTree.getRowCount());
     }
 
-    private void expandAllNodes(JTree tree, int startingIndex, int rowCount) {
-        for (int i = startingIndex; i < rowCount; ++i) {
-            tree.expandRow(i);
-        }
-
-        if (tree.getRowCount() != rowCount) {
-            expandAllNodes(tree, rowCount, tree.getRowCount());
-        }
-    }
-
     @NotNull
     @Override
     public Object getStepId() {
-        return CheckinStep1.class;
+        return SynchronizeStep1.class;
     }
 
     @Nullable
@@ -74,5 +64,15 @@ public class CheckinStep1 extends AbstractWizardStepEx {
     @Override
     public JComponent getPreferredFocusedComponent() {
         return selectionTree;
+    }
+
+    private void expandAllNodes(JTree tree, int startingIndex, int rowCount) {
+        for (int i = startingIndex; i < rowCount; ++i) {
+            tree.expandRow(i);
+        }
+
+        if (tree.getRowCount() != rowCount) {
+            expandAllNodes(tree, rowCount, tree.getRowCount());
+        }
     }
 }

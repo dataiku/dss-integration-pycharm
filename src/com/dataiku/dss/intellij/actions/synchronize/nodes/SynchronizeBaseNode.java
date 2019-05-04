@@ -1,29 +1,33 @@
-package com.dataiku.dss.intellij.actions.checkin.nodes;
+package com.dataiku.dss.intellij.actions.synchronize.nodes;
 
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeNode;
 
-public abstract class CheckinBaseNode extends DefaultMutableTreeNode {
+public abstract class SynchronizeBaseNode extends DefaultMutableTreeNode {
 
     public SelectionState selectionState;
 
-    public CheckinBaseNode() {
+    public SynchronizeBaseNode() {
         this.selectionState = SelectionState.SELECTED;
+    }
+
+    public boolean isSelected() {
+        return selectionState == SelectionState.SELECTED;
     }
 
     public void select() {
         selectionState = SelectionState.SELECTED;
         int childCount = getChildCount();
         for (int i = 0; i < childCount; ++i) {
-            ((CheckinBaseNode) getChildAt(i)).select();
+            ((SynchronizeBaseNode) getChildAt(i)).select();
         }
         updateParentState();
     }
 
     private void updateParentState() {
-        CheckinBaseNode parent = (CheckinBaseNode) getParent();
+        SynchronizeBaseNode parent = (SynchronizeBaseNode) getParent();
         if (parent != null) {
             parent.selectionState = parent.getChildrenAggregateState();
             parent.updateParentState();
@@ -42,13 +46,13 @@ public abstract class CheckinBaseNode extends DefaultMutableTreeNode {
         selectionState = SelectionState.NOT_SELECTED;
         int childCount = getChildCount();
         for (int i = 0; i < childCount; ++i) {
-            ((CheckinBaseNode) getChildAt(i)).unselect();
+            ((SynchronizeBaseNode) getChildAt(i)).unselect();
         }
         updateParentState();
     }
 
-    public List<CheckinBaseNode> listChildren() {
-        return listChildren(CheckinBaseNode.class);
+    public List<SynchronizeBaseNode> listChildren() {
+        return listChildren(SynchronizeBaseNode.class);
     }
 
     @SuppressWarnings("unchecked")
@@ -66,7 +70,7 @@ public abstract class CheckinBaseNode extends DefaultMutableTreeNode {
 
     protected SelectionState getChildrenAggregateState() {
         SelectionState aggState = null;
-        for (CheckinBaseNode child : listChildren()) {
+        for (SynchronizeBaseNode child : listChildren()) {
             if (aggState == null) {
                 aggState = child.selectionState;
             } else if (aggState != child.selectionState) {
@@ -74,7 +78,7 @@ public abstract class CheckinBaseNode extends DefaultMutableTreeNode {
             }
         }
         if (aggState == null) {
-            List<CheckinBaseNode> checkinBaseNodes = listChildren();
+            List<SynchronizeBaseNode> checkinBaseNodes = listChildren();
             System.out.println("Pouf");
         }
         return aggState;

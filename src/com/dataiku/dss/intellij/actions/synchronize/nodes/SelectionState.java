@@ -1,4 +1,4 @@
-package com.dataiku.dss.intellij.actions.checkin.nodes;
+package com.dataiku.dss.intellij.actions.synchronize.nodes;
 
 public enum SelectionState {
     SELECTED,

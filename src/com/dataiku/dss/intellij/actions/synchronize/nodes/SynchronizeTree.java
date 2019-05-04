@@ -1,4 +1,4 @@
-package com.dataiku.dss.intellij.actions.checkin.nodes;
+package com.dataiku.dss.intellij.actions.synchronize.nodes;
 
 import java.awt.*;
 import java.awt.event.MouseEvent;
@@ -14,20 +14,20 @@ import com.intellij.ui.treeStructure.Tree;
 import com.intellij.util.ui.ThreeStateCheckBox;
 import com.intellij.util.ui.ThreeStateCheckBox.State;
 
-public class CheckinTree extends Tree {
-    private final int myCheckboxWidth;
+public class SynchronizeTree extends Tree {
+    private final int checkboxWidth;
 
-    public CheckinTree() {
+    public SynchronizeTree() {
         final MyCellRenderer nodeRenderer = new MyCellRenderer();
         setCellRenderer(new MyTreeCellRenderer(nodeRenderer));
-        myCheckboxWidth = new JCheckBox().getPreferredSize().width;
+        checkboxWidth = new JCheckBox().getPreferredSize().width;
     }
 
     private static class MyCellRenderer extends ColoredTreeCellRenderer {
         @Override
         public void customizeCellRenderer(@NotNull JTree tree, Object value, boolean selected, boolean expanded, boolean leaf, int row, boolean hasFocus) {
-            if (value instanceof RecipeTreeNode) {
-                RecipeTreeNode x = (RecipeTreeNode) value;
+            if (value instanceof SynchronizeNodeRecipe) {
+                SynchronizeNodeRecipe x = (SynchronizeNodeRecipe) value;
                 String filename = x.recipe.file.getName().toLowerCase();
                 if (filename.endsWith(".py")) {
                     setIcon(Icons.FILE_PYTHON);
@@ -40,7 +40,7 @@ public class CheckinTree extends Tree {
                 } else {
                     setIcon(AllIcons.FileTypes.Any_type);
                 }
-            } else if (value instanceof PluginTreeNode) {
+            } else if (value instanceof SynchronizeNodePlugin) {
                 setIcon(AllIcons.Nodes.Plugin);
             } else {
                 setIcon(AllIcons.Nodes.Folder);
@@ -93,11 +93,11 @@ public class CheckinTree extends Tree {
                 int row = getRowForLocation(e.getX(), e.getY());
                 if (row >= 0) {
                     final Rectangle baseRect = getRowBounds(row);
-                    baseRect.setSize(myCheckboxWidth, baseRect.height);
+                    baseRect.setSize(checkboxWidth, baseRect.height);
                     if (baseRect.contains(e.getPoint())) {
                         setSelectionRow(row);
-                        CheckinBaseNode[] selectedNodes = this.getSelectedNodes(CheckinBaseNode.class, null);
-                        for (CheckinBaseNode selectedNode : selectedNodes) {
+                        SynchronizeBaseNode[] selectedNodes = this.getSelectedNodes(SynchronizeBaseNode.class, null);
+                        for (SynchronizeBaseNode selectedNode : selectedNodes) {
                             selectedNode.toggle();
                         }
                         repaint();
@@ -110,8 +110,8 @@ public class CheckinTree extends Tree {
     }
 
     private State getNodeStatus(Object node) {
-        if (node instanceof CheckinBaseNode) {
-            CheckinBaseNode baseNode = (CheckinBaseNode) node;
+        if (node instanceof SynchronizeBaseNode) {
+            SynchronizeBaseNode baseNode = (SynchronizeBaseNode) node;
             if (baseNode.selectionState == null) {
                 return State.NOT_SELECTED;
             }

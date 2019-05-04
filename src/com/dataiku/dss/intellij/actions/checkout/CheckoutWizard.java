@@ -8,21 +8,21 @@ import com.intellij.ide.wizard.AbstractWizardEx;
 import com.intellij.ide.wizard.AbstractWizardStepEx;
 import com.intellij.openapi.project.Project;
 
-public class CheckoutDSSItemWizard {
-    private CheckoutDSSItemModel model;
+public class CheckoutWizard {
+    private CheckoutModel model;
     private AbstractWizardEx wizard;
 
-    public CheckoutDSSItemWizard(Project project) {
-        model = new CheckoutDSSItemModel();
+    public CheckoutWizard(Project project) {
+        model = new CheckoutModel();
         init(project, model);
     }
 
-    private void init(Project project, CheckoutDSSItemModel model) {
+    private void init(Project project, CheckoutModel model) {
         List<AbstractWizardStepEx> steps = createSteps(project, model);
         wizard = new Wizard("Checkout DSS Item", project, steps);
     }
 
-    private static List<AbstractWizardStepEx> createSteps(Project project, CheckoutDSSItemModel model) {
+    private static List<AbstractWizardStepEx> createSteps(Project project, CheckoutModel model) {
         List<AbstractWizardStepEx> steps = new ArrayList<>();
         steps.add(new CheckoutStep1(model, project));
         steps.add(new CheckoutStep2Recipe(model));
@@ -52,7 +52,7 @@ public class CheckoutDSSItemWizard {
         return wizard.showAndGet();
     }
 
-    public CheckoutDSSItemModel getModel() {
+    public CheckoutModel getModel() {
         return model;
     }
 }

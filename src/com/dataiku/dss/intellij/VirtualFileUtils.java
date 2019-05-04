@@ -99,6 +99,18 @@ public class VirtualFileUtils {
         }
     }
 
+    public static void deleteVirtualFile(final Object requestor, final VirtualFile file) throws IOException {
+        Application application = ApplicationManager.getApplication();
+        if (application.isWriteAccessAllowed()) {
+            file.delete(requestor);
+        } else {
+            application.runWriteAction((ThrowableComputable<Object, IOException>) () -> {
+                file.delete(requestor);
+                return null;
+            });
+        }
+    }
+
     @NotNull
     public static VirtualFile getOrCreateVirtualFile(Object requestor, VirtualFile parent, String... names) throws IOException {
         if (names.length == 0) {

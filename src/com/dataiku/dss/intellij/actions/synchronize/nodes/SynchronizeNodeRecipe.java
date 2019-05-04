@@ -1,11 +1,11 @@
-package com.dataiku.dss.intellij.actions.checkin.nodes;
+package com.dataiku.dss.intellij.actions.synchronize.nodes;
 
 import com.dataiku.dss.intellij.MonitoredFile;
 
-public class RecipeTreeNode extends CheckinBaseNode {
+public class SynchronizeNodeRecipe extends SynchronizeBaseNode {
     public final MonitoredFile recipe;
 
-    public RecipeTreeNode(MonitoredFile recipe) {
+    public SynchronizeNodeRecipe(MonitoredFile recipe) {
         this.recipe = recipe;
     }
 

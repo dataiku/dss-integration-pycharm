@@ -9,7 +9,7 @@ import com.dataiku.dss.model.dss.Recipe;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.projectRoots.Sdk;
 
-public class CheckoutDSSItemModel {
+public class CheckoutModel {
 
     public enum ItemType {
         RECIPE,

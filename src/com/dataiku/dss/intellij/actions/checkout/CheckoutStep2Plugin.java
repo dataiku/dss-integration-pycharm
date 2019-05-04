@@ -22,13 +22,13 @@ public class CheckoutStep2Plugin extends AbstractWizardStepEx {
     private static final Logger log = Logger.getInstance(CheckoutStep2Plugin.class);
     private static final PluginItem NO_PLUGIN = new PluginItem(null);
 
-    private final CheckoutDSSItemModel model;
+    private final CheckoutModel model;
 
     private JPanel panel;
     private JList<PluginItem> pluginList;
     private DefaultListModel<PluginItem> pluginListItems = new DefaultListModel<>();
 
-    CheckoutStep2Plugin(CheckoutDSSItemModel model) {
+    CheckoutStep2Plugin(CheckoutModel model) {
         super("Plugin");
         this.model = model;
 

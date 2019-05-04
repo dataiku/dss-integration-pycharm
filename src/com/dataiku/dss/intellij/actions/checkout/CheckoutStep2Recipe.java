@@ -38,7 +38,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private static final Logger log = Logger.getInstance(CheckoutStep2Recipe.class);
     private static final RecipeItem NO_RECIPE = new RecipeItem(null);
 
-    private final CheckoutDSSItemModel model;
+    private final CheckoutModel model;
     private final Map<String, String> sdkInstallationCacheState = new HashMap<>();
 
     private JPanel panel;
@@ -56,7 +56,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private JPanel sdkPanel;
     private JLabel sdkLabel;
 
-    CheckoutStep2Recipe(CheckoutDSSItemModel model) {
+    CheckoutStep2Recipe(CheckoutModel model) {
         super("Recipe");
         this.model = model;
 

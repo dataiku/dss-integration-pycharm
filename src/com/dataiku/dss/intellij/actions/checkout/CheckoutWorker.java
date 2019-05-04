@@ -36,22 +36,22 @@ import com.intellij.openapi.vfs.VirtualFile;
 public class CheckoutWorker {
     private static final Logger log = Logger.getInstance(CheckoutWorker.class);
 
-    private final CheckoutDSSItemModel model;
+    private final CheckoutModel model;
 
-    CheckoutWorker(CheckoutDSSItemModel model) {
+    CheckoutWorker(CheckoutModel model) {
         Preconditions.checkNotNull(model, "model");
         this.model = model;
     }
 
     public List<VirtualFile> checkout() throws IOException {
-        if (model.itemType == CheckoutDSSItemModel.ItemType.RECIPE) {
+        if (model.itemType == CheckoutModel.ItemType.RECIPE) {
             return checkoutRecipe(model);
         } else {
             return checkoutPlugin(model);
         }
     }
 
-    private List<VirtualFile> checkoutRecipe(CheckoutDSSItemModel model) throws IOException {
+    private List<VirtualFile> checkoutRecipe(CheckoutModel model) throws IOException {
         // Retrieve project key
         String projectKey = model.projectKey;
 
@@ -100,7 +100,7 @@ public class CheckoutWorker {
         return createdFileList;
     }
 
-    private List<VirtualFile> checkoutPlugin(CheckoutDSSItemModel model) throws IOException {
+    private List<VirtualFile> checkoutPlugin(CheckoutModel model) throws IOException {
         Preconditions.checkNotNull(model, "item");
 
         // Retrieve recipe & its payload

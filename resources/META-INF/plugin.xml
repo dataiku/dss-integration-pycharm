@@ -48,11 +48,11 @@
     </application-components>
 
     <actions>
-        <action id="com.dataiku.dss.intellij.actions.checkout.CheckoutDSSItemAction" class="com.dataiku.dss.intellij.actions.checkout.CheckoutDSSItemAction"
+        <action id="com.dataiku.dss.intellij.actions.checkout.CheckoutAction" class="com.dataiku.dss.intellij.actions.checkout.CheckoutAction"
                 text="Open Dataiku DSS..." description="Checkout a Dataiku DSS Recipe or Plugin">
             <add-to-group group-id="FileOpenGroup" anchor="after" relative-to-action="OpenFile"/>
         </action>
-        <action id="com.dataiku.dss.intellij.actions.checkin.CheckinAction" class="com.dataiku.dss.intellij.actions.checkin.CheckinAction"
+        <action id="com.dataiku.dss.intellij.actions.synchronize.SynchronizeAction" class="com.dataiku.dss.intellij.actions.synchronize.SynchronizeAction"
                 text="Synchronize with DSS..." description="Synchronize Dataiku DSS Recipes and Plugins with DSS instance">
             <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Synchronize"/>
         </action>

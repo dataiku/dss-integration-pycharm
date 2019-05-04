@@ -17,14 +17,14 @@ import com.intellij.openapi.project.Project;
 public class CheckoutStep1 extends AbstractWizardStepEx {
     public static final Object ID = "CheckoutStep1";
 
-    private final CheckoutDSSItemModel model;
+    private final CheckoutModel model;
     private final Project project;
     private JComboBox<String> intellijModulesComboBox;
     private JComboBox<ServerItem> instanceComboBox;
     private JComboBox<String> itemTypeComboBox;
     private JPanel panel;
 
-    public CheckoutStep1(CheckoutDSSItemModel model, Project project) {
+    public CheckoutStep1(CheckoutModel model, Project project) {
         super("DSS instance and Item Type");
         this.model = model;
         this.project = project;
@@ -110,12 +110,12 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
         return serverItem.server;
     }
 
-    private CheckoutDSSItemModel.ItemType validateItemType(String itemType) throws CommitStepException {
+    private CheckoutModel.ItemType validateItemType(String itemType) throws CommitStepException {
         switch (itemType) {
         case "Recipe":
-            return CheckoutDSSItemModel.ItemType.RECIPE;
+            return CheckoutModel.ItemType.RECIPE;
         case "Plugin":
-            return CheckoutDSSItemModel.ItemType.PLUGIN;
+            return CheckoutModel.ItemType.PLUGIN;
         default:
             throw new CommitStepException("Unexpected item type: " + itemType);
         }
