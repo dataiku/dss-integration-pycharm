@@ -1,6 +1,5 @@
 package com.dataiku.dss.intellij;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -17,11 +16,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.project.VetoableProjectManagerListener;
 import com.intellij.openapi.roots.ProjectRootManager;
-import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.vfs.VirtualFileEvent;
-import com.intellij.openapi.vfs.VirtualFileListener;
-import com.intellij.openapi.vfs.VirtualFileMoveEvent;
 
 public class MonitoredFilesIndex implements ApplicationComponent {
     private static final Logger log = Logger.getInstance(MonitoredFilesIndex.class);
@@ -48,7 +43,6 @@ public class MonitoredFilesIndex implements ApplicationComponent {
     @Override
     public void initComponent() {
         // Scan all open projects, then register a listener to be called whenever a project is opened/closed
-        LocalFileSystem.getInstance().addVirtualFileListener(new VirtualFileAdapter());
         index(ProjectManager.getInstance().getOpenProjects());
         ProjectManager.getInstance().addProjectManagerListener(new ProjectManagerAdapter());
     }
@@ -114,7 +108,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         }
     }
 
-    private void index(Project[] projects) {
+    public void index(Project[] projects) {
         for (VirtualFile moduleContentRoot : listModulesRoot(projects)) {
             try {
                 MetadataFile metadataFile = metadataFilesIndex.getMetadata(moduleContentRoot);
@@ -151,26 +145,16 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         return new ArrayList<>(result.values());
     }
 
-    private class VirtualFileAdapter implements VirtualFileListener {
-        @Override
-        public void fileDeleted(@NotNull VirtualFileEvent event) {
-            VirtualFile file = event.getFile();
-            MonitoredRecipeFile monitoredFile = getMonitoredFile(file);
-            if (monitoredFile != null) {
-                removeFromIndex(monitoredFile);
-                try {
-                    monitoredFile.metadataFile.removeRecipe(monitoredFile.recipe);
-                } catch (IOException e) {
-                    log.warn(String.format("Unable to update DSS metadata after removal of file '%s'", file), e);
-                }
+    public MonitoredPlugin getMonitoredPlugin(VirtualFile file) {
+        for (MonitoredPlugin plugin : monitoredPlugins.values()) {
+            String path = VirtualFileUtils.getRelativePath(plugin.pluginBaseDir, file);
+            if (path != null) {
+                return plugin;
             }
         }
-
-        @Override
-        public void fileMoved(@NotNull VirtualFileMoveEvent event) {
-            // TODO not handled yet
-        }
+        return null;
     }
+
 
     private class ProjectManagerAdapter implements VetoableProjectManagerListener {
         @Override

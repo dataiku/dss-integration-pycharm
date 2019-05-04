@@ -1,14 +1,21 @@
 package com.dataiku.dss.intellij;
 
 import java.io.IOException;
+import java.util.List;
 
 import com.dataiku.dss.intellij.config.DssServer;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
+import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
 
 public class SynchronizerUtils {
+
+    public static void savePluginFileToDss(DssSettings dssSettings, MonitoredPlugin monitoredPlugin, String path, byte[] fileContent) throws IOException {
+        DSSClient dssClient = dssSettings.getDssClient(monitoredPlugin.plugin.instance);
+        savePluginFileToDss(dssClient, monitoredPlugin, path, fileContent);
+    }
 
     public static void saveRecipeToDss(DssSettings dssSettings, MonitoredRecipeFile monitoredFile, String fileContent) throws IOException {
         DSSClient dssClient = dssSettings.getDssClient(monitoredFile.recipe.instance);
@@ -17,6 +24,21 @@ public class SynchronizerUtils {
 
     public static void saveRecipeToDss(DssServer dssInstance, MonitoredRecipeFile monitoredFile, String fileContent) throws IOException {
         saveRecipeToDss(dssInstance.createClient(), monitoredFile, fileContent, true);
+    }
+
+    public static void savePluginFileToDss(DSSClient dssClient, MonitoredPlugin monitoredPlugin, String path, byte[] fileContent) throws IOException {
+        DssPluginFileMetadata file = findFile(monitoredPlugin.plugin.files, path);
+        dssClient.uploadPluginFile(monitoredPlugin.plugin.pluginId, path, fileContent);
+        if (file == null) {
+            file = new DssPluginFileMetadata();
+            file.pluginId = monitoredPlugin.plugin.pluginId;
+            file.instance = monitoredPlugin.plugin.instance;
+            file.path = monitoredPlugin.plugin.pluginId + "/" + path;
+            file.remotePath = path;
+            monitoredPlugin.plugin.files.add(file);
+        }
+        file.contentHash = VirtualFileUtils.getContentHash(fileContent);
+        monitoredPlugin.metadataFile.flush();
     }
 
     public static void saveRecipeToDss(DSSClient dssClient, MonitoredRecipeFile monitoredFile, String fileContent, boolean flushMetadata) throws IOException {
@@ -35,5 +57,15 @@ public class SynchronizerUtils {
                 monitoredFile.metadataFile.flush();
             }
         }
+    }
+
+    // TODO Factorize
+    private static DssPluginFileMetadata findFile(List<DssPluginFileMetadata> files, String path) {
+        for (DssPluginFileMetadata file : files) {
+            if (path.equals(file.remotePath)) {
+                return file;
+            }
+        }
+        return null;
     }
 }

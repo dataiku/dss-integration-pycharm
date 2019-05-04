@@ -111,6 +111,15 @@ public class VirtualFileUtils {
         }
     }
 
+    public static String getRelativePath(VirtualFile base, VirtualFile file) {
+        String baseUrl = base.getUrl();
+        String fileUrl = file.getUrl();
+        if (fileUrl.startsWith(baseUrl) && fileUrl.length() > baseUrl.length()) {
+            return fileUrl.substring(baseUrl.length() + 1);
+        }
+        return null;
+    }
+
     @NotNull
     public static VirtualFile getOrCreateVirtualFile(Object requestor, VirtualFile parent, String... names) throws IOException {
         if (names.length == 0) {
