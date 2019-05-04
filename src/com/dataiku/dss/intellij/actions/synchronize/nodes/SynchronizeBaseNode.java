@@ -5,6 +5,7 @@ import java.util.List;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.TreeNode;
 
+@SuppressWarnings("WeakerAccess")
 public abstract class SynchronizeBaseNode extends DefaultMutableTreeNode {
 
     public SelectionState selectionState;
@@ -24,14 +25,6 @@ public abstract class SynchronizeBaseNode extends DefaultMutableTreeNode {
             ((SynchronizeBaseNode) getChildAt(i)).select();
         }
         updateParentState();
-    }
-
-    private void updateParentState() {
-        SynchronizeBaseNode parent = (SynchronizeBaseNode) getParent();
-        if (parent != null) {
-            parent.selectionState = parent.getChildrenAggregateState();
-            parent.updateParentState();
-        }
     }
 
     public void toggle() {
@@ -77,10 +70,14 @@ public abstract class SynchronizeBaseNode extends DefaultMutableTreeNode {
                 return SelectionState.PARTLY_SELECTED;
             }
         }
-        if (aggState == null) {
-            List<SynchronizeBaseNode> checkinBaseNodes = listChildren();
-            System.out.println("Pouf");
-        }
         return aggState;
+    }
+
+    private void updateParentState() {
+        SynchronizeBaseNode parent = (SynchronizeBaseNode) getParent();
+        if (parent != null) {
+            parent.selectionState = parent.getChildrenAggregateState();
+            parent.updateParentState();
+        }
     }
 }

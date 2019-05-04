@@ -17,7 +17,7 @@ public class SynchronizeStep1 extends AbstractWizardStepEx {
     private SynchronizeTree selectionTree;
     private JPanel mainPanel;
 
-    public SynchronizeStep1(SynchronizeModel model) {
+    SynchronizeStep1(SynchronizeModel model) {
         super("");
 
         // If there is only one DSS instance, start the tree from this node, otherwise start from the root node.

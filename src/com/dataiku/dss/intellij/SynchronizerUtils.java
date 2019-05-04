@@ -10,16 +10,16 @@ import com.dataiku.dss.model.metadata.DssRecipeMetadata;
 
 public class SynchronizerUtils {
 
-    public static void saveRecipeToDss(DssSettings dssSettings, MonitoredFile monitoredFile, String fileContent) throws IOException {
+    public static void saveRecipeToDss(DssSettings dssSettings, MonitoredRecipeFile monitoredFile, String fileContent) throws IOException {
         DSSClient dssClient = dssSettings.getDssClient(monitoredFile.recipe.instance);
         saveRecipeToDss(dssClient, monitoredFile, fileContent, true);
     }
 
-    public static void saveRecipeToDss(DssServer dssInstance, MonitoredFile monitoredFile, String fileContent) throws IOException {
+    public static void saveRecipeToDss(DssServer dssInstance, MonitoredRecipeFile monitoredFile, String fileContent) throws IOException {
         saveRecipeToDss(dssInstance.createClient(), monitoredFile, fileContent, true);
     }
 
-    public static void saveRecipeToDss(DSSClient dssClient, MonitoredFile monitoredFile, String fileContent, boolean flushMetadata) throws IOException {
+    public static void saveRecipeToDss(DSSClient dssClient, MonitoredRecipeFile monitoredFile, String fileContent, boolean flushMetadata) throws IOException {
         // File has been updated locally, it needs to be sent to DSS.
         DssRecipeMetadata recipe = monitoredFile.recipe;
         RecipeAndPayload existingRecipe = dssClient.loadRecipe(recipe.projectKey, recipe.recipeName);

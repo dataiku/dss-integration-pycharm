@@ -26,9 +26,10 @@ import com.intellij.openapi.vfs.VirtualFileMoveEvent;
 public class MonitoredFilesIndex implements ApplicationComponent {
     private static final Logger log = Logger.getInstance(MonitoredFilesIndex.class);
 
-    private final Map<String/*Path of file*/, MonitoredFile> monitoredFiles = new HashMap<>();
+    private final Map<String/*Path of file*/, MonitoredRecipeFile> monitoredRecipeFiles = new HashMap<>();
     private final Map<String/*Path of plugin base directory*/, MonitoredPlugin> monitoredPlugins = new HashMap<>();
     private final MetadataFilesIndex metadataFilesIndex;
+    public static final Object synchronizationLock = new Object();
 
     public static MonitoredFilesIndex getInstance() {
         return ComponentUtils.getComponent(MonitoredFilesIndex.class);
@@ -44,7 +45,6 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         return "DSSMonitoredFilesIndex";
     }
 
-
     @Override
     public void initComponent() {
         // Scan all open projects, then register a listener to be called whenever a project is opened/closed
@@ -55,49 +55,63 @@ public class MonitoredFilesIndex implements ApplicationComponent {
 
     @Override
     public void disposeComponent() {
-        monitoredFiles.clear();
+        monitoredRecipeFiles.clear();
         monitoredPlugins.clear();
     }
 
-    public synchronized void index(VirtualFile monitoredFile, MetadataFile metadataFile, DssRecipeMetadata recipe) {
+    public void index(VirtualFile monitoredFile, MetadataFile metadataFile, DssRecipeMetadata recipe) {
         Preconditions.checkNotNull(monitoredFile, "monitoredFile");
         Preconditions.checkNotNull(metadataFile, "metadataFile");
         Preconditions.checkNotNull(recipe, "recipe");
 
-        index(new MonitoredFile(monitoredFile, metadataFile, recipe));
+        synchronized (synchronizationLock) {
+            index(new MonitoredRecipeFile(monitoredFile, metadataFile, recipe));
+        }
     }
 
-    public synchronized void index(MonitoredFile monitoredFile) {
+    public void index(MonitoredRecipeFile monitoredFile) {
         Preconditions.checkNotNull(monitoredFile, "monitoredFile");
         log.info(String.format("Start tracking file '%s' corresponding to recipe '%s'.", monitoredFile.file, monitoredFile.recipe));
-        monitoredFiles.put(monitoredFile.file.getCanonicalPath(), monitoredFile);
+        synchronized (synchronizationLock) {
+            monitoredRecipeFiles.put(monitoredFile.file.getCanonicalPath(), monitoredFile);
+        }
     }
 
-    public synchronized void index(MonitoredPlugin monitoredPlugin) {
+    public void index(MonitoredPlugin monitoredPlugin) {
         Preconditions.checkNotNull(monitoredPlugin, "monitoredPlugin");
         log.info(String.format("Start tracking directory '%s' corresponding to plugin '%s'.", monitoredPlugin.pluginBaseDir, monitoredPlugin.plugin.pluginId));
-        monitoredPlugins.put(monitoredPlugin.pluginBaseDir.getCanonicalPath(), monitoredPlugin);
+        synchronized (synchronizationLock) {
+            monitoredPlugins.put(monitoredPlugin.pluginBaseDir.getCanonicalPath(), monitoredPlugin);
+        }
     }
 
-    public synchronized void removeFromIndex(MonitoredFile monitoredFile) {
+    public void removeFromIndex(MonitoredRecipeFile monitoredFile) {
         Preconditions.checkNotNull(monitoredFile, "monitoredFile");
         log.info(String.format("Stop tracking file '%s' corresponding to recipe '%s'.", monitoredFile.file, monitoredFile.recipe));
-        monitoredFiles.remove(monitoredFile.file.getCanonicalPath());
+        synchronized (synchronizationLock) {
+            monitoredRecipeFiles.remove(monitoredFile.file.getCanonicalPath());
+        }
     }
 
-    public synchronized MonitoredFile getMonitoredFile(VirtualFile file) {
+    public MonitoredRecipeFile getMonitoredFile(VirtualFile file) {
         if (file == null) {
             return null;
         }
-        return monitoredFiles.get(file.getCanonicalPath());
+        synchronized (synchronizationLock) {
+            return monitoredRecipeFiles.get(file.getCanonicalPath());
+        }
     }
 
-    public synchronized List<MonitoredFile> getMonitoredFiles() {
-        return new ArrayList<>(monitoredFiles.values());
+    public List<MonitoredRecipeFile> getMonitoredRecipeFiles() {
+        synchronized (synchronizationLock) {
+            return new ArrayList<>(monitoredRecipeFiles.values());
+        }
     }
 
-    public synchronized List<MonitoredPlugin> getMonitoredPlugins() {
-        return new ArrayList<>(monitoredPlugins.values());
+    public List<MonitoredPlugin> getMonitoredPlugins() {
+        synchronized (synchronizationLock) {
+            return new ArrayList<>(monitoredPlugins.values());
+        }
     }
 
     private void index(Project[] projects) {
@@ -108,7 +122,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
                     for (DssRecipeMetadata recipe : metadataFile.metadata.recipes) {
                         VirtualFile recipeFile = moduleContentRoot.findFileByRelativePath(recipe.path);
                         if (recipeFile != null && recipeFile.isValid()) {
-                            index(new MonitoredFile(recipeFile, metadataFile, recipe));
+                            index(new MonitoredRecipeFile(recipeFile, metadataFile, recipe));
                         }
                     }
                     for (DssPluginMetadata plugin : metadataFile.metadata.plugins) {
@@ -141,7 +155,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         @Override
         public void fileDeleted(@NotNull VirtualFileEvent event) {
             VirtualFile file = event.getFile();
-            MonitoredFile monitoredFile = getMonitoredFile(file);
+            MonitoredRecipeFile monitoredFile = getMonitoredFile(file);
             if (monitoredFile != null) {
                 removeFromIndex(monitoredFile);
                 try {

@@ -65,7 +65,7 @@ public class SynchronizeAction extends AnAction implements DumbAware {
         private final Project project;
         private final SynchronizeModel model;
 
-        public SynchronizationNotificationListener(Project project, SynchronizeModel model) {
+        SynchronizationNotificationListener(Project project, SynchronizeModel model) {
             this.project = project;
             this.model = model;
         }

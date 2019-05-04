@@ -3,9 +3,9 @@ package com.dataiku.dss.intellij.actions.synchronize;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.dataiku.dss.intellij.MonitoredFile;
 import com.dataiku.dss.intellij.MonitoredFilesIndex;
 import com.dataiku.dss.intellij.MonitoredPlugin;
+import com.dataiku.dss.intellij.MonitoredRecipeFile;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugin;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipe;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRoot;
@@ -16,7 +16,7 @@ import com.intellij.ide.wizard.AbstractWizardEx;
 import com.intellij.ide.wizard.AbstractWizardStepEx;
 import com.intellij.openapi.project.Project;
 
-public class SynchronizeWizard {
+class SynchronizeWizard {
     private SynchronizeModel model;
     private AbstractWizardEx wizard;
 
@@ -46,7 +46,7 @@ public class SynchronizeWizard {
 
     private SynchronizeModel buildModel(MonitoredFilesIndex monitoredFilesIndex) {
         SynchronizeNodeRoot root = new SynchronizeNodeRoot();
-        addRecipes(root, monitoredFilesIndex.getMonitoredFiles());
+        addRecipes(root, monitoredFilesIndex.getMonitoredRecipeFiles());
         addPlugins(root, monitoredFilesIndex.getMonitoredPlugins());
 
         SynchronizeModel result = new SynchronizeModel();
@@ -64,7 +64,7 @@ public class SynchronizeWizard {
         });
     }
 
-    private void addRecipes(SynchronizeNodeRoot root, List<MonitoredFile> monitoredFiles) {
+    private void addRecipes(SynchronizeNodeRoot root, List<MonitoredRecipeFile> monitoredFiles) {
         monitoredFiles.forEach(monitoredFile -> {
             DssServer dssInstance = DssSettings.getInstance().getDssServer(monitoredFile.recipe.instance);
             if (dssInstance != null) {

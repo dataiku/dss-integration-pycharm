@@ -111,17 +111,16 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             VirtualFile modifiedFile = FileDocumentManager.getInstance().getFile(document);
             if (modifiedFile != null) {
                 ApplicationManager.getApplication().invokeLater(() -> {
-                    MonitoredFile monitoredFile = monitoredFilesIndex.getMonitoredFile(modifiedFile);
+                    MonitoredRecipeFile monitoredFile = monitoredFilesIndex.getMonitoredFile(modifiedFile);
                     if (monitoredFile != null) {
                         log.info(String.format("Detected save operation on monitored file '%s'.", modifiedFile));
-                        syncModifiedFile(monitoredFile);
-
+                        syncModifiedRecipeFile(monitoredFile);
                     }
                 });
             }
         }
 
-        private void syncModifiedFile(MonitoredFile monitoredFile) {
+        private void syncModifiedRecipeFile(MonitoredRecipeFile monitoredFile) {
             try {
                 String fileContent = ReadAction.compute(() -> VirtualFileUtils.readVirtualFile(monitoredFile.file));
                 if (getContentHash(fileContent) != monitoredFile.recipe.contentHash) {

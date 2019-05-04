@@ -34,7 +34,7 @@ class SynchronizerWorker {
         log.info("Starting synchronization of monitored files");
         try {
             // Detect changes (we're not reading files through IntelliJ anymore, we're doing it from the local filesystem, so no protection needed)
-            for (MonitoredFile monitoredFile : monitoredFilesIndex.getMonitoredFiles()) {
+            for (MonitoredRecipeFile monitoredFile : monitoredFilesIndex.getMonitoredRecipeFiles()) {
                 try {
                     detectAndProcessChanges(monitoredFile);
                 } catch (IOException | RuntimeException e) {
@@ -56,7 +56,7 @@ class SynchronizerWorker {
     /**
      * Check whether recipe has been updated on DSS side, and if changes are detected, update the local files.
      */
-    private void detectAndProcessChanges(MonitoredFile monitoredFile) throws IOException {
+    private void detectAndProcessChanges(MonitoredRecipeFile monitoredFile) throws IOException {
         DssRecipeMetadata recipe = monitoredFile.recipe;
         Recipe dssRecipe = recipeCache.getRecipe(recipe.instance, recipe.projectKey, recipe.recipeName);
         if (dssRecipe == null) {
@@ -106,7 +106,7 @@ class SynchronizerWorker {
     /**
      * Recipe has been updated on DSS side, update the local file.
      */
-    private void updateLocalRecipe(MonitoredFile monitoredFile) throws IOException {
+    private void updateLocalRecipe(MonitoredRecipeFile monitoredFile) throws IOException {
         DssRecipeMetadata recipe = monitoredFile.recipe;
         DSSClient dssClient = dssSettings.getDssClient(recipe.instance);
         RecipeAndPayload recipeAndPayload = dssClient.loadRecipe(recipe.projectKey, recipe.recipeName);

@@ -19,8 +19,9 @@ import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.MetadataFile;
-import com.dataiku.dss.intellij.MonitoredFile;
+import com.dataiku.dss.intellij.MonitoredFilesIndex;
 import com.dataiku.dss.intellij.MonitoredPlugin;
+import com.dataiku.dss.intellij.MonitoredRecipeFile;
 import com.dataiku.dss.intellij.VirtualFileUtils;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeDssInstance;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugin;
@@ -41,49 +42,51 @@ import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileVisitor;
 
-public class SynchronizeWorker {
+class SynchronizeWorker {
     private static final Logger log = Logger.getInstance(SynchronizeWorker.class);
     private final SynchronizeModel model;
     private Object requestor = this;
     private Set<MetadataFile> dirtyMetadataFiles = new HashSet<>();
     private SynchronizeSummary summary = new SynchronizeSummary();
 
-    public SynchronizeWorker(SynchronizeModel model) {
+    SynchronizeWorker(SynchronizeModel model) {
         Preconditions.checkNotNull(model, "model");
         Preconditions.checkNotNull(model.selectionRootNode, "model.rootNode");
         this.model = model;
     }
 
-    public void synchronizeWithDSS() throws IOException {
-        for (SynchronizeNodeDssInstance instanceNode : model.selectionRootNode.getInstanceNodes()) {
-            SynchronizeNodeRecipes recipesNode = instanceNode.getRecipesNode();
-            if (recipesNode != null) {
-                for (SynchronizeNodeRecipeProject projectNode : recipesNode.getProjectNodes()) {
-                    for (SynchronizeNodeRecipe recipeNode : projectNode.getRecipeNodes()) {
-                        if (recipeNode.isSelected()) {
-                            synchronizeRecipe(instanceNode.dssServer, recipeNode.recipe);
+    void synchronizeWithDSS() throws IOException {
+        synchronized (MonitoredFilesIndex.synchronizationLock) {
+            for (SynchronizeNodeDssInstance instanceNode : model.selectionRootNode.getInstanceNodes()) {
+                SynchronizeNodeRecipes recipesNode = instanceNode.getRecipesNode();
+                if (recipesNode != null) {
+                    for (SynchronizeNodeRecipeProject projectNode : recipesNode.getProjectNodes()) {
+                        for (SynchronizeNodeRecipe recipeNode : projectNode.getRecipeNodes()) {
+                            if (recipeNode.isSelected()) {
+                                synchronizeRecipe(instanceNode.dssServer, recipeNode.recipe);
+                            }
+                        }
+                    }
+                }
+
+                SynchronizeNodePlugins pluginsNode = instanceNode.getPluginsNode();
+                if (pluginsNode != null) {
+                    for (SynchronizeNodePlugin pluginNode : pluginsNode.getPluginNodes()) {
+                        if (pluginNode.isSelected()) {
+                            synchronizePlugin(instanceNode.dssServer, pluginNode.monitoredPlugin);
                         }
                     }
                 }
             }
 
-            SynchronizeNodePlugins pluginsNode = instanceNode.getPluginsNode();
-            if (pluginsNode != null) {
-                for (SynchronizeNodePlugin pluginNode : pluginsNode.getPluginNodes()) {
-                    if (pluginNode.isSelected()) {
-                        synchronizePlugin(instanceNode.dssServer, pluginNode.monitoredPlugin);
-                    }
-                }
+            for (MetadataFile dirtyMetadataFile : dirtyMetadataFiles) {
+                dirtyMetadataFile.flush();
             }
+            model.summary = summary;
         }
-
-        for (MetadataFile dirtyMetadataFile : dirtyMetadataFiles) {
-            dirtyMetadataFile.flush();
-        }
-        model.summary = summary;
     }
 
-    private void synchronizeRecipe(DssServer dssServer, MonitoredFile monitoredFile) throws IOException {
+    private void synchronizeRecipe(DssServer dssServer, MonitoredRecipeFile monitoredFile) throws IOException {
         DSSClient dssClient = dssServer.createClient();
         RecipeAndPayload recipeAndPayload = dssClient.loadRecipe(monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
         if (recipeAndPayload == null) {
