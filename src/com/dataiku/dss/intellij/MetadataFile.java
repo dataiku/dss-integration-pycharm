@@ -68,7 +68,7 @@ public class MetadataFile {
         }
     }
 
-    public synchronized void addOrUpdatePluginFile(DssPluginFileMetadata fileMetadata) throws IOException {
+    public synchronized void addOrUpdatePluginFile(DssPluginFileMetadata fileMetadata, boolean flush) throws IOException {
         Preconditions.checkNotNull(fileMetadata, "fileMetadata");
 
         // Update our recipe
@@ -81,10 +81,12 @@ public class MetadataFile {
         pluginMetadata.files.add(fileMetadata);
 
         // Write the file back
-        flush();
+        if (flush) {
+            flush();
+        }
     }
 
-    public synchronized void removePluginFile(DssPluginFileMetadata fileMetadata) throws IOException {
+    public synchronized void removePluginFile(DssPluginFileMetadata fileMetadata, boolean flush) throws IOException {
         Preconditions.checkNotNull(fileMetadata, "fileMetadata");
 
         DssPluginMetadata pluginMetadata = metadata.getPluginById(fileMetadata.pluginId);
@@ -92,7 +94,9 @@ public class MetadataFile {
             pluginMetadata.files.removeIf(f -> f.path.equals(fileMetadata.path));
 
             // Write the file back
-            flush();
+            if (flush) {
+                flush();
+            }
         }
     }
 

@@ -31,7 +31,9 @@ import com.intellij.openapi.projectRoots.ProjectJdkTable;
 import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.projectRoots.SdkType;
 import com.intellij.openapi.roots.ModuleRootManager;
+import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.util.SystemInfo;
+import com.intellij.openapi.vfs.VirtualFile;
 
 public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     static final Object ID = "CheckoutStep2Recipe";
@@ -45,13 +47,13 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private JComboBox<ProjectItem> projectComboBox;
     private JList<RecipeItem> recipesList;
     private DefaultListModel<RecipeItem> recipesListItems = new DefaultListModel<>();
+    private JLabel locationLabel;
     private JTextField locationTextField;
     private JCheckBox runConfigurationCheckBox;
     private JComboBox<SdkItem> sdkComboBox;
     private JButton installClientLibsButton;
     private JLabel installClientLibsWarningLabel;
     private JPanel runConfigurationPanel;
-    private JLabel errorLabel;
     private JPanel installClientLibsPanel;
     private JPanel sdkPanel;
     private JLabel sdkLabel;
@@ -62,12 +64,12 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
 
         projectComboBox.addActionListener(e -> {
             if (e.getActionCommand().equals("comboBoxChanged")) {
-                resetError();
                 try {
                     updateRecipes();
                     updateCheckoutLocation();
                 } catch (Exception ex) {
-                    showError("Can't list recipes for selected project and DSS instance.", ex);
+                    log.error("Can't list recipes for selected project and DSS instance.", ex);
+                    Messages.showErrorDialog("Can't list recipes for selected project and DSS instance.", "Error");
                 }
             }
         });
@@ -120,22 +122,12 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     @Override
     public void _init() {
         super._init();
-        resetError();
         try {
             init();
         } catch (DssException e) {
-            showError("Unable to retrieve projects from DSS instance (more details in tooltip).", e);
+            log.error("Unable to retrieve projects from DSS instance", e);
+            Messages.showErrorDialog("Unable to retrieve projects from DSS instance", "Error");
         }
-    }
-
-    private void resetError() {
-        errorLabel.setVisible(false);
-    }
-
-    private void showError(String msg, Exception e) {
-        errorLabel.setVisible(true);
-        errorLabel.setText(msg);
-        errorLabel.setToolTipText(e.getMessage());
     }
 
     @NotNull
@@ -258,7 +250,11 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private void updateCheckoutLocation() {
         ProjectItem projectItem = (ProjectItem) projectComboBox.getSelectedItem();
         if (projectItem != null) {
-            locationTextField.setText(projectItem.dssServer.name + "/" + projectItem.projectKey);
+            VirtualFile[] contentRoots = ModuleRootManager.getInstance(model.module).getContentRoots();
+            if (contentRoots.length > 0 && contentRoots[0] != null) {
+                locationLabel.setText(contentRoots[0].getName() + "/");
+            }
+            locationTextField.setText(projectItem.projectKey);
         }
     }
 

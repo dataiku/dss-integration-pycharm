@@ -4,5 +4,4 @@ import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRoot;
 
 class SynchronizeModel {
     SynchronizeNodeRoot selectionRootNode;
-    SynchronizeSummary summary;
 }

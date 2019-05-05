@@ -10,8 +10,20 @@ public class DssServer {
     public String baseUrl;
     public String encryptedApiKey;
     public boolean noCheckCertificate;
+    public boolean readonly; // true when server has been created from environment variable or ~/.dataiku/config.json
 
     public DssServer() {
+    }
+
+    public DssServer(String name, String baseUrl, String encryptedApiKey, boolean noCheckCertificate) {
+        this.name = name;
+        this.baseUrl = baseUrl;
+        this.encryptedApiKey = encryptedApiKey;
+        this.noCheckCertificate = noCheckCertificate;
+    }
+
+    public DssServer(String name, String baseUrl, String encryptedApiKey) {
+        this(name, baseUrl, encryptedApiKey, false);
     }
 
     @Override

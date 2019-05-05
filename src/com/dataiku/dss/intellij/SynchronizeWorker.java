@@ -1,4 +1,4 @@
-package com.dataiku.dss.intellij.actions.synchronize;
+package com.dataiku.dss.intellij;
 
 import static com.dataiku.dss.intellij.SynchronizerUtils.saveRecipeToDss;
 import static com.dataiku.dss.intellij.VirtualFileUtils.getContentHash;
@@ -7,10 +7,11 @@ import static com.dataiku.dss.intellij.VirtualFileUtils.getOrCreateVirtualFile;
 import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -18,83 +19,62 @@ import java.util.Set;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.MetadataFile;
-import com.dataiku.dss.intellij.MonitoredFilesIndex;
-import com.dataiku.dss.intellij.MonitoredPlugin;
-import com.dataiku.dss.intellij.MonitoredRecipeFile;
-import com.dataiku.dss.intellij.VirtualFileUtils;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeDssInstance;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugin;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugins;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipe;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipeProject;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipes;
 import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.FolderContent;
+import com.dataiku.dss.model.dss.Recipe;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.dataiku.dss.model.metadata.DssPluginMetadata;
-import com.google.common.base.Preconditions;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.openapi.vfs.VirtualFileVisitor;
 
-class SynchronizeWorker {
+public class SynchronizeWorker {
     private static final Logger log = Logger.getInstance(SynchronizeWorker.class);
-    private final SynchronizeModel model;
-    private Object requestor = this;
+    private static final String DELETED_SUFFIX = ".deleted";
+    private static final String REMOTE_SUFFIX = ".remote";
+    private final DssSettings settings;
+
+    private final DataikuDSSPlugin requestor;
+    private final RecipeCache recipeCache;
     private Set<MetadataFile> dirtyMetadataFiles = new HashSet<>();
     private SynchronizeSummary summary = new SynchronizeSummary();
 
-    SynchronizeWorker(SynchronizeModel model) {
-        Preconditions.checkNotNull(model, "model");
-        Preconditions.checkNotNull(model.selectionRootNode, "model.rootNode");
-        this.model = model;
+    public SynchronizeWorker(DataikuDSSPlugin dssPlugin, DssSettings settings, RecipeCache recipeCache) {
+        this.settings = settings;
+        this.requestor = dssPlugin;
+        this.recipeCache = recipeCache;
     }
 
-    void synchronizeWithDSS() throws IOException {
-        synchronized (MonitoredFilesIndex.synchronizationLock) {
-            for (SynchronizeNodeDssInstance instanceNode : model.selectionRootNode.getInstanceNodes()) {
-                SynchronizeNodeRecipes recipesNode = instanceNode.getRecipesNode();
-                if (recipesNode != null) {
-                    for (SynchronizeNodeRecipeProject projectNode : recipesNode.getProjectNodes()) {
-                        for (SynchronizeNodeRecipe recipeNode : projectNode.getRecipeNodes()) {
-                            if (recipeNode.isSelected()) {
-                                synchronizeRecipe(instanceNode.dssServer, recipeNode.recipe);
-                            }
-                        }
-                    }
-                }
-
-                SynchronizeNodePlugins pluginsNode = instanceNode.getPluginsNode();
-                if (pluginsNode != null) {
-                    for (SynchronizeNodePlugin pluginNode : pluginsNode.getPluginNodes()) {
-                        if (pluginNode.isSelected()) {
-                            synchronizePlugin(instanceNode.dssServer, pluginNode.monitoredPlugin);
-                        }
-                    }
-                }
-            }
-
-            for (MetadataFile dirtyMetadataFile : dirtyMetadataFiles) {
-                dirtyMetadataFile.flush();
-            }
-            model.summary = summary;
+    public SynchronizeSummary synchronizeWithDSS(SynchronizeRequest request) throws IOException {
+        log.info("Starting synchronization at " + DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(LocalDateTime.now()));
+        for (MonitoredRecipeFile recipeFile : request.recipeFiles) {
+            DssServer dssServer = settings.getDssServer(recipeFile.recipe.instance);
+            synchronizeRecipe(dssServer, recipeFile);
         }
+        for (MonitoredPlugin plugin : request.plugins) {
+            DssServer dssServer = settings.getDssServer(plugin.plugin.instance);
+            synchronizePlugin(dssServer, plugin);
+        }
+
+        for (MetadataFile dirtyMetadataFile : dirtyMetadataFiles) {
+            dirtyMetadataFile.flush();
+        }
+        return summary;
     }
 
     private void synchronizeRecipe(DssServer dssServer, MonitoredRecipeFile monitoredFile) throws IOException {
         DSSClient dssClient = dssServer.createClient();
-        RecipeAndPayload recipeAndPayload = dssClient.loadRecipe(monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
-        if (recipeAndPayload == null) {
+        Recipe recipe = recipeCache.getRecipe(dssServer.name, monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
+        if (recipe == null) {
             Messages.showErrorDialog(String.format("Recipe '%s' has been deleted from project '%s' on DSS instance.", monitoredFile.recipe.recipeName, monitoredFile.recipe.projectKey), "Synchronization Error");
             return;
         }
-        int remoteHash = getContentHash(recipeAndPayload.payload);
-        long remoteVersionNumber = recipeAndPayload.recipe.versionTag.versionNumber;
+        long remoteVersionNumber = recipe.versionTag.versionNumber;
         int originalHash = monitoredFile.recipe.contentHash;
         long originalVersionNumber = monitoredFile.recipe.versionNumber;
         String localFileContent = VirtualFileUtils.readVirtualFile(monitoredFile.file);
@@ -109,9 +89,16 @@ class SynchronizeWorker {
                 dirtyMetadataFiles.add(monitoredFile.metadataFile);
                 summary.dssUpdated.add(String.format("Recipe '%s.%s' saved into DSS instance.", monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName));
             } else {
-                log.info(String.format("Recipe '%s' has not been locally or remote modified since last synchronization.", monitoredFile.recipe));
+                log.info(String.format("Recipe '%s' has not been locally or remotely modified since last synchronization.", monitoredFile.recipe));
             }
         } else {
+            RecipeAndPayload recipeAndPayload = dssClient.loadRecipe(monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
+            if (recipeAndPayload == null) {
+                Messages.showErrorDialog(String.format("Recipe '%s' cannot be loaded from project '%s' on DSS instance.", monitoredFile.recipe.recipeName, monitoredFile.recipe.projectKey), "Synchronization Error");
+                return;
+            }
+            int remoteHash = getContentHash(recipeAndPayload.payload);
+
             // Changed on remote server since last synchronization
             if (remoteHash == localHash) {
                 // Both files have been changed in the same way. Just update the metadata on our side.
@@ -129,18 +116,17 @@ class SynchronizeWorker {
                     summary.locallyUpdated.add(String.format("Recipe '%s.%s' updated with latest version found on DSS instance.", monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName));
                 } else {
                     // Conflict!! Save remote file as .remote and send the local version to DSS
-                    log.info(String.format("Conflict detected for recipe '%s' Uploading it and saving remote version locally with '.remote' extension.", monitoredFile.recipe));
+                    log.info(String.format("Conflict detected for recipe '%s' Uploading it and saving remote version locally with '%s' extension.", monitoredFile.recipe, REMOTE_SUFFIX));
                     saveRecipeToDss(dssClient, monitoredFile, localFileContent, false);
                     dirtyMetadataFiles.add(monitoredFile.metadataFile);
 
-                    VirtualFile newFile = VirtualFileUtils.getOrCreateVirtualFile(requestor, monitoredFile.file.getParent(), monitoredFile.file.getName() + ".remote");
+                    VirtualFile newFile = VirtualFileUtils.getOrCreateVirtualFile(requestor, monitoredFile.file.getParent(), monitoredFile.file.getName() + REMOTE_SUFFIX);
                     VirtualFileUtils.writeToVirtualFile(newFile, recipeAndPayload.payload.getBytes(UTF_8), UTF_8);
-                    summary.conflicts.add(String.format("Recipe '%s.%s' both modified locally and remotely. Local version has been saved into DSS and remote version has been saved locally with '.remote' extension.", monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName));
+                    summary.conflicts.add(String.format("Recipe '%s.%s' both modified locally and remotely. Local version has been saved into DSS and remote version has been saved locally with '%s' extension.", monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName, REMOTE_SUFFIX));
                 }
             }
         }
     }
-
 
     private void synchronizePlugin(DssServer dssInstance, MonitoredPlugin monitoredPlugin) throws IOException {
         DSSClient dssClient = dssInstance.createClient();
@@ -162,7 +148,7 @@ class SynchronizeWorker {
                 String fileUrl = file.getUrl();
                 if (fileUrl.startsWith(baseUrl) && fileUrl.length() > baseUrl.length()) {
                     String path = fileUrl.substring(baseUrl.length() + 1);
-                    if (!index.containsKey(path) && !file.isDirectory() && !file.getName().endsWith(".remote")) {
+                    if (!index.containsKey(path) && !file.isDirectory() && !file.getName().endsWith(REMOTE_SUFFIX) && !file.getName().endsWith(DELETED_SUFFIX)) {
                         missingFiles.add(file);
                     }
                 }
@@ -175,7 +161,7 @@ class SynchronizeWorker {
             byte[] content = VirtualFileUtils.readVirtualFileAsByteArray(file);
             int contentHash = VirtualFileUtils.getContentHash(content);
 
-            DssPluginFileMetadata trackedFile = findFile(monitoredPlugin.plugin.files, path);
+            DssPluginFileMetadata trackedFile = monitoredPlugin.findFile(path);
             if (trackedFile == null) {
                 // Newly added => sent it to DSS
                 log.info(String.format("Uploading locally added plugin file '%s' (path=%s)", file.getName(), path));
@@ -186,7 +172,7 @@ class SynchronizeWorker {
                 // Has been modified locally?
                 if (trackedFile.contentHash != contentHash) {
                     // Rename the file into ".deleted" and stop tracking it.
-                    String newName = findNonExistingFilename(file, file.getName() + ".deleted");
+                    String newName = findNonExistingFilename(file, file.getName() + DELETED_SUFFIX);
                     VirtualFileUtils.renameVirtualFile(requestor, file, newName);
                     summary.conflicts.add(String.format("Plugin file '%s' removed from DSS instance but modified locally. Local copy has been renamed into '%s'.", path, newName));
                 } else {
@@ -199,39 +185,10 @@ class SynchronizeWorker {
         }
     }
 
-    private String findNonExistingFilename(VirtualFile file, String newName) {
-        VirtualFile parent = file.getParent();
-        if (parent.findChild(newName) == null) {
-            return newName;
-        }
-        int index = 1;
-        while (parent.findChild(newName + "(" + index + ")") != null) {
-            index++;
-        }
-        return newName + "(" + index + ")";
-    }
-
-    @NotNull
-    private Map<String, FolderContent> index(List<FolderContent> folderContents) {
-        Map<String, FolderContent> folderContentIndex = new HashMap<>();
-        index(folderContentIndex, folderContents);
-        return folderContentIndex;
-    }
-
-    private void index(Map<String, FolderContent> map, List<FolderContent> folderContents) {
-        if (folderContents == null) {
-            return;
-        }
-        for (FolderContent folderContent : folderContents) {
-            map.put(folderContent.path, folderContent);
-            index(map, folderContent.children);
-        }
-    }
-
     private void synchronizePluginFolder(DSSClient dssClient, MonitoredPlugin monitoredPlugin, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
         String pluginId = monitoredPlugin.plugin.pluginId;
         for (FolderContent pluginFile : folderContents) {
-            DssPluginFileMetadata trackedFile = findFile(monitoredPlugin.plugin.files, pluginFile.path);
+            DssPluginFileMetadata trackedFile = monitoredPlugin.findFile(pluginFile.path);
             if (pluginFile.mimeType == null || "null".equals(pluginFile.mimeType)) {
                 // Folder
                 log.info(String.format("Synchronize plugin folder '%s'", pluginFile.path));
@@ -295,23 +252,22 @@ class SynchronizeWorker {
                             if (remoteHash == localHash) {
                                 // Both files have been changed in the same way. Just update the metadata on our side.
                                 log.info(" - Updated identically both locally and remotely since last synchronization.");
-                                trackedFile.contentHash = remoteHash;
                                 updatePluginFileMetadata(monitoredPlugin, pluginFile.path, remoteHash);
                             } else if (localHash == originalHash) {
                                 // File has not been modified locally, retrieve the remote version.
-                                log.warn(" - Updating local file: it has been updated remotely but not locally.");
+                                log.info(" - Updating local file. It has been updated remotely but not locally.");
                                 VirtualFileUtils.writeToVirtualFile(file, fileContent, UTF_8);
                                 updatePluginFileMetadata(monitoredPlugin, pluginFile.path, remoteHash);
                                 summary.locallyUpdated.add(String.format("Plugin file '%s' updated with latest version from DSS instance.", pluginFile.path));
                             } else {
                                 // Conflict!! Checkout remote file as .remote and send the local version to DSS
-                                log.warn(" - Conflict detected. Uploading it and saving remote version locally with '.remote' extension.");
+                                log.warn(String.format(" - Conflict detected. Uploading it and saving remote version locally with '%s' extension.", REMOTE_SUFFIX));
                                 dssClient.uploadPluginFile(pluginId, pluginFile.path, VirtualFileUtils.readVirtualFileAsByteArray(file));
                                 updatePluginFileMetadata(monitoredPlugin, pluginFile.path, localHash);
 
-                                VirtualFile newFile = getOrCreateVirtualFile(requestor, parent, pluginFile.name + ".remote");
+                                VirtualFile newFile = getOrCreateVirtualFile(requestor, parent, pluginFile.name + REMOTE_SUFFIX);
                                 VirtualFileUtils.writeToVirtualFile(newFile, fileContent, UTF_8);
-                                summary.conflicts.add(String.format("Plugin file '%s' both modified locally and remotely. Local version has been saved into DSS and remote version has been saved locally with '.remote' extension.", pluginFile.path));
+                                summary.conflicts.add(String.format("Plugin file '%s' both modified locally and remotely. Local version has been saved into DSS and remote version has been saved locally with '%s' extension.", pluginFile.path, REMOTE_SUFFIX));
                             }
                         }
                     }
@@ -329,51 +285,56 @@ class SynchronizeWorker {
         }
         log.info(String.format("Deleting plugin file '%s' from plugin '%s'", pluginFile.path, pluginId));
         dssClient.deletePluginFile(pluginId, pluginFile.path);
-        removeFile(monitoredPlugin.plugin.files, pluginFile.path);
+        monitoredPlugin.removeFile(pluginFile.path);
         summary.dssDeleted.add(String.format("Plugin file '%s' deleted from DSS instance.", pluginFile.path));
     }
 
     private void updatePluginFileMetadata(MonitoredPlugin monitoredPlugin, String path, int contentHash) throws IOException {
-        DssPluginMetadata pluginMetadata = monitoredPlugin.plugin;
         String pluginId = monitoredPlugin.plugin.pluginId;
-        DssPluginFileMetadata pluginFileMetadata = findFile(pluginMetadata.files, path);
-        if (pluginFileMetadata == null) {
-            pluginFileMetadata = new DssPluginFileMetadata();
-            pluginMetadata.files.add(pluginFileMetadata);
-        }
-        // Write metadata
-        pluginFileMetadata.pluginId = pluginId;
-        pluginFileMetadata.instance = pluginMetadata.instance;
-        pluginFileMetadata.path = pluginId + "/" + path;
-        pluginFileMetadata.remotePath = path;
-        pluginFileMetadata.contentHash = contentHash;
+        DssPluginFileMetadata pluginFileMetadata = new DssPluginFileMetadata(
+                monitoredPlugin.plugin.instance,
+                pluginId,
+                pluginId + "/" + path,
+                path,
+                contentHash);
+        monitoredPlugin.metadataFile.addOrUpdatePluginFile(pluginFileMetadata, false);
         dirtyMetadataFiles.add(monitoredPlugin.metadataFile);
     }
 
     private void removePluginFileMetadata(MonitoredPlugin monitoredPlugin, String path) throws IOException {
         DssPluginMetadata pluginMetadata = monitoredPlugin.plugin;
-        DssPluginFileMetadata pluginFileMetadata = findFile(pluginMetadata.files, path);
+        DssPluginFileMetadata pluginFileMetadata = pluginMetadata.findFile(path);
         if (pluginFileMetadata != null) {
             pluginMetadata.files.remove(pluginFileMetadata);
         }
         dirtyMetadataFiles.add(monitoredPlugin.metadataFile);
     }
 
-    private DssPluginFileMetadata findFile(List<DssPluginFileMetadata> files, String path) {
-        for (DssPluginFileMetadata file : files) {
-            if (path.equals(file.remotePath)) {
-                return file;
-            }
-        }
-        return null;
+    private static Map<String, FolderContent> index(List<FolderContent> folderContents) {
+        Map<String, FolderContent> folderContentIndex = new HashMap<>();
+        index(folderContentIndex, folderContents);
+        return folderContentIndex;
     }
 
-    private void removeFile(List<DssPluginFileMetadata> files, String path) {
-        for (Iterator<DssPluginFileMetadata> iterator = files.iterator(); iterator.hasNext(); ) {
-            if (path.equals(iterator.next().remotePath)) {
-                iterator.remove();
-                return;
-            }
+    private static void index(Map<String, FolderContent> map, List<FolderContent> folderContents) {
+        if (folderContents == null) {
+            return;
         }
+        for (FolderContent folderContent : folderContents) {
+            map.put(folderContent.path, folderContent);
+            index(map, folderContent.children);
+        }
+    }
+
+    private static String findNonExistingFilename(VirtualFile file, String newName) {
+        VirtualFile parent = file.getParent();
+        if (parent.findChild(newName) == null) {
+            return newName;
+        }
+        int index = 1;
+        while (parent.findChild(newName + "(" + index + ")") != null) {
+            index++;
+        }
+        return newName + "(" + index + ")";
     }
 }

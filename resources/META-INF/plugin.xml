@@ -30,6 +30,10 @@
     <!-- Plugin's application components -->
     <application-components>
         <component>
+            <implementation-class>com.dataiku.dss.intellij.DataikuDSSPlugin</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.DataikuDSSPlugin</interface-class>
+        </component>
+        <component>
             <implementation-class>com.dataiku.dss.intellij.config.DssSettings</implementation-class>
             <interface-class>com.dataiku.dss.intellij.config.DssSettings</interface-class>
         </component>

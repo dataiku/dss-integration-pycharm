@@ -14,7 +14,6 @@ import com.google.common.base.Preconditions;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
-import com.intellij.openapi.project.VetoableProjectManagerListener;
 import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.vfs.VirtualFile;
 
@@ -24,7 +23,6 @@ public class MonitoredFilesIndex implements ApplicationComponent {
     private final Map<String/*Path of file*/, MonitoredRecipeFile> monitoredRecipeFiles = new HashMap<>();
     private final Map<String/*Path of plugin base directory*/, MonitoredPlugin> monitoredPlugins = new HashMap<>();
     private final MetadataFilesIndex metadataFilesIndex;
-    public static final Object synchronizationLock = new Object();
 
     public static MonitoredFilesIndex getInstance() {
         return ComponentUtils.getComponent(MonitoredFilesIndex.class);
@@ -44,7 +42,6 @@ public class MonitoredFilesIndex implements ApplicationComponent {
     public void initComponent() {
         // Scan all open projects, then register a listener to be called whenever a project is opened/closed
         index(ProjectManager.getInstance().getOpenProjects());
-        ProjectManager.getInstance().addProjectManagerListener(new ProjectManagerAdapter());
     }
 
     @Override
@@ -53,62 +50,47 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         monitoredPlugins.clear();
     }
 
-    public void index(VirtualFile monitoredFile, MetadataFile metadataFile, DssRecipeMetadata recipe) {
+    public synchronized void index(VirtualFile monitoredFile, MetadataFile metadataFile, DssRecipeMetadata recipe) {
         Preconditions.checkNotNull(monitoredFile, "monitoredFile");
         Preconditions.checkNotNull(metadataFile, "metadataFile");
         Preconditions.checkNotNull(recipe, "recipe");
-
-        synchronized (synchronizationLock) {
-            index(new MonitoredRecipeFile(monitoredFile, metadataFile, recipe));
-        }
+        index(new MonitoredRecipeFile(monitoredFile, metadataFile, recipe));
     }
 
-    public void index(MonitoredRecipeFile monitoredFile) {
+    public synchronized void index(MonitoredRecipeFile monitoredFile) {
         Preconditions.checkNotNull(monitoredFile, "monitoredFile");
         log.info(String.format("Start tracking file '%s' corresponding to recipe '%s'.", monitoredFile.file, monitoredFile.recipe));
-        synchronized (synchronizationLock) {
-            monitoredRecipeFiles.put(monitoredFile.file.getCanonicalPath(), monitoredFile);
-        }
+        monitoredRecipeFiles.put(monitoredFile.file.getCanonicalPath(), monitoredFile);
     }
 
-    public void index(MonitoredPlugin monitoredPlugin) {
+    public synchronized void index(MonitoredPlugin monitoredPlugin) {
         Preconditions.checkNotNull(monitoredPlugin, "monitoredPlugin");
         log.info(String.format("Start tracking directory '%s' corresponding to plugin '%s'.", monitoredPlugin.pluginBaseDir, monitoredPlugin.plugin.pluginId));
-        synchronized (synchronizationLock) {
-            monitoredPlugins.put(monitoredPlugin.pluginBaseDir.getCanonicalPath(), monitoredPlugin);
-        }
+        monitoredPlugins.put(monitoredPlugin.pluginBaseDir.getCanonicalPath(), monitoredPlugin);
     }
 
-    public void removeFromIndex(MonitoredRecipeFile monitoredFile) {
+    public synchronized void removeFromIndex(MonitoredRecipeFile monitoredFile) {
         Preconditions.checkNotNull(monitoredFile, "monitoredFile");
         log.info(String.format("Stop tracking file '%s' corresponding to recipe '%s'.", monitoredFile.file, monitoredFile.recipe));
-        synchronized (synchronizationLock) {
-            monitoredRecipeFiles.remove(monitoredFile.file.getCanonicalPath());
-        }
+        monitoredRecipeFiles.remove(monitoredFile.file.getCanonicalPath());
     }
 
-    public MonitoredRecipeFile getMonitoredFile(VirtualFile file) {
+    public synchronized MonitoredRecipeFile getMonitoredFile(VirtualFile file) {
         if (file == null) {
             return null;
         }
-        synchronized (synchronizationLock) {
-            return monitoredRecipeFiles.get(file.getCanonicalPath());
-        }
+        return monitoredRecipeFiles.get(file.getCanonicalPath());
     }
 
-    public List<MonitoredRecipeFile> getMonitoredRecipeFiles() {
-        synchronized (synchronizationLock) {
-            return new ArrayList<>(monitoredRecipeFiles.values());
-        }
+    public synchronized List<MonitoredRecipeFile> getMonitoredRecipeFiles() {
+        return new ArrayList<>(monitoredRecipeFiles.values());
     }
 
-    public List<MonitoredPlugin> getMonitoredPlugins() {
-        synchronized (synchronizationLock) {
-            return new ArrayList<>(monitoredPlugins.values());
-        }
+    public synchronized List<MonitoredPlugin> getMonitoredPlugins() {
+        return new ArrayList<>(monitoredPlugins.values());
     }
 
-    public void index(Project[] projects) {
+    public synchronized void index(Project[] projects) {
         for (VirtualFile moduleContentRoot : listModulesRoot(projects)) {
             try {
                 MetadataFile metadataFile = metadataFilesIndex.getMetadata(moduleContentRoot);
@@ -132,6 +114,16 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         }
     }
 
+    public synchronized MonitoredPlugin getMonitoredPlugin(VirtualFile file) {
+        for (MonitoredPlugin plugin : monitoredPlugins.values()) {
+            String path = VirtualFileUtils.getRelativePath(plugin.pluginBaseDir, file);
+            if (path != null) {
+                return plugin;
+            }
+        }
+        return null;
+    }
+
     private List<VirtualFile> listModulesRoot(Project[] projects) {
         Map<String, VirtualFile> result = new HashMap<>();
         for (Project project : projects) {
@@ -143,33 +135,5 @@ public class MonitoredFilesIndex implements ApplicationComponent {
             }
         }
         return new ArrayList<>(result.values());
-    }
-
-    public MonitoredPlugin getMonitoredPlugin(VirtualFile file) {
-        for (MonitoredPlugin plugin : monitoredPlugins.values()) {
-            String path = VirtualFileUtils.getRelativePath(plugin.pluginBaseDir, file);
-            if (path != null) {
-                return plugin;
-            }
-        }
-        return null;
-    }
-
-
-    private class ProjectManagerAdapter implements VetoableProjectManagerListener {
-        @Override
-        public boolean canClose(@NotNull Project project) {
-            return true;
-        }
-
-        @Override
-        public void projectOpened(Project project) {
-            index(new Project[]{project});
-        }
-
-        @Override
-        public void projectClosed(Project project) {
-
-        }
     }
 }

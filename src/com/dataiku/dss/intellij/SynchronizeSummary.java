@@ -1,16 +1,16 @@
-package com.dataiku.dss.intellij.actions.synchronize;
+package com.dataiku.dss.intellij;
 
 import java.util.ArrayList;
 import java.util.List;
 
-class SynchronizeSummary {
-    List<String> locallyDeleted = new ArrayList<>();
-    List<String> locallyUpdated = new ArrayList<>();
-    List<String> dssUpdated = new ArrayList<>();
-    List<String> dssDeleted = new ArrayList<>();
-    List<String> conflicts = new ArrayList<>();
+public class SynchronizeSummary {
+    public List<String> locallyDeleted = new ArrayList<>();
+    public List<String> locallyUpdated = new ArrayList<>();
+    public List<String> dssUpdated = new ArrayList<>();
+    public List<String> dssDeleted = new ArrayList<>();
+    public List<String> conflicts = new ArrayList<>();
 
-    boolean isEmpty() {
+    public boolean isEmpty() {
         return locallyUpdated.isEmpty()
                 && locallyDeleted.isEmpty()
                 && dssUpdated.isEmpty()
@@ -19,7 +19,7 @@ class SynchronizeSummary {
     }
 
 
-    String getQuickSummary() {
+    public String getQuickSummary() {
         StringBuilder sb = new StringBuilder();
         if (!isEmpty()) {
             quickSummaryLine(sb, locallyUpdated.size(), "locally updated");

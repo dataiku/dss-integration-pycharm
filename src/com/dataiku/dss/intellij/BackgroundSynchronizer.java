@@ -6,7 +6,6 @@ import static com.dataiku.dss.intellij.VirtualFileUtils.getContentHash;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -34,12 +33,14 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     private static final Logger log = Logger.getInstance(BackgroundSynchronizer.class);
 
     private final MonitoredFilesIndex monitoredFilesIndex;
+    private final DataikuDSSPlugin dssPlugin;
     private final DssSettings dssSettings;
 
     private ScheduledFuture<?> scheduledFuture;
     private SyncProjectManagerAdapter projectManagerAdapter;
 
-    public BackgroundSynchronizer(DssSettings dssSettings, MonitoredFilesIndex monitoredFilesIndex) {
+    public BackgroundSynchronizer(DataikuDSSPlugin dssPlugin, DssSettings dssSettings, MonitoredFilesIndex monitoredFilesIndex) {
+        this.dssPlugin = dssPlugin;
         this.dssSettings = dssSettings;
         this.monitoredFilesIndex = monitoredFilesIndex;
     }
@@ -78,11 +79,28 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     }
 
     private void runSynchronizer() {
-        new SynchronizerWorker(dssSettings, newRecipeCache(), monitoredFilesIndex, true).run();
+        //new SynchronizerWorker(dssSettings, newRecipeCache(), monitoredFilesIndex, true).run();
+        SynchronizeRequest request = buildRequest(monitoredFilesIndex);
+        if (!request.isEmpty()) {
+            try {
+                SynchronizeSummary summary = new SynchronizeWorker(dssPlugin, dssSettings, newRecipeCache()).synchronizeWithDSS(request);
+                if (!summary.isEmpty()) {
+                    SynchronizerUtils.notifySynchronizationComplete(summary, null);
+                }
+            } catch (IOException e) {
+                SynchronizerUtils.notifySynchronizationFailure(e, null);
+            }
+        }
+    }
+
+    private SynchronizeRequest buildRequest(MonitoredFilesIndex monitoredFilesIndex) {
+        return new SynchronizeRequest(monitoredFilesIndex.getMonitoredRecipeFiles(),
+                monitoredFilesIndex.getMonitoredPlugins());
     }
 
     private void runDssToLocalSynchronizer() {
-        new SynchronizerWorker(dssSettings, newRecipeCache(), monitoredFilesIndex, false).run();
+        runSynchronizer();
+        //new SynchronizerWorker(dssSettings, newRecipeCache(), monitoredFilesIndex, false).run();
     }
 
     private RecipeCache newRecipeCache() {
@@ -175,30 +193,21 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
         private void syncModifiedPluginFile(MonitoredPlugin monitoredPlugin, VirtualFile modifiedFile) {
             String path = VirtualFileUtils.getRelativePath(monitoredPlugin.pluginBaseDir, modifiedFile);
-            DssPluginFileMetadata trackedFile = findFile(monitoredPlugin.plugin.files, path);
+            DssPluginFileMetadata trackedFile = monitoredPlugin.findFile(path);
             try {
                 byte[] fileContent = ReadAction.compute(() -> VirtualFileUtils.readVirtualFileAsByteArray(modifiedFile));
                 if (trackedFile == null) {
                     // New file, send it to DSS
-                    savePluginFileToDss(dssSettings, monitoredPlugin, path, fileContent);
+                    savePluginFileToDss(dssSettings, monitoredPlugin, path, fileContent, true);
                 } else {
                     if (getContentHash(fileContent) != trackedFile.contentHash) {
                         log.info(String.format("Plugin file '%s' has been locally modified. Saving it onto the remote DSS instance", path));
-                        savePluginFileToDss(dssSettings, monitoredPlugin, path, fileContent);
+                        savePluginFileToDss(dssSettings, monitoredPlugin, path, fileContent, true);
                     }
                 }
             } catch (IOException e) {
                 log.warn(String.format("Unable to synchronize plugin file '%s'.", path), e);
             }
-        }
-
-        private DssPluginFileMetadata findFile(List<DssPluginFileMetadata> files, String path) {
-            for (DssPluginFileMetadata file : files) {
-                if (path.equals(file.remotePath)) {
-                    return file;
-                }
-            }
-            return null;
         }
 
         private void syncModifiedRecipeFile(MonitoredRecipeFile monitoredFile) {

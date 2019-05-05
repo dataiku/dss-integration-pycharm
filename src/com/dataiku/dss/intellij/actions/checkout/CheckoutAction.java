@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.intellij.DataikuDSSPlugin;
 import com.intellij.icons.AllIcons;
 import com.intellij.ide.util.PsiNavigationSupport;
 import com.intellij.openapi.actionSystem.AnAction;
@@ -33,7 +34,7 @@ public class CheckoutAction extends AnAction implements DumbAware {
         if (wizard.showAndGet()) {
             CheckoutModel model = wizard.getModel();
             try {
-                List<VirtualFile> files = new CheckoutWorker(model).checkout();
+                List<VirtualFile> files = new CheckoutWorker(DataikuDSSPlugin.getInstance(), model).checkout();
                 for (VirtualFile file : files) {
                     PsiNavigationSupport.getInstance().createNavigatable(project, file, -1).navigate(true);
                 }

@@ -1,16 +1,29 @@
 package com.dataiku.dss.intellij.actions.synchronize;
 
+import static com.dataiku.dss.intellij.SynchronizerUtils.notifySynchronizationComplete;
+
 import java.io.IOException;
-import javax.swing.event.HyperlinkEvent;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.intellij.DataikuDSSPlugin;
 import com.dataiku.dss.intellij.MonitoredFilesIndex;
+import com.dataiku.dss.intellij.MonitoredPlugin;
+import com.dataiku.dss.intellij.MonitoredRecipeFile;
+import com.dataiku.dss.intellij.RecipeCache;
+import com.dataiku.dss.intellij.SynchronizeRequest;
+import com.dataiku.dss.intellij.SynchronizeSummary;
+import com.dataiku.dss.intellij.SynchronizeWorker;
+import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeDssInstance;
+import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugin;
+import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugins;
+import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipe;
+import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipeProject;
+import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipes;
+import com.dataiku.dss.intellij.config.DssSettings;
 import com.intellij.icons.AllIcons;
-import com.intellij.notification.Notification;
-import com.intellij.notification.NotificationListener;
-import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.application.ApplicationManager;
@@ -37,15 +50,12 @@ public class SynchronizeAction extends AnAction implements DumbAware {
             SynchronizeModel model = wizard.getModel();
             try {
                 // Do the work
-                new SynchronizeWorker(model).synchronizeWithDSS();
+                DssSettings dssSettings = DssSettings.getInstance();
+                SynchronizeWorker synchronizeWorker = new SynchronizeWorker(DataikuDSSPlugin.getInstance(), dssSettings, new RecipeCache(dssSettings));
+                SynchronizeSummary summary = synchronizeWorker.synchronizeWithDSS(buildRequest(model));
 
                 // Notify when it's done.
-                Notification notification = new Notification("Dataiku DSS",
-                        "Synchronization with DSS completed",
-                        model.summary.getQuickSummary(),
-                        model.summary.conflicts.isEmpty() ? NotificationType.INFORMATION : NotificationType.WARNING,
-                        new SynchronizationNotificationListener(project, model));
-                Notifications.Bus.notify(notification, project);
+                notifySynchronizationComplete(summary, project);
             } catch (IOException e) {
                 Messages.showErrorDialog(e.getMessage(), "I/O Error");
             } catch (RuntimeException e) {
@@ -61,18 +71,31 @@ public class SynchronizeAction extends AnAction implements DumbAware {
         }
     }
 
-    private static class SynchronizationNotificationListener extends NotificationListener.Adapter {
-        private final Project project;
-        private final SynchronizeModel model;
+    @NotNull
+    private SynchronizeRequest buildRequest(SynchronizeModel model) {
+        List<MonitoredRecipeFile> recipeFiles = new ArrayList<>();
+        List<MonitoredPlugin> plugins = new ArrayList<>();
+        for (SynchronizeNodeDssInstance instanceNode : model.selectionRootNode.getInstanceNodes()) {
+            SynchronizeNodeRecipes recipesNode = instanceNode.getRecipesNode();
+            if (recipesNode != null) {
+                for (SynchronizeNodeRecipeProject projectNode : recipesNode.getProjectNodes()) {
+                    for (SynchronizeNodeRecipe recipeNode : projectNode.getRecipeNodes()) {
+                        if (recipeNode.isSelected()) {
+                            recipeFiles.add(recipeNode.recipe);
+                        }
+                    }
+                }
+            }
 
-        SynchronizationNotificationListener(Project project, SynchronizeModel model) {
-            this.project = project;
-            this.model = model;
+            SynchronizeNodePlugins pluginsNode = instanceNode.getPluginsNode();
+            if (pluginsNode != null) {
+                for (SynchronizeNodePlugin pluginNode : pluginsNode.getPluginNodes()) {
+                    if (pluginNode.isSelected()) {
+                        plugins.add(pluginNode.monitoredPlugin);
+                    }
+                }
+            }
         }
-
-        @Override
-        protected void hyperlinkActivated(@NotNull Notification notification, @NotNull HyperlinkEvent event) {
-            new SynchronizeSummaryDialog(project, model).showAndGet();
-        }
+        return new SynchronizeRequest(recipeFiles, plugins);
     }
 }

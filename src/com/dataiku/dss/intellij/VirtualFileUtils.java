@@ -15,19 +15,22 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.intellij.openapi.application.Application;
 import com.intellij.openapi.application.ApplicationManager;
-import com.intellij.openapi.util.ThrowableComputable;
+import com.intellij.openapi.application.ReadAction;
+import com.intellij.openapi.application.WriteAction;
 import com.intellij.openapi.vfs.VirtualFile;
 
 public class VirtualFileUtils {
     @NotNull
     public static VirtualFile createVirtualFile(final Object requestor, final VirtualFile parent, final String name) throws IOException {
-        Application application = ApplicationManager.getApplication();
-        if (application.isWriteAccessAllowed()) {
-            return parent.createChildData(requestor, name);
+        if (ApplicationManager.getApplication().isWriteAccessAllowed()) {
+            return createVirtualFileUnsafe(requestor, parent, name);
         } else {
-            return application.runWriteAction(
-                    (ThrowableComputable<VirtualFile, IOException>) () -> parent.createChildData(requestor, name));
+            return WriteAction.compute(() -> createVirtualFileUnsafe(requestor, parent, name));
         }
+    }
+
+    private static VirtualFile createVirtualFileUnsafe(Object requestor, VirtualFile parent, String name) throws IOException {
+        return parent.createChildData(requestor, name);
     }
 
     @NotNull
@@ -43,25 +46,32 @@ public class VirtualFileUtils {
 
     @NotNull
     public static VirtualFile createVirtualDirectory(final Object requestor, final VirtualFile parent, final String name) throws IOException {
-        Application application = ApplicationManager.getApplication();
-        if (application.isWriteAccessAllowed()) {
-            return parent.createChildDirectory(requestor, name);
+        if (ApplicationManager.getApplication().isWriteAccessAllowed()) {
+            return createVirtualDirectoryUnsafe(requestor, parent, name);
         } else {
-            return application.runWriteAction(
-                    (ThrowableComputable<VirtualFile, IOException>) () -> parent.createChildDirectory(requestor, name));
+            return WriteAction.compute(() -> createVirtualDirectoryUnsafe(requestor, parent, name));
         }
+    }
+
+    private static VirtualFile createVirtualDirectoryUnsafe(Object requestor, VirtualFile parent, String name) throws IOException {
+        return parent.createChildDirectory(requestor, name);
     }
 
     public static String readVirtualFile(VirtualFile file) throws IOException {
-        try (InputStream inputStream = file.getInputStream()) {
-            byte[] bytes = ByteStreams.toByteArray(inputStream);
-            return new String(bytes, Charsets.UTF_8);
-        }
+        return new String(readVirtualFileAsByteArray(file), Charsets.UTF_8);
     }
 
     public static byte[] readVirtualFileAsByteArray(VirtualFile file) throws IOException {
-        try (InputStream inputStream = file.getInputStream()) {
-            return ByteStreams.toByteArray(inputStream);
+        if (ApplicationManager.getApplication().isReadAccessAllowed()) {
+            try (InputStream inputStream = file.getInputStream()) {
+                return ByteStreams.toByteArray(inputStream);
+            }
+        } else {
+            return ReadAction.compute(() -> {
+                try (InputStream inputStream = file.getInputStream()) {
+                    return ByteStreams.toByteArray(inputStream);
+                }
+            });
         }
     }
 
@@ -70,14 +80,13 @@ public class VirtualFileUtils {
     }
 
     public static void writeToVirtualFile(final VirtualFile file, final byte[] data, @Nullable Charset charset) throws IOException {
-        Application application = ApplicationManager.getApplication();
-        if (application.isWriteAccessAllowed()) {
+        if (ApplicationManager.getApplication().isWriteAccessAllowed()) {
             file.setBinaryContent(data);
             if (charset != null) {
                 file.setCharset(charset);
             }
         } else {
-            application.runWriteAction((ThrowableComputable<Object, IOException>) () -> {
+            WriteAction.compute(() -> {
                 file.setBinaryContent(data);
                 if (charset != null) {
                     file.setCharset(charset);
@@ -90,25 +99,33 @@ public class VirtualFileUtils {
     public static void renameVirtualFile(final Object requestor, final VirtualFile file, String newName) throws IOException {
         Application application = ApplicationManager.getApplication();
         if (application.isWriteAccessAllowed()) {
-            file.rename(requestor, newName);
+            renameVirtualFileUnsafe(requestor, file, newName);
         } else {
-            application.runWriteAction((ThrowableComputable<Object, IOException>) () -> {
-                file.rename(requestor, newName);
+            WriteAction.compute(() -> {
+                renameVirtualFileUnsafe(requestor, file, newName);
                 return null;
             });
         }
     }
 
+    private static void renameVirtualFileUnsafe(Object requestor, VirtualFile file, String newName) throws IOException {
+        file.rename(requestor, newName);
+    }
+
     public static void deleteVirtualFile(final Object requestor, final VirtualFile file) throws IOException {
         Application application = ApplicationManager.getApplication();
         if (application.isWriteAccessAllowed()) {
-            file.delete(requestor);
+            deleteVirtualFileUnsafe(requestor, file);
         } else {
-            application.runWriteAction((ThrowableComputable<Object, IOException>) () -> {
-                file.delete(requestor);
+            WriteAction.compute(() -> {
+                deleteVirtualFileUnsafe(requestor, file);
                 return null;
             });
         }
+    }
+
+    private static void deleteVirtualFileUnsafe(Object requestor, VirtualFile file) throws IOException {
+        file.delete(requestor);
     }
 
     public static String getRelativePath(VirtualFile base, VirtualFile file) {
@@ -153,8 +170,10 @@ public class VirtualFileUtils {
     }
 
     public static int getContentHash(VirtualFile file) throws IOException {
-        try (InputStream inputStream = file.getInputStream()) {
-            return getContentHash(ByteStreams.toByteArray(inputStream));
+        if (ApplicationManager.getApplication().isReadAccessAllowed()) {
+            return getContentHashUnsafe(file);
+        } else {
+            return ReadAction.compute(() -> getContentHashUnsafe(file));
         }
     }
 
@@ -164,5 +183,11 @@ public class VirtualFileUtils {
 
     public static int getContentHash(byte[] data) throws IOException {
         return ByteSource.wrap(data).hash(Hashing.adler32()).asInt();
+    }
+
+    private static int getContentHashUnsafe(VirtualFile file) throws IOException {
+        try (InputStream inputStream = file.getInputStream()) {
+            return getContentHash(ByteStreams.toByteArray(inputStream));
+        }
     }
 }

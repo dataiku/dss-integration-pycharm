@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
+import com.dataiku.dss.intellij.DataikuDSSPlugin;
 import com.dataiku.dss.intellij.MetadataFile;
 import com.dataiku.dss.intellij.MetadataFilesIndex;
 import com.dataiku.dss.intellij.MonitoredFilesIndex;
@@ -37,10 +38,12 @@ public class CheckoutWorker {
     private static final Logger log = Logger.getInstance(CheckoutWorker.class);
 
     private final CheckoutModel model;
+    private final DataikuDSSPlugin requestor;
 
-    CheckoutWorker(CheckoutModel model) {
+    CheckoutWorker(DataikuDSSPlugin dssPlugin, CheckoutModel model) {
         Preconditions.checkNotNull(model, "model");
         this.model = model;
+        this.requestor = dssPlugin;
     }
 
     public List<VirtualFile> checkout() throws IOException {
@@ -72,7 +75,6 @@ public class CheckoutWorker {
             VirtualFile moduleRootFolder = getModuleRootFolder(ModuleRootManager.getInstance(model.module));
             String serverName = model.server.name;
             String filename = getFilename(recipe);
-            Object requestor = this;
             String[] path = appendToArray(checkoutLocation, filename);
             VirtualFile file = getOrCreateVirtualFile(requestor, moduleRootFolder, path);
             VirtualFileUtils.writeToVirtualFile(file, recipeContent);
@@ -132,7 +134,6 @@ public class CheckoutWorker {
     }
 
     private void checkoutFolder(DssPluginMetadata pluginMetadata, String pluginId, List<VirtualFile> createdFileList, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
-        Object requestor = this;
         for (FolderContent pluginFile : folderContents) {
             if (pluginFile.mimeType == null || "null".equals(pluginFile.mimeType)) {
                 // Folder
@@ -142,13 +143,12 @@ public class CheckoutWorker {
                 VirtualFile file = getOrCreateVirtualDirectory(requestor, parent, pluginFile.name);
 
                 // Write metadata
-                DssPluginFileMetadata pluginFileMetadata = new DssPluginFileMetadata();
-                pluginFileMetadata.pluginId = pluginId;
-                pluginFileMetadata.instance = model.server.name;
-                pluginFileMetadata.path = pluginId + "/" + pluginFile.path;
-                pluginFileMetadata.remotePath = pluginFile.path;
-                pluginFileMetadata.contentHash = 0;
-                pluginMetadata.files.add(pluginFileMetadata);
+                pluginMetadata.files.add(new DssPluginFileMetadata(
+                        model.server.name,
+                        pluginId,
+                        pluginId + "/" + pluginFile.path,
+                        pluginFile.path,
+                        0));
 
                 // Recurse if necessary
                 if (pluginFile.children != null && !pluginFile.children.isEmpty()) {
@@ -164,13 +164,12 @@ public class CheckoutWorker {
                 VirtualFileUtils.writeToVirtualFile(file, fileContent, UTF_8);
 
                 // Write metadata
-                DssPluginFileMetadata pluginFileMetadata = new DssPluginFileMetadata();
-                pluginFileMetadata.pluginId = pluginId;
-                pluginFileMetadata.instance = model.server.name;
-                pluginFileMetadata.path = pluginId + "/" + pluginFile.path;
-                pluginFileMetadata.remotePath = pluginFile.path;
-                pluginFileMetadata.contentHash = getContentHash(fileContent);
-                pluginMetadata.files.add(pluginFileMetadata);
+                pluginMetadata.files.add(new DssPluginFileMetadata(
+                        model.server.name,
+                        pluginId,
+                        pluginId + "/" + pluginFile.path,
+                        pluginFile.path,
+                        getContentHash(fileContent)));
 
                 createdFileList.add(file);
             }

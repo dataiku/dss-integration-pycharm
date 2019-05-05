@@ -15,7 +15,7 @@ public class RecipeCache {
     private final DssSettings dssSettings;
     private final Map<RecipeCacheProject, List<Recipe>> cachedRecipes = new HashMap<>();
 
-    RecipeCache(DssSettings dssSettings) {
+    public RecipeCache(DssSettings dssSettings) {
         this.dssSettings = dssSettings;
     }
 
