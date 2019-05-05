@@ -79,7 +79,6 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     }
 
     private void runSynchronizer() {
-        //new SynchronizerWorker(dssSettings, newRecipeCache(), monitoredFilesIndex, true).run();
         SynchronizeRequest request = buildRequest(monitoredFilesIndex);
         if (!request.isEmpty()) {
             try {
@@ -100,7 +99,6 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
     private void runDssToLocalSynchronizer() {
         runSynchronizer();
-        //new SynchronizerWorker(dssSettings, newRecipeCache(), monitoredFilesIndex, false).run();
     }
 
     private RecipeCache newRecipeCache() {
@@ -129,14 +127,12 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     private class VirtualFileAdapter implements VirtualFileListener {
         @Override
         public void fileCreated(@NotNull VirtualFileEvent event) {
-            System.out.println("File created");
-            VirtualFile file = event.getFile();
+            // Not handled yet.
         }
 
         @Override
         public void fileCopied(@NotNull VirtualFileCopyEvent event) {
-            System.out.println("File copied");
-            VirtualFile file = event.getFile();
+            // Not handled yet.
         }
 
         @Override
@@ -152,12 +148,12 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                     log.warn(String.format("Unable to update DSS metadata after removal of file '%s'", file), e);
                 }
             }
+            // Not handled yet for plugins.
         }
 
         @Override
         public void fileMoved(@NotNull VirtualFileMoveEvent event) {
-            System.out.println("File moved");
-            VirtualFile file = event.getFile();
+            // Not handled yet for plugins.
         }
 
         @Override
@@ -167,7 +163,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             if (event.getPropertyName().equals("name")) {
                 // File renamed
                 String oldName = (String) event.getOldValue();
-                System.out.println(oldName);
+                // Not handled yet for plugins.
             }
         }
 

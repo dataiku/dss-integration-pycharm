@@ -30,13 +30,13 @@ public class SynchronizeTree extends Tree {
                 SynchronizeNodeRecipe x = (SynchronizeNodeRecipe) value;
                 String filename = x.recipe.file.getName().toLowerCase();
                 if (filename.endsWith(".py")) {
-                    setIcon(Icons.FILE_PYTHON);
+                    setIcon(Icons.RECIPE_PYTHON);
                 } else if (filename.endsWith(".r")) {
                     setIcon(Icons.RECIPE_R);
                 } else if (filename.endsWith(".sh")) {
                     setIcon(Icons.RECIPE_SHELL);
                 } else if (filename.endsWith(".sql")) {
-                    setIcon(Icons.FILE_SQL);
+                    setIcon(Icons.RECIPE_SQL);
                 } else {
                     setIcon(AllIcons.FileTypes.Any_type);
                 }
