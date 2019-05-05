@@ -1,17 +1,15 @@
 <idea-plugin>
     <id>com.dataiku.dss.intellij</id>
     <name>Dataiku DSS</name>
-    <version>0.8.0</version>
+    <version>0.9.0</version>
     <vendor email="support@dataiku.com" url="http://www.dataiku.com">Dataiku</vendor>
 
     <description><![CDATA[
-        Enter short description for your plugin here.<br>
-        <em>most HTML tags may be used</em>
+        Dataiku DSS plugin to edit Recipes and Plugins directly from PyCharm or IntelliJ IDEA.
     ]]></description>
 
     <change-notes><![CDATA[
-        Add change notes here.<br>
-        <em>most HTML tags may be used</em>
+        0.9.0: Almost ready!
     ]]>
     </change-notes>
 
