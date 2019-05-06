@@ -2,7 +2,9 @@ package com.dataiku.dss.intellij.config;
 
 import static com.intellij.uiDesigner.core.GridConstraints.ANCHOR_CENTER;
 import static com.intellij.uiDesigner.core.GridConstraints.ANCHOR_WEST;
+import static com.intellij.uiDesigner.core.GridConstraints.FILL_HORIZONTAL;
 import static com.intellij.uiDesigner.core.GridConstraints.FILL_NONE;
+import static com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_CAN_GROW;
 import static com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_FIXED;
 import static com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_WANT_GROW;
 
@@ -17,6 +19,7 @@ import javax.swing.*;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.dataiku.dss.Icons;
 import com.intellij.ide.wizard.CommitStepException;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.Messages;
@@ -57,10 +60,12 @@ public class DssServerDialog extends DialogWrapper {
             server.baseUrl = serverToEdit.baseUrl;
             server.encryptedApiKey = serverToEdit.encryptedApiKey;
             server.noCheckCertificate = serverToEdit.noCheckCertificate;
+            server.readonly = serverToEdit.readonly;
         }
 
         init();
         setTitle((editing ? "Edit" : "New") + " Server");
+        setOKActionEnabled(!server.readonly);
     }
 
     public DssServer getServer() {
@@ -70,31 +75,48 @@ public class DssServerDialog extends DialogWrapper {
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
-        panel = new JPanel(new GridLayoutManager(4, 2));
-        panel.setPreferredSize(new Dimension(480, 120));
+        panel = new JPanel(new GridLayoutManager(server.readonly ? 8 : 5, 2));
+        panel.setPreferredSize(new Dimension(480, server.readonly ? 220 : 160));
 
-        panel.add(new JLabel("Name:"), newConstraints(0, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
+        int lineIndex = 0;
+        if (server.readonly) {
+            JLabel label = new JLabel("This instance cannot be edited.");
+            label.setFont(label.getFont().deriveFont(Font.BOLD));
+            label.setIcon(Icons.WARNING_16);
+            panel.add(label, newColSpanConstraints(lineIndex++));
+            panel.add(new JLabel("Its configuration is written in environment variables or in ~/.dataiku/config.json file."), newColSpanConstraints(lineIndex++));
+            panel.add(new JSeparator(), newColSpanConstraints(lineIndex++));
+        }
+
+        panel.add(new JLabel("Name:"), newConstraints(lineIndex, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
         nameField = new JTextField();
         nameField.setMinimumSize(new Dimension(320, 28));
         nameField.setPreferredSize(new Dimension(320, 28));
-        nameField.setToolTipText("Name of this server (mandatory field)");
-        panel.add(nameField, newConstraints(0, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
+        nameField.setToolTipText("Name of this instance (mandatory field)");
+        panel.add(nameField, newConstraints(lineIndex, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
+        lineIndex++;
 
-        panel.add(new JLabel("Base URL:"), newConstraints(1, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
+        panel.add(new JLabel("Base URL:"), newConstraints(lineIndex, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
         urlText = new JBTextField();
-        urlText.getEmptyText().setText("https://dss-server:11200");
-        urlText.setToolTipText("URL to connect to this server (mandatory field)");
-        panel.add(urlText, newConstraints(1, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
+        urlText.getEmptyText().setText("https://dss-instance:11200");
+        urlText.setToolTipText("URL to connect to this instance (mandatory field)");
+        urlText.setEnabled(!server.readonly);
+        panel.add(urlText, newConstraints(lineIndex, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
+        lineIndex++;
 
-        panel.add(new JLabel("API Key:"), newConstraints(2, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
+        panel.add(new JLabel("API Key:"), newConstraints(lineIndex, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
         apiKeyField = new JPasswordField();
-        apiKeyField.setToolTipText("API key to connect to this server (mandatory field)");
-        panel.add(apiKeyField, newConstraints(2, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
+        apiKeyField.setToolTipText("API key to connect to this instance (mandatory field)");
+        apiKeyField.setEnabled(!server.readonly);
+        panel.add(apiKeyField, newConstraints(lineIndex, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
+        lineIndex++;
 
         disableSslCertificateCheckBox = new JCheckBox("Disable SSL certificate checks");
-        GridConstraints constraints = newConstraints(3, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED);
-        constraints.setColSpan(2);
-        panel.add(disableSslCertificateCheckBox, constraints);
+        disableSslCertificateCheckBox.setEnabled(!server.readonly);
+        panel.add(disableSslCertificateCheckBox, newColSpanConstraints(lineIndex));
+        lineIndex++;
+
+        panel.add(new JSeparator(), newColSpanConstraints(lineIndex));
 
         fillFields();
 
@@ -210,6 +232,12 @@ public class DssServerDialog extends DialogWrapper {
         result.setFill(fill);
         result.setAnchor(anchor);
         result.setHSizePolicy(hSizePolicy);
+        return result;
+    }
+
+    private static GridConstraints newColSpanConstraints(int row) {
+        GridConstraints result = newConstraints(row, 0, FILL_HORIZONTAL, ANCHOR_WEST, SIZEPOLICY_WANT_GROW | SIZEPOLICY_CAN_GROW);
+        result.setColSpan(2);
         return result;
     }
 }

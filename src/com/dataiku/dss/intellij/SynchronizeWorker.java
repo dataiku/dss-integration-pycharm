@@ -1,9 +1,9 @@
 package com.dataiku.dss.intellij;
 
-import static com.dataiku.dss.intellij.SynchronizerUtils.saveRecipeToDss;
-import static com.dataiku.dss.intellij.VirtualFileUtils.getContentHash;
-import static com.dataiku.dss.intellij.VirtualFileUtils.getOrCreateVirtualDirectory;
-import static com.dataiku.dss.intellij.VirtualFileUtils.getOrCreateVirtualFile;
+import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
+import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getContentHash;
+import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getOrCreateVirtualDirectory;
+import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getOrCreateVirtualFile;
 import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.IOException;
@@ -21,6 +21,7 @@ import org.jetbrains.annotations.NotNull;
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.config.DssServer;
 import com.dataiku.dss.intellij.config.DssSettings;
+import com.dataiku.dss.intellij.utils.VirtualFileUtils;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.FolderContent;
@@ -28,6 +29,7 @@ import com.dataiku.dss.model.dss.Recipe;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.dataiku.dss.model.metadata.DssPluginMetadata;
+import com.google.common.base.Preconditions;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -54,11 +56,15 @@ public class SynchronizeWorker {
         log.info("Starting synchronization at " + DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(LocalDateTime.now()));
         for (MonitoredRecipeFile recipeFile : request.recipeFiles) {
             DssServer dssServer = settings.getDssServer(recipeFile.recipe.instance);
-            synchronizeRecipe(dssServer, recipeFile);
+            if (dssServer != null) {
+                synchronizeRecipe(dssServer, recipeFile);
+            }
         }
         for (MonitoredPlugin plugin : request.plugins) {
             DssServer dssServer = settings.getDssServer(plugin.plugin.instance);
-            synchronizePlugin(dssServer, plugin);
+            if (dssServer != null) {
+                synchronizePlugin(dssServer, plugin);
+            }
         }
 
         for (MetadataFile dirtyMetadataFile : dirtyMetadataFiles) {
@@ -68,6 +74,9 @@ public class SynchronizeWorker {
     }
 
     private void synchronizeRecipe(DssServer dssServer, MonitoredRecipeFile monitoredFile) throws IOException {
+        Preconditions.checkNotNull(dssServer);
+        Preconditions.checkNotNull(monitoredFile);
+
         DSSClient dssClient = dssServer.createClient();
         Recipe recipe = recipeCache.getRecipe(dssServer.name, monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
         if (recipe == null) {

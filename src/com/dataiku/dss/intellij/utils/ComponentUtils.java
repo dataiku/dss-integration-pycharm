@@ -1,4 +1,4 @@
-package com.dataiku.dss.intellij;
+package com.dataiku.dss.intellij.utils;
 
 import com.dataiku.dss.Logger;
 import com.intellij.openapi.application.ApplicationManager;

@@ -5,7 +5,7 @@ import javax.swing.*;
 
 import org.jetbrains.annotations.Nls;
 
-import com.dataiku.dss.intellij.ComponentUtils;
+import com.dataiku.dss.intellij.utils.ComponentUtils;
 import com.intellij.openapi.options.Configurable;
 
 public class DssSettingsConfigurable implements Configurable, Configurable.NoScroll {

@@ -16,8 +16,8 @@ import org.jetbrains.annotations.Nullable;
 
 import com.dataiku.dss.Icons;
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.RecipeUtils;
 import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.utils.RecipeUtils;
 import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.Recipe;
 import com.google.common.base.Joiner;
@@ -313,6 +313,13 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
                 result.setIcon(RecipeUtils.icon(item.recipe.type));
             }
             return result;
+        }
+
+        @NotNull
+        @Override
+        public Dimension getPreferredSize() {
+            Dimension preferredSize = super.getPreferredSize();
+            return new Dimension(preferredSize.width, Math.max(preferredSize.height, 24));
         }
     }
 

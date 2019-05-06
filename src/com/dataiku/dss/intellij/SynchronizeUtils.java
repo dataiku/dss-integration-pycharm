@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import com.dataiku.dss.intellij.actions.synchronize.SynchronizeSummaryDialog;
 import com.dataiku.dss.intellij.config.DssServer;
 import com.dataiku.dss.intellij.config.DssSettings;
+import com.dataiku.dss.intellij.utils.VirtualFileUtils;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
@@ -17,8 +18,9 @@ import com.intellij.notification.NotificationListener;
 import com.intellij.notification.NotificationType;
 import com.intellij.notification.Notifications;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.vfs.VirtualFile;
 
-public class SynchronizerUtils {
+public class SynchronizeUtils {
 
     public static void savePluginFileToDss(DssSettings dssSettings, MonitoredPlugin monitoredPlugin, String path, byte[] fileContent, boolean flushMetadata) throws IOException {
         DSSClient dssClient = dssSettings.getDssClient(monitoredPlugin.plugin.instance);
@@ -60,6 +62,19 @@ public class SynchronizerUtils {
             if (flushMetadata) {
                 monitoredFile.metadataFile.flush();
             }
+        }
+    }
+
+    public static void renameRecipeFile(MonitoredRecipeFile monitoredFile, VirtualFile newFile, boolean flushMetadata) throws IOException {
+        String oldName = monitoredFile.file.getName();
+        String newName = newFile.getName();
+
+        // Update metadata & schedule associated metadata file to be updated
+        monitoredFile.file = newFile;
+        monitoredFile.recipe.path = monitoredFile.recipe.path.substring(0, oldName.length()) + newName;
+
+        if (flushMetadata) {
+            monitoredFile.metadataFile.flush();
         }
     }
 

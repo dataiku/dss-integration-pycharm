@@ -7,7 +7,7 @@ import com.google.common.base.Preconditions;
 import com.intellij.openapi.vfs.VirtualFile;
 
 public class MonitoredRecipeFile {
-    public final VirtualFile file;
+    public VirtualFile file;
     public final File physicalFile;
     public final MetadataFile metadataFile;
     public final DssRecipeMetadata recipe;

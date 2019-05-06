@@ -1,9 +1,10 @@
 package com.dataiku.dss.intellij;
 
-import static com.dataiku.dss.intellij.SynchronizerUtils.savePluginFileToDss;
-import static com.dataiku.dss.intellij.SynchronizerUtils.saveRecipeToDss;
-import static com.dataiku.dss.intellij.VirtualFileUtils.getContentHash;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static com.dataiku.dss.intellij.SynchronizeUtils.renameRecipeFile;
+import static com.dataiku.dss.intellij.SynchronizeUtils.savePluginFileToDss;
+import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
+import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getContentHash;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.io.IOException;
 import java.util.concurrent.Executors;
@@ -14,6 +15,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.config.DssSettings;
+import com.dataiku.dss.intellij.utils.VirtualFileUtils;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ReadAction;
@@ -38,6 +40,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
     private ScheduledFuture<?> scheduledFuture;
     private SyncProjectManagerAdapter projectManagerAdapter;
+    private ScheduledExecutorService executorService;
 
     public BackgroundSynchronizer(DataikuDSSPlugin dssPlugin, DssSettings dssSettings, MonitoredFilesIndex monitoredFilesIndex) {
         this.dssPlugin = dssPlugin;
@@ -53,19 +56,28 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     @Override
     public void initComponent() {
         log.info("Starting");
-        ScheduledExecutorService executorService = Executors.newSingleThreadScheduledExecutor();
+        executorService = Executors.newSingleThreadScheduledExecutor();
 
-        // At startup, synchronize everything
-        executorService.schedule(this::runSynchronizer, 0, MINUTES);
-
-        // Then poll DSS every minute if one (or more) monitored recipes has been updated on DSS side.
-        scheduledFuture = executorService.scheduleWithFixedDelay(this::runDssToLocalSynchronizer, 1, 1, MINUTES);
+        // At startup, synchronize everything, then poll DSS every X seconds if one (or more) monitored recipes has been updated on DSS side.
+        if (dssSettings.isBackgroundSynchronizationEnabled()) {
+            scheduleSynchronization();
+        }
 
         projectManagerAdapter = new SyncProjectManagerAdapter();
         ProjectManager.getInstance().addProjectManagerListener(projectManagerAdapter);
 
         // Every time a monitored file is saved in IntelliJ, upload it onto DSS.
         LocalFileSystem.getInstance().addVirtualFileListener(new VirtualFileAdapter());
+    }
+
+    private void scheduleSynchronization() {
+        // Cancel existing scheduling
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+        }
+        // Trigger a new one.
+        long pollIntervalInSeconds = dssSettings.getBackgroundSynchronizationPollIntervalInSeconds();
+        scheduledFuture = executorService.scheduleWithFixedDelay(this::runSynchronizer, 0, pollIntervalInSeconds, SECONDS);
     }
 
     @Override
@@ -75,19 +87,21 @@ public class BackgroundSynchronizer implements ApplicationComponent {
         ProjectManager.getInstance().removeProjectManagerListener(projectManagerAdapter);
         projectManagerAdapter = null;
 
-        scheduledFuture.cancel(false);
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+        }
     }
 
     private void runSynchronizer() {
         SynchronizeRequest request = buildRequest(monitoredFilesIndex);
         if (!request.isEmpty()) {
             try {
-                SynchronizeSummary summary = new SynchronizeWorker(dssPlugin, dssSettings, newRecipeCache()).synchronizeWithDSS(request);
+                SynchronizeSummary summary = new SynchronizeWorker(dssPlugin, dssSettings, new RecipeCache(dssSettings)).synchronizeWithDSS(request);
                 if (!summary.isEmpty()) {
-                    SynchronizerUtils.notifySynchronizationComplete(summary, null);
+                    SynchronizeUtils.notifySynchronizationComplete(summary, null);
                 }
             } catch (IOException e) {
-                SynchronizerUtils.notifySynchronizationFailure(e, null);
+                SynchronizeUtils.notifySynchronizationFailure(e, null);
             }
         }
     }
@@ -95,14 +109,6 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     private SynchronizeRequest buildRequest(MonitoredFilesIndex monitoredFilesIndex) {
         return new SynchronizeRequest(monitoredFilesIndex.getMonitoredRecipeFiles(),
                 monitoredFilesIndex.getMonitoredPlugins());
-    }
-
-    private void runDssToLocalSynchronizer() {
-        runSynchronizer();
-    }
-
-    private RecipeCache newRecipeCache() {
-        return new RecipeCache(dssSettings);
     }
 
     private class SyncProjectManagerAdapter implements VetoableProjectManagerListener {
@@ -127,17 +133,30 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     private class VirtualFileAdapter implements VirtualFileListener {
         @Override
         public void fileCreated(@NotNull VirtualFileEvent event) {
-            // Not handled yet.
+            if (!dssSettings.isBackgroundSynchronizationEnabled()) {
+                return;
+            }
+            if (monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
+                scheduleSynchronization();
+            }
         }
 
         @Override
         public void fileCopied(@NotNull VirtualFileCopyEvent event) {
-            // Not handled yet.
+            if (!dssSettings.isBackgroundSynchronizationEnabled()) {
+                return;
+            }
+            if (monitoredFilesIndex.getMonitoredPlugin(event.getOriginalFile()) != null
+                    || monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
+                scheduleSynchronization();
+            }
         }
 
         @Override
         public void fileDeleted(@NotNull VirtualFileEvent event) {
-            System.out.println("File deleted");
+            if (!dssSettings.isBackgroundSynchronizationEnabled()) {
+                return;
+            }
             VirtualFile file = event.getFile();
             MonitoredRecipeFile monitoredFile = monitoredFilesIndex.getMonitoredFile(file);
             if (monitoredFile != null) {
@@ -147,28 +166,59 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 } catch (IOException e) {
                     log.warn(String.format("Unable to update DSS metadata after removal of file '%s'", file), e);
                 }
+            } else {
+                if (monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
+                    scheduleSynchronization();
+                }
             }
-            // Not handled yet for plugins.
         }
 
         @Override
         public void fileMoved(@NotNull VirtualFileMoveEvent event) {
-            // Not handled yet for plugins.
+            if (!dssSettings.isBackgroundSynchronizationEnabled()) {
+                return;
+            }
+            if (monitoredFilesIndex.getMonitoredPlugin(event.getOldParent()) != null
+                    || monitoredFilesIndex.getMonitoredPlugin(event.getNewParent()) != null) {
+                scheduleSynchronization();
+            }
         }
 
         @Override
         public void propertyChanged(@NotNull VirtualFilePropertyEvent event) {
-            System.out.println("File propertyChanged");
+            if (!dssSettings.isBackgroundSynchronizationEnabled()) {
+                return;
+            }
             VirtualFile file = event.getFile();
             if (event.getPropertyName().equals("name")) {
                 // File renamed
                 String oldName = (String) event.getOldValue();
-                // Not handled yet for plugins.
+                String newName = (String) event.getNewValue();
+                String path = file.getCanonicalPath();
+                if (path != null && path.endsWith(newName)) {
+                    String oldPath = path.substring(0, path.length() - newName.length()) + oldName;
+                    MonitoredRecipeFile monitoredFile = monitoredFilesIndex.getMonitoredFile(oldPath);
+                    if (monitoredFile != null) {
+                        ApplicationManager.getApplication().invokeLater(() -> {
+                            log.info(String.format("Detected rename operation on monitored recipe '%s'.", monitoredFile.recipe.recipeName));
+                            syncRenamedRecipeFile(monitoredFile, file);
+                        });
+                    } else {
+                        MonitoredPlugin monitoredPlugin = monitoredFilesIndex.getMonitoredPlugin(file);
+                        if (monitoredPlugin != null) {
+                            log.info(String.format("Detected rename operation on file '%s' located inside monitored plugin directory.", file.getCanonicalPath()));
+                            scheduleSynchronization();
+                        }
+                    }
+                }
             }
         }
 
         @Override
         public void contentsChanged(@NotNull VirtualFileEvent event) {
+            if (!dssSettings.isBackgroundSynchronizationEnabled()) {
+                return;
+            }
             VirtualFile modifiedFile = event.getFile();
             MonitoredRecipeFile monitoredFile = monitoredFilesIndex.getMonitoredFile(modifiedFile);
             if (monitoredFile != null) {
@@ -212,6 +262,18 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 if (getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
                     log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS instance", monitoredFile.recipe));
                     saveRecipeToDss(dssSettings, monitoredFile, fileContent);
+                }
+            } catch (IOException e) {
+                log.warn(String.format("Unable to synchronize recipe '%s'.", monitoredFile.recipe), e);
+            }
+        }
+
+        private void syncRenamedRecipeFile(MonitoredRecipeFile monitoredFile, VirtualFile newFile) {
+            try {
+                String fileContent = ReadAction.compute(() -> VirtualFileUtils.readVirtualFile(monitoredFile.file));
+                if (getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
+                    log.info(String.format("File for recipe '%s' has been locally renamed. Recipe will not be renamed on DSS.", monitoredFile.recipe));
+                    renameRecipeFile(monitoredFile, newFile, true);
                 }
             } catch (IOException e) {
                 log.warn(String.format("Unable to synchronize recipe '%s'.", monitoredFile.recipe), e);

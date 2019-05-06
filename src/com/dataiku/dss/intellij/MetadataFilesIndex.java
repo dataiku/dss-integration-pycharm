@@ -8,6 +8,8 @@ import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
+import com.dataiku.dss.intellij.utils.ComponentUtils;
+import com.dataiku.dss.intellij.utils.VirtualFileUtils;
 import com.dataiku.dss.model.metadata.DssMetadata;
 import com.google.gson.GsonBuilder;
 import com.intellij.openapi.components.ApplicationComponent;

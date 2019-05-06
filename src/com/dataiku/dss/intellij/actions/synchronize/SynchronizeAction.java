@@ -1,6 +1,6 @@
 package com.dataiku.dss.intellij.actions.synchronize;
 
-import static com.dataiku.dss.intellij.SynchronizerUtils.notifySynchronizationComplete;
+import static com.dataiku.dss.intellij.SynchronizeUtils.notifySynchronizationComplete;
 
 import java.io.IOException;
 import java.util.ArrayList;

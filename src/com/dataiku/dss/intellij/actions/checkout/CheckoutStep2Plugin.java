@@ -137,6 +137,13 @@ public class CheckoutStep2Plugin extends AbstractWizardStepEx {
             return result;
         }
 
+        @NotNull
+        @Override
+        public Dimension getPreferredSize() {
+            Dimension preferredSize = super.getPreferredSize();
+            return new Dimension(preferredSize.width, Math.max(preferredSize.height, 24));
+        }
+
         private double getLuma(Color c) {
             return 0.2126d * c.getRed() + 0.7152d * c.getGreen() + 0.0722d * c.getBlue();
         }

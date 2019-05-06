@@ -8,6 +8,8 @@ import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
+import com.dataiku.dss.intellij.utils.ComponentUtils;
+import com.dataiku.dss.intellij.utils.VirtualFileUtils;
 import com.dataiku.dss.model.metadata.DssPluginMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
 import com.google.common.base.Preconditions;
@@ -80,6 +82,13 @@ public class MonitoredFilesIndex implements ApplicationComponent {
             return null;
         }
         return monitoredRecipeFiles.get(file.getCanonicalPath());
+    }
+
+    public synchronized MonitoredRecipeFile getMonitoredFile(String path) {
+        if (path == null) {
+            return null;
+        }
+        return monitoredRecipeFiles.get(path);
     }
 
     public synchronized List<MonitoredRecipeFile> getMonitoredRecipeFiles() {

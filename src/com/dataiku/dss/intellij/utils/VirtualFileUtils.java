@@ -1,4 +1,4 @@
-package com.dataiku.dss.intellij;
+package com.dataiku.dss.intellij.utils;
 
 import static org.apache.commons.codec.Charsets.UTF_8;
 

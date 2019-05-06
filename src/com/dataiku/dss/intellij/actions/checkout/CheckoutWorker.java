@@ -1,8 +1,8 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
-import static com.dataiku.dss.intellij.VirtualFileUtils.getContentHash;
-import static com.dataiku.dss.intellij.VirtualFileUtils.getOrCreateVirtualDirectory;
-import static com.dataiku.dss.intellij.VirtualFileUtils.getOrCreateVirtualFile;
+import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getContentHash;
+import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getOrCreateVirtualDirectory;
+import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getOrCreateVirtualFile;
 import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.IOException;
@@ -17,9 +17,9 @@ import com.dataiku.dss.intellij.DataikuDSSPlugin;
 import com.dataiku.dss.intellij.MetadataFile;
 import com.dataiku.dss.intellij.MetadataFilesIndex;
 import com.dataiku.dss.intellij.MonitoredFilesIndex;
-import com.dataiku.dss.intellij.RecipeUtils;
-import com.dataiku.dss.intellij.VirtualFileUtils;
 import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.utils.RecipeUtils;
+import com.dataiku.dss.intellij.utils.VirtualFileUtils;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.FolderContent;
 import com.dataiku.dss.model.dss.Plugin;

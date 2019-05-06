@@ -2,6 +2,7 @@ package com.dataiku.dss.intellij;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.intellij.utils.ComponentUtils;
 import com.intellij.openapi.components.ApplicationComponent;
 
 /**

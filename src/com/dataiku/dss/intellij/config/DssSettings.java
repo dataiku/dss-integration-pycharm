@@ -12,8 +12,8 @@ import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.ComponentUtils;
 import com.dataiku.dss.intellij.config.json.DataikuConfig;
+import com.dataiku.dss.intellij.utils.ComponentUtils;
 import com.dataiku.dss.model.DSSClient;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -41,6 +41,8 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     @SuppressWarnings("WeakerAccess")
     public static class DssConfig {
         public List<DssServer> servers = new LinkedList<>();
+        public boolean enableBackgroundSynchronization = true;
+        public int backgroundSynchronizationPollIntervalInSeconds = 60; // 1 minute
 
         public DssConfig() {
         }
@@ -61,6 +63,8 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
             for (DssServer server : servers) {
                 addServer(server.name, server.baseUrl, server.encryptedApiKey, server.noCheckCertificate, false, false);
             }
+            config.enableBackgroundSynchronization = state.enableBackgroundSynchronization;
+            config.backgroundSynchronizationPollIntervalInSeconds = state.backgroundSynchronizationPollIntervalInSeconds;
         }
     }
 
@@ -88,6 +92,22 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     public void setDssServers(List<DssServer> servers) {
         config.servers.clear();
         config.servers.addAll(servers);
+    }
+
+    public boolean isBackgroundSynchronizationEnabled() {
+        return config.enableBackgroundSynchronization;
+    }
+
+    public void setBackgroundSynchronizationEnabled(boolean enabled) {
+        config.enableBackgroundSynchronization = enabled;
+    }
+
+    public int getBackgroundSynchronizationPollIntervalInSeconds() {
+        return config.backgroundSynchronizationPollIntervalInSeconds;
+    }
+
+    public void setBackgroundSynchronizationPollIntervalInSeconds(int interval) {
+        config.backgroundSynchronizationPollIntervalInSeconds = interval;
     }
 
     public DssServer getDefaultServer() {
