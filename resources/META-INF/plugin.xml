@@ -52,11 +52,13 @@
 
     <actions>
         <action id="com.dataiku.dss.intellij.actions.checkout.CheckoutAction" class="com.dataiku.dss.intellij.actions.checkout.CheckoutAction"
-                text="Open Dataiku DSS..." description="Checkout a Dataiku DSS Recipe or Plugin">
+                text="Open Dataiku DSS..." description="Checkout a Dataiku DSS Recipe or Plugin"
+                icon="AllIcons.Actions.Menu_open">
             <add-to-group group-id="FileOpenGroup" anchor="after" relative-to-action="OpenFile"/>
         </action>
         <action id="com.dataiku.dss.intellij.actions.synchronize.SynchronizeAction" class="com.dataiku.dss.intellij.actions.synchronize.SynchronizeAction"
-                text="Synchronize with DSS..." description="Synchronize Dataiku DSS Recipes and Plugins with DSS instance">
+                text="Synchronize with DSS..." description="Synchronize Dataiku DSS Recipes and Plugins with DSS instance"
+                icon="AllIcons.Actions.SynchronizeFS">
             <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Synchronize"/>
         </action>
     </actions>
