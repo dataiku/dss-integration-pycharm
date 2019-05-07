@@ -65,8 +65,10 @@ public class RunConfigurationGenerator {
 
         // Set the environment variables, SDK, script name and working directory.
         Map<String, String> envs = new HashMap<>(runConfiguration.getEnvs());
-        envs.put("DKU_DSS_URL", dssServer.baseUrl);
-        envs.put("DKU_API_KEY", PasswordUtil.decodePassword(dssServer.encryptedApiKey));
+        if (!dssServer.isDefault) {
+            envs.put("DKU_DSS_URL", dssServer.baseUrl);
+            envs.put("DKU_API_KEY", PasswordUtil.decodePassword(dssServer.encryptedApiKey));
+        }
         envs.put("DKU_CURRENT_PROJECT_KEY", projectKey);
         runConfiguration.setEnvs(envs);
         runConfiguration.setModule(module);

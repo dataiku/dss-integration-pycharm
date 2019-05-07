@@ -25,7 +25,7 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
     private JPanel panel;
 
     public CheckoutStep1(CheckoutModel model, Project project) {
-        super("DSS instance and Item Type");
+        super("Recipe or Plugin");
         this.model = model;
         this.project = project;
         init();

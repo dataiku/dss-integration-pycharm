@@ -47,7 +47,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     public static class DssConfig {
         public List<DssServer> servers = new LinkedList<>();
         public boolean enableBackgroundSynchronization = true;
-        public int backgroundSynchronizationPollIntervalInSeconds = 60; // 1 minute
+        public int backgroundSynchronizationPollIntervalInSeconds = 120; // 2 minute
 
         public DssConfig() {
         }
@@ -165,7 +165,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         String url = System.getenv(ENV_VAR__DKU_DSS_URL);
         String apiKey = System.getenv(ENV_VAR__DKU_API_KEY);
         if (url != null && url.length() > 0 && apiKey != null && apiKey.length() > 0) {
-            addServer(DEFAULT_DSS_INSTANCE, url, encodePassword(apiKey), CHECK_CERTIFICATE, IS_DEFAULT, READ_ONLY);
+            addServer(DEFAULT_DSS_INSTANCE, url, encodePassword(apiKey), CHECK_CERTIFICATE, false, READ_ONLY);
         }
     }
 
@@ -205,6 +205,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
         DssServer newServer = new DssServer(name, baseUrl, encryptedApiKey, noCheckCertificate != null && noCheckCertificate);
         newServer.readonly = isReadOnly;
+        newServer.isDefault = isDefault;
         if (isDefault) {
             config.servers.add(0, newServer);
         } else {

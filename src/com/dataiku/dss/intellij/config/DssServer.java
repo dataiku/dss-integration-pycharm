@@ -11,6 +11,7 @@ public class DssServer {
     public String encryptedApiKey;
     public boolean noCheckCertificate;
     public boolean readonly; // true when server has been created from environment variable or ~/.dataiku/config.json
+    public boolean isDefault; // true if the server has been defined as default server in ~/.dataiku/config.json
 
     public DssServer() {
     }

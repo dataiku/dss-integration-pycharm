@@ -61,10 +61,11 @@ public class DssServerDialog extends DialogWrapper {
             server.encryptedApiKey = serverToEdit.encryptedApiKey;
             server.noCheckCertificate = serverToEdit.noCheckCertificate;
             server.readonly = serverToEdit.readonly;
+            server.isDefault = serverToEdit.isDefault;
         }
 
         init();
-        setTitle((editing ? "Edit" : "New") + " Server");
+        setTitle((editing ? "Edit" : "New") + " Instance");
         setOKActionEnabled(!server.readonly);
     }
 
