@@ -145,9 +145,10 @@ public class DssSettingsPanel implements Disposable {
     }
 
     public void save(@NotNull DssSettings settings) {
-        settings.setDssServers(new ArrayList<>(servers));
-        settings.setBackgroundSynchronizationEnabled(automaticSynchronizationCheckBox.isSelected());
-        settings.setBackgroundSynchronizationPollIntervalInSeconds(getPollingIntervalValue());
+        settings.updateConfig(
+                new ArrayList<>(servers),
+                automaticSynchronizationCheckBox.isSelected(),
+                getPollingIntervalValue());
     }
 
     public void load(@NotNull DssSettings settings) {

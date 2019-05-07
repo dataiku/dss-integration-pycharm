@@ -77,6 +77,12 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         monitoredRecipeFiles.remove(monitoredFile.file.getCanonicalPath());
     }
 
+    public synchronized void removeFromIndex(MonitoredPlugin monitoredPlugin) {
+        Preconditions.checkNotNull(monitoredPlugin, "monitoredPlugin");
+        log.info(String.format("Stop tracking plugin directory '%s' corresponding to plugin on instance '%s'.", monitoredPlugin.pluginBaseDir, monitoredPlugin.plugin.instance));
+        monitoredPlugins.remove(monitoredPlugin.pluginBaseDir.getCanonicalPath());
+    }
+
     public synchronized MonitoredRecipeFile getMonitoredFile(VirtualFile file) {
         if (file == null) {
             return null;
@@ -127,6 +133,15 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         for (MonitoredPlugin plugin : monitoredPlugins.values()) {
             String path = VirtualFileUtils.getRelativePath(plugin.pluginBaseDir, file);
             if (path != null) {
+                return plugin;
+            }
+        }
+        return null;
+    }
+
+    public synchronized MonitoredPlugin getMonitoredPluginFromBaseDir(VirtualFile pluginBaseDir) {
+        for (MonitoredPlugin plugin : monitoredPlugins.values()) {
+            if (plugin.pluginBaseDir.getUrl().equals(pluginBaseDir.getUrl())) {
                 return plugin;
             }
         }

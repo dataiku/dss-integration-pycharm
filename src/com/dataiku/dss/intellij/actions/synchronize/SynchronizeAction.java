@@ -51,7 +51,7 @@ public class SynchronizeAction extends AnAction implements DumbAware {
             try {
                 // Do the work
                 DssSettings dssSettings = DssSettings.getInstance();
-                SynchronizeWorker synchronizeWorker = new SynchronizeWorker(DataikuDSSPlugin.getInstance(), dssSettings, new RecipeCache(dssSettings));
+                SynchronizeWorker synchronizeWorker = new SynchronizeWorker(DataikuDSSPlugin.getInstance(), dssSettings, new RecipeCache(dssSettings), false);
                 SynchronizeSummary summary = synchronizeWorker.synchronizeWithDSS(buildRequest(model));
 
                 // Notify when it's done.

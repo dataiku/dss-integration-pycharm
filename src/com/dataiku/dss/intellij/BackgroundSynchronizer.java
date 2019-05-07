@@ -33,14 +33,19 @@ import com.intellij.openapi.vfs.VirtualFilePropertyEvent;
 
 public class BackgroundSynchronizer implements ApplicationComponent {
     private static final Logger log = Logger.getInstance(BackgroundSynchronizer.class);
+    private static final int INITIAL_DELAY = 10; // Wait for 10 seconds before triggering the first synchronization
+    private static final int NOW = 0;
 
     private final MonitoredFilesIndex monitoredFilesIndex;
     private final DataikuDSSPlugin dssPlugin;
     private final DssSettings dssSettings;
 
-    private ScheduledFuture<?> scheduledFuture;
     private SyncProjectManagerAdapter projectManagerAdapter;
     private ScheduledExecutorService executorService;
+    private int currentPollingInterval = -1; // Negative if not scheduled
+    private ScheduledFuture<?> scheduledFuture = null; // null if not scheduled
+    private VirtualFileAdapter virtualFileAdapter;
+    private DssSettingsListener dssSettingsListener;
 
     public BackgroundSynchronizer(DataikuDSSPlugin dssPlugin, DssSettings dssSettings, MonitoredFilesIndex monitoredFilesIndex) {
         this.dssPlugin = dssPlugin;
@@ -60,49 +65,70 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
         // At startup, synchronize everything, then poll DSS every X seconds if one (or more) monitored recipes has been updated on DSS side.
         if (dssSettings.isBackgroundSynchronizationEnabled()) {
-            scheduleSynchronization();
+            scheduleSynchronization(INITIAL_DELAY);
         }
+        // When the configuration is changed, update the polling interval or cancel the synchronization scheduling
+        dssSettingsListener = new DssSettingsListener();
+        dssSettings.addListener(dssSettingsListener);
 
+
+        // Whenever a new project is opened, we rescan the .dataiku directories to find new items to monitor
         projectManagerAdapter = new SyncProjectManagerAdapter();
         ProjectManager.getInstance().addProjectManagerListener(projectManagerAdapter);
 
-        // Every time a monitored file is saved in IntelliJ, upload it onto DSS.
-        LocalFileSystem.getInstance().addVirtualFileListener(new VirtualFileAdapter());
+        // Whenever a monitored file is saved in IntelliJ, upload it onto DSS.
+        virtualFileAdapter = new VirtualFileAdapter();
+        LocalFileSystem.getInstance().addVirtualFileListener(virtualFileAdapter);
     }
 
-    private void scheduleSynchronization() {
-        // Cancel existing scheduling
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-        }
-        // Trigger a new one.
-        long pollIntervalInSeconds = dssSettings.getBackgroundSynchronizationPollIntervalInSeconds();
-        scheduledFuture = executorService.scheduleWithFixedDelay(this::runSynchronizer, 0, pollIntervalInSeconds, SECONDS);
+    private void scheduleSynchronization(long initialDelay) {
+        cancelSynchronization();
+
+        // Create a new scheduling
+        currentPollingInterval = Math.max(10, dssSettings.getBackgroundSynchronizationPollIntervalInSeconds());
+        log.info(String.format("Scheduling background synchronization (polling every %d seconds after initial delay of %d seconds)", currentPollingInterval, initialDelay));
+        scheduledFuture = executorService.scheduleWithFixedDelay(this::runSynchronizer, initialDelay, currentPollingInterval, SECONDS);
     }
 
     @Override
     public void disposeComponent() {
         log.info("Stopping");
 
+        dssSettings.removeListener(dssSettingsListener);
+
+        LocalFileSystem.getInstance().removeVirtualFileListener(virtualFileAdapter);
+
         ProjectManager.getInstance().removeProjectManagerListener(projectManagerAdapter);
         projectManagerAdapter = null;
 
+        cancelSynchronization();
+    }
+
+    private void cancelSynchronization() {
         if (scheduledFuture != null) {
+            log.info(String.format("Cancelling background synchronization (was polling every %d seconds)", currentPollingInterval));
             scheduledFuture.cancel(false);
+            scheduledFuture = null;
+            currentPollingInterval = -1;
         }
     }
 
     private void runSynchronizer() {
-        SynchronizeRequest request = buildRequest(monitoredFilesIndex);
-        if (!request.isEmpty()) {
-            try {
-                SynchronizeSummary summary = new SynchronizeWorker(dssPlugin, dssSettings, new RecipeCache(dssSettings)).synchronizeWithDSS(request);
-                if (!summary.isEmpty()) {
-                    SynchronizeUtils.notifySynchronizationComplete(summary, null);
+        try {
+            log.debug("RunSynchronizer...");
+            SynchronizeRequest request = buildRequest(monitoredFilesIndex);
+            if (!request.isEmpty()) {
+                try {
+                    SynchronizeSummary summary = new SynchronizeWorker(dssPlugin, dssSettings, new RecipeCache(dssSettings), true).synchronizeWithDSS(request);
+                    if (!summary.isEmpty()) {
+                        SynchronizeUtils.notifySynchronizationComplete(summary, null);
+                    }
+                } catch (IOException e) {
+                    SynchronizeUtils.notifySynchronizationFailure(e, null);
                 }
-            } catch (IOException e) {
-                SynchronizeUtils.notifySynchronizationFailure(e, null);
             }
+        } catch (Exception e) {
+            log.error("Caught exception while running synchronizer", e);
         }
     }
 
@@ -116,7 +142,9 @@ public class BackgroundSynchronizer implements ApplicationComponent {
         public void projectOpened(Project project) {
             // Index all files present in newly opened project
             monitoredFilesIndex.index(new Project[]{project});
-            runSynchronizer();
+            if (dssSettings.isBackgroundSynchronizationEnabled()) {
+                scheduleSynchronization(NOW);
+            }
         }
 
         @Override
@@ -137,7 +165,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 return;
             }
             if (monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
-                scheduleSynchronization();
+                scheduleSynchronization(NOW);
             }
         }
 
@@ -148,15 +176,13 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             }
             if (monitoredFilesIndex.getMonitoredPlugin(event.getOriginalFile()) != null
                     || monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
-                scheduleSynchronization();
+                scheduleSynchronization(NOW);
             }
         }
 
         @Override
         public void fileDeleted(@NotNull VirtualFileEvent event) {
-            if (!dssSettings.isBackgroundSynchronizationEnabled()) {
-                return;
-            }
+            // We want to unindex files
             VirtualFile file = event.getFile();
             MonitoredRecipeFile monitoredFile = monitoredFilesIndex.getMonitoredFile(file);
             if (monitoredFile != null) {
@@ -167,8 +193,20 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                     log.warn(String.format("Unable to update DSS metadata after removal of file '%s'", file), e);
                 }
             } else {
-                if (monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
-                    scheduleSynchronization();
+                MonitoredPlugin deletedPlugin = monitoredFilesIndex.getMonitoredPluginFromBaseDir(event.getFile());
+                if (deletedPlugin != null) {
+                    monitoredFilesIndex.removeFromIndex(deletedPlugin);
+                    try {
+                        deletedPlugin.metadataFile.removePlugin(deletedPlugin.plugin.pluginId);
+                    } catch (IOException e) {
+                        log.warn(String.format("Unable to update DSS metadata after removal of plugin '%s'", deletedPlugin.plugin.pluginId), e);
+                    }
+                } else {
+                    if (dssSettings.isBackgroundSynchronizationEnabled()) {
+                        if (monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
+                            scheduleSynchronization(NOW);
+                        }
+                    }
                 }
             }
         }
@@ -180,7 +218,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             }
             if (monitoredFilesIndex.getMonitoredPlugin(event.getOldParent()) != null
                     || monitoredFilesIndex.getMonitoredPlugin(event.getNewParent()) != null) {
-                scheduleSynchronization();
+                scheduleSynchronization(NOW);
             }
         }
 
@@ -207,7 +245,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                         MonitoredPlugin monitoredPlugin = monitoredFilesIndex.getMonitoredPlugin(file);
                         if (monitoredPlugin != null) {
                             log.info(String.format("Detected rename operation on file '%s' located inside monitored plugin directory.", file.getCanonicalPath()));
-                            scheduleSynchronization();
+                            scheduleSynchronization(NOW);
                         }
                     }
                 }
@@ -277,6 +315,17 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 }
             } catch (IOException e) {
                 log.warn(String.format("Unable to synchronize recipe '%s'.", monitoredFile.recipe), e);
+            }
+        }
+    }
+
+    private class DssSettingsListener implements DssSettings.Listener {
+        @Override
+        public void onConfigurationUpdated() {
+            if (dssSettings.isBackgroundSynchronizationEnabled() && currentPollingInterval != dssSettings.getBackgroundSynchronizationPollIntervalInSeconds()) {
+                scheduleSynchronization(INITIAL_DELAY);
+            } else {
+                cancelSynchronization();
             }
         }
     }

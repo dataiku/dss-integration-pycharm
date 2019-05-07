@@ -1,8 +1,6 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
 import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getContentHash;
-import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getOrCreateVirtualDirectory;
-import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getOrCreateVirtualFile;
 import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.IOException;
@@ -17,6 +15,7 @@ import com.dataiku.dss.intellij.DataikuDSSPlugin;
 import com.dataiku.dss.intellij.MetadataFile;
 import com.dataiku.dss.intellij.MetadataFilesIndex;
 import com.dataiku.dss.intellij.MonitoredFilesIndex;
+import com.dataiku.dss.intellij.MonitoredPlugin;
 import com.dataiku.dss.intellij.config.DssServer;
 import com.dataiku.dss.intellij.utils.RecipeUtils;
 import com.dataiku.dss.intellij.utils.VirtualFileUtils;
@@ -39,11 +38,13 @@ public class CheckoutWorker {
 
     private final CheckoutModel model;
     private final DataikuDSSPlugin requestor;
+    private final VirtualFileUtils vFileManager;
 
     CheckoutWorker(DataikuDSSPlugin dssPlugin, CheckoutModel model) {
         Preconditions.checkNotNull(model, "model");
         this.model = model;
         this.requestor = dssPlugin;
+        this.vFileManager = new VirtualFileUtils(dssPlugin, false);
     }
 
     public List<VirtualFile> checkout() throws IOException {
@@ -76,8 +77,8 @@ public class CheckoutWorker {
             String serverName = model.server.name;
             String filename = getFilename(recipe);
             String[] path = appendToArray(checkoutLocation, filename);
-            VirtualFile file = getOrCreateVirtualFile(requestor, moduleRootFolder, path);
-            VirtualFileUtils.writeToVirtualFile(file, recipeContent);
+            VirtualFile file = vFileManager.getOrCreateVirtualFile(moduleRootFolder, path);
+            vFileManager.writeToVirtualFile(file, recipeContent);
 
             // Write metadata
             MetadataFile metadata = MetadataFilesIndex.getInstance().getOrCreateMetadata(moduleRootFolder);
@@ -119,13 +120,16 @@ public class CheckoutWorker {
             DssPluginMetadata pluginMetadata = new DssPluginMetadata(model.server.name, plugin.id, plugin.id);
 
             // Create folder for plugin
-            VirtualFile folder = getOrCreateVirtualDirectory(this, moduleRootFolder, plugin.id);
+            VirtualFile folder = vFileManager.getOrCreateVirtualDirectory(moduleRootFolder, plugin.id);
 
             // Checkout plugin files
             List<FolderContent> folderContents = dssClient.listPluginFiles(plugin.id);
             checkoutFolder(pluginMetadata, plugin.id, createdFileList, folder, folderContents);
 
             metadata.addOrUpdatePlugin(pluginMetadata);
+
+            // Monitor the plugin directory so that any further change in this directory is synchronized with DSS.
+            MonitoredFilesIndex.getInstance().index(new MonitoredPlugin(folder, metadata, pluginMetadata));
         }
 
         NonProjectFileWritingAccessProvider.allowWriting(createdFileList);
@@ -140,7 +144,7 @@ public class CheckoutWorker {
                 log.info(String.format("Checkout plugin folder '%s' (path=%s)", pluginFile.name, pluginFile.path));
 
                 // Create folder
-                VirtualFile file = getOrCreateVirtualDirectory(requestor, parent, pluginFile.name);
+                VirtualFile file = vFileManager.getOrCreateVirtualDirectory(parent, pluginFile.name);
 
                 // Write metadata
                 pluginMetadata.files.add(new DssPluginFileMetadata(
@@ -158,10 +162,10 @@ public class CheckoutWorker {
                 // Regular file
                 log.info(String.format("Checkout plugin file '%s' (path=%s)", pluginFile.name, pluginFile.path));
 
-                VirtualFile file = getOrCreateVirtualFile(requestor, parent, pluginFile.name);
+                VirtualFile file = vFileManager.getOrCreateVirtualFile(parent, pluginFile.name);
 
                 byte[] fileContent = pluginFile.size == 0 ? new byte[0] : model.serverClient.downloadPluginFile(pluginId, pluginFile.path);
-                VirtualFileUtils.writeToVirtualFile(file, fileContent, UTF_8);
+                vFileManager.writeToVirtualFile(file, fileContent, UTF_8);
 
                 // Write metadata
                 pluginMetadata.files.add(new DssPluginFileMetadata(

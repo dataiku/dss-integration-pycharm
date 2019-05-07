@@ -5,6 +5,7 @@ import static com.intellij.openapi.util.PasswordUtil.encodePassword;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -34,6 +35,10 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     private static final String ENV_VAR__DKU_DSS_URL = "DKU_DSS_URL";
     private static final String ENV_VAR__DKU_API_KEY = "DKU_API_KEY";
 
+    public interface Listener {
+        void onConfigurationUpdated();
+    }
+
     public static DssSettings getInstance() {
         return ComponentUtils.getComponent(DssSettings.class);
     }
@@ -49,6 +54,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     }
 
     private DssConfig config = new DssConfig();
+    private final List<Listener> listeners = new ArrayList<>();
 
     public DssSettings() {
     }
@@ -89,25 +95,30 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         }
     }
 
-    public void setDssServers(List<DssServer> servers) {
+    public void addListener(Listener listener) {
+        listeners.add(listener);
+    }
+
+    public void removeListener(Listener listener) {
+        listeners.remove(listener);
+    }
+
+    public void updateConfig(List<DssServer> servers, boolean enableBackgroundSync, int backgroundSyncPollingInterval) {
         config.servers.clear();
         config.servers.addAll(servers);
+        config.enableBackgroundSynchronization = enableBackgroundSync;
+        config.backgroundSynchronizationPollIntervalInSeconds = backgroundSyncPollingInterval;
+        for (Listener listener : listeners) {
+            listener.onConfigurationUpdated();
+        }
     }
 
     public boolean isBackgroundSynchronizationEnabled() {
         return config.enableBackgroundSynchronization;
     }
 
-    public void setBackgroundSynchronizationEnabled(boolean enabled) {
-        config.enableBackgroundSynchronization = enabled;
-    }
-
     public int getBackgroundSynchronizationPollIntervalInSeconds() {
         return config.backgroundSynchronizationPollIntervalInSeconds;
-    }
-
-    public void setBackgroundSynchronizationPollIntervalInSeconds(int interval) {
-        config.backgroundSynchronizationPollIntervalInSeconds = interval;
     }
 
     public DssServer getDefaultServer() {

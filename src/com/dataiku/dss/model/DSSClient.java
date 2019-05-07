@@ -8,6 +8,7 @@ import static org.apache.commons.codec.binary.Base64.encodeBase64;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
 
@@ -153,6 +154,12 @@ public class DSSClient {
         } catch (IOException | GeneralSecurityException e) {
             throw new DssException(e);
         }
+    }
+
+    public void createPluginFolder(String pluginId, String path) throws DssException {
+        String dummyFilePath = path + "/dummy" + UUID.randomUUID();
+        uploadPluginFile(pluginId, dummyFilePath, new byte[0]);
+        deletePluginFile(pluginId, dummyFilePath);
     }
 
     @NotNull

@@ -2,8 +2,6 @@ package com.dataiku.dss.intellij;
 
 import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
 import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getContentHash;
-import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getOrCreateVirtualDirectory;
-import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getOrCreateVirtualFile;
 import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.IOException;
@@ -43,13 +41,17 @@ public class SynchronizeWorker {
 
     private final DataikuDSSPlugin requestor;
     private final RecipeCache recipeCache;
+    private final boolean runInBackgroundThread;
+    private final VirtualFileUtils vFileManager;
     private Set<MetadataFile> dirtyMetadataFiles = new HashSet<>();
     private SynchronizeSummary summary = new SynchronizeSummary();
 
-    public SynchronizeWorker(DataikuDSSPlugin dssPlugin, DssSettings settings, RecipeCache recipeCache) {
+    public SynchronizeWorker(DataikuDSSPlugin dssPlugin, DssSettings settings, RecipeCache recipeCache, boolean runInBackgroundThread) {
         this.settings = settings;
         this.requestor = dssPlugin;
         this.recipeCache = recipeCache;
+        this.runInBackgroundThread = runInBackgroundThread;
+        this.vFileManager = new VirtualFileUtils(dssPlugin, runInBackgroundThread);
     }
 
     public SynchronizeSummary synchronizeWithDSS(SynchronizeRequest request) throws IOException {
@@ -118,7 +120,7 @@ public class SynchronizeWorker {
             } else {
                 if (localHash == originalHash) {
                     log.info(String.format("Recipe '%s' has been remotely modified but not modified locally since last synchronization. Updating local copy of the recipe.", monitoredFile.recipe));
-                    VirtualFileUtils.writeToVirtualFile(monitoredFile.file, recipeAndPayload.payload);
+                    vFileManager.writeToVirtualFile(monitoredFile.file, recipeAndPayload.payload);
                     monitoredFile.recipe.contentHash = remoteHash;
                     monitoredFile.recipe.versionNumber = remoteVersionNumber;
                     dirtyMetadataFiles.add(monitoredFile.metadataFile);
@@ -129,8 +131,8 @@ public class SynchronizeWorker {
                     saveRecipeToDss(dssClient, monitoredFile, localFileContent, false);
                     dirtyMetadataFiles.add(monitoredFile.metadataFile);
 
-                    VirtualFile newFile = VirtualFileUtils.getOrCreateVirtualFile(requestor, monitoredFile.file.getParent(), monitoredFile.file.getName() + REMOTE_SUFFIX);
-                    VirtualFileUtils.writeToVirtualFile(newFile, recipeAndPayload.payload.getBytes(UTF_8), UTF_8);
+                    VirtualFile newFile = vFileManager.getOrCreateVirtualFile(monitoredFile.file.getParent(), monitoredFile.file.getName() + REMOTE_SUFFIX);
+                    vFileManager.writeToVirtualFile(newFile, recipeAndPayload.payload.getBytes(UTF_8), UTF_8);
                     summary.conflicts.add(String.format("Recipe '%s.%s' both modified locally and remotely. Local version has been saved into DSS and remote version has been saved locally with '%s' extension.", monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName, REMOTE_SUFFIX));
                 }
             }
@@ -145,10 +147,12 @@ public class SynchronizeWorker {
         synchronizePluginFolder(dssClient, monitoredPlugin, monitoredPlugin.pluginBaseDir, folderContents);
 
         // Add all files in pluginBaseDir that are not in remote plugin
-        addMissingFiles(monitoredPlugin, index(folderContents), dssClient);
+        Map<String, FolderContent> indexedFolderContent = index(folderContents);
+        addOrDeleteMissingFiles(monitoredPlugin, indexedFolderContent, dssClient);
+        addOrDeleteMissingFolders(monitoredPlugin, indexedFolderContent, dssClient);
     }
 
-    private void addMissingFiles(MonitoredPlugin monitoredPlugin, Map<String, FolderContent> index, DSSClient dssClient) throws IOException {
+    private void addOrDeleteMissingFiles(MonitoredPlugin monitoredPlugin, Map<String, FolderContent> index, DSSClient dssClient) throws IOException {
         List<VirtualFile> missingFiles = new ArrayList<>();
         String baseUrl = monitoredPlugin.pluginBaseDir.getUrl();
         VfsUtilCore.visitChildrenRecursively(monitoredPlugin.pluginBaseDir, new VirtualFileVisitor<Object>() {
@@ -166,7 +170,7 @@ public class SynchronizeWorker {
         });
         for (VirtualFile file : missingFiles) {
             String fileUrl = file.getUrl();
-            String path = fileUrl.substring(baseUrl.length());
+            String path = fileUrl.substring(baseUrl.length() + 1);
             byte[] content = VirtualFileUtils.readVirtualFileAsByteArray(file);
             int contentHash = VirtualFileUtils.getContentHash(content);
 
@@ -182,12 +186,52 @@ public class SynchronizeWorker {
                 if (trackedFile.contentHash != contentHash) {
                     // Rename the file into ".deleted" and stop tracking it.
                     String newName = findNonExistingFilename(file, file.getName() + DELETED_SUFFIX);
-                    VirtualFileUtils.renameVirtualFile(requestor, file, newName);
+                    vFileManager.renameVirtualFile(file, newName);
                     summary.conflicts.add(String.format("Plugin file '%s' removed from DSS instance but modified locally. Local copy has been renamed into '%s'.", path, newName));
                 } else {
                     // No, delete the file locally
-                    VirtualFileUtils.deleteVirtualFile(requestor, file);
+                    vFileManager.deleteVirtualFile(file);
                     summary.locallyDeleted.add(String.format("Plugin file '%s' locally deleted because it has been removed from DSS instance.", path));
+                }
+                removePluginFileMetadata(monitoredPlugin, path);
+            }
+        }
+    }
+
+    private void addOrDeleteMissingFolders(MonitoredPlugin monitoredPlugin, Map<String, FolderContent> index, DSSClient dssClient) throws IOException {
+        List<VirtualFile> missingFolders = new ArrayList<>();
+        String baseUrl = monitoredPlugin.pluginBaseDir.getUrl();
+        VfsUtilCore.visitChildrenRecursively(monitoredPlugin.pluginBaseDir, new VirtualFileVisitor<Object>() {
+            @Override
+            public boolean visitFile(@NotNull VirtualFile file) {
+                String fileUrl = file.getUrl();
+                if (fileUrl.startsWith(baseUrl) && fileUrl.length() > baseUrl.length()) {
+                    String path = fileUrl.substring(baseUrl.length() + 1);
+                    if (!index.containsKey(path) && file.isDirectory() && !file.getName().endsWith(REMOTE_SUFFIX) && !file.getName().endsWith(DELETED_SUFFIX)) {
+                        missingFolders.add(file);
+                    }
+                }
+                return super.visitFile(file);
+            }
+        });
+        for (VirtualFile folder : missingFolders) {
+            String fileUrl = folder.getUrl();
+            String path = fileUrl.substring(baseUrl.length() + 1);
+
+            DssPluginFileMetadata trackedFile = monitoredPlugin.findFile(path);
+            if (trackedFile == null) {
+                // Newly added => sent it to DSS
+                log.info(String.format("Uploading locally added plugin directory '%s' (path=%s)", folder.getName(), path));
+                dssClient.createPluginFolder(monitoredPlugin.plugin.pluginId, path);
+                summary.dssUpdated.add(String.format("Plugin directory '%s' created into DSS instance.", path));
+                updatePluginFileMetadata(monitoredPlugin, path, 0);
+            } else {
+                // Is empty
+                VirtualFile[] children = folder.getChildren();
+                if (children == null || children.length == 0) {
+                    // No, delete the file locally
+                    vFileManager.deleteVirtualFile(folder);
+                    summary.locallyDeleted.add(String.format("Plugin directory '%s' locally deleted because it has been removed from DSS instance.", path));
                 }
                 removePluginFileMetadata(monitoredPlugin, path);
             }
@@ -205,7 +249,7 @@ public class SynchronizeWorker {
                 if (trackedFile == null) {
                     // Create folder
                     log.info(" - Creating folder: it has been added remotely since last synchronization.");
-                    VirtualFile file = getOrCreateVirtualDirectory(requestor, parent, pluginFile.name);
+                    VirtualFile file = vFileManager.getOrCreateVirtualDirectory(parent, pluginFile.name);
                     updatePluginFileMetadata(monitoredPlugin, pluginFile.path, 0);
 
                     if (pluginFile.children != null && !pluginFile.children.isEmpty()) {
@@ -231,8 +275,8 @@ public class SynchronizeWorker {
                 byte[] fileContent = pluginFile.size == 0 ? new byte[0] : dssClient.downloadPluginFile(pluginId, pluginFile.path);
                 if (trackedFile == null) {
                     log.info(" - Creating file: it has been added remotely since last synchronization.");
-                    VirtualFile file = VirtualFileUtils.getOrCreateVirtualFile(requestor, parent, pluginFile.name);
-                    VirtualFileUtils.writeToVirtualFile(file, fileContent, UTF_8);
+                    VirtualFile file = vFileManager.getOrCreateVirtualFile(parent, pluginFile.name);
+                    vFileManager.writeToVirtualFile(file, fileContent, UTF_8);
                     updatePluginFileMetadata(monitoredPlugin, pluginFile.path, getContentHash(fileContent));
                     summary.locallyUpdated.add(String.format("Plugin file '%s' downloaded from DSS instance.", pluginFile.path));
                 } else {
@@ -265,7 +309,7 @@ public class SynchronizeWorker {
                             } else if (localHash == originalHash) {
                                 // File has not been modified locally, retrieve the remote version.
                                 log.info(" - Updating local file. It has been updated remotely but not locally.");
-                                VirtualFileUtils.writeToVirtualFile(file, fileContent, UTF_8);
+                                vFileManager.writeToVirtualFile(file, fileContent, UTF_8);
                                 updatePluginFileMetadata(monitoredPlugin, pluginFile.path, remoteHash);
                                 summary.locallyUpdated.add(String.format("Plugin file '%s' updated with latest version from DSS instance.", pluginFile.path));
                             } else {
@@ -274,8 +318,8 @@ public class SynchronizeWorker {
                                 dssClient.uploadPluginFile(pluginId, pluginFile.path, VirtualFileUtils.readVirtualFileAsByteArray(file));
                                 updatePluginFileMetadata(monitoredPlugin, pluginFile.path, localHash);
 
-                                VirtualFile newFile = getOrCreateVirtualFile(requestor, parent, pluginFile.name + REMOTE_SUFFIX);
-                                VirtualFileUtils.writeToVirtualFile(newFile, fileContent, UTF_8);
+                                VirtualFile newFile = vFileManager.getOrCreateVirtualFile(parent, pluginFile.name + REMOTE_SUFFIX);
+                                vFileManager.writeToVirtualFile(newFile, fileContent, UTF_8);
                                 summary.conflicts.add(String.format("Plugin file '%s' both modified locally and remotely. Local version has been saved into DSS and remote version has been saved locally with '%s' extension.", pluginFile.path, REMOTE_SUFFIX));
                             }
                         }
