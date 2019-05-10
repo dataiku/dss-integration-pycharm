@@ -35,22 +35,19 @@ import com.intellij.openapi.vfs.VirtualFileVisitor;
 
 public class SynchronizeWorker {
     private static final Logger log = Logger.getInstance(SynchronizeWorker.class);
+    private static final String PYC_SUFFIX = ".pyc";
     private static final String DELETED_SUFFIX = ".deleted";
     private static final String REMOTE_SUFFIX = ".remote";
     private final DssSettings settings;
 
-    private final DataikuDSSPlugin requestor;
     private final RecipeCache recipeCache;
-    private final boolean runInBackgroundThread;
     private final VirtualFileUtils vFileManager;
     private Set<MetadataFile> dirtyMetadataFiles = new HashSet<>();
     private SynchronizeSummary summary = new SynchronizeSummary();
 
     public SynchronizeWorker(DataikuDSSPlugin dssPlugin, DssSettings settings, RecipeCache recipeCache, boolean runInBackgroundThread) {
         this.settings = settings;
-        this.requestor = dssPlugin;
         this.recipeCache = recipeCache;
-        this.runInBackgroundThread = runInBackgroundThread;
         this.vFileManager = new VirtualFileUtils(dssPlugin, runInBackgroundThread);
     }
 
@@ -161,7 +158,7 @@ public class SynchronizeWorker {
                 String fileUrl = file.getUrl();
                 if (fileUrl.startsWith(baseUrl) && fileUrl.length() > baseUrl.length()) {
                     String path = fileUrl.substring(baseUrl.length() + 1);
-                    if (!index.containsKey(path) && !file.isDirectory() && !file.getName().endsWith(REMOTE_SUFFIX) && !file.getName().endsWith(DELETED_SUFFIX)) {
+                    if (!index.containsKey(path) && !file.isDirectory() && !ignoreFile(file.getName())) {
                         missingFiles.add(file);
                     }
                 }
@@ -207,7 +204,7 @@ public class SynchronizeWorker {
                 String fileUrl = file.getUrl();
                 if (fileUrl.startsWith(baseUrl) && fileUrl.length() > baseUrl.length()) {
                     String path = fileUrl.substring(baseUrl.length() + 1);
-                    if (!index.containsKey(path) && file.isDirectory() && !file.getName().endsWith(REMOTE_SUFFIX) && !file.getName().endsWith(DELETED_SUFFIX)) {
+                    if (!index.containsKey(path) && file.isDirectory() && !ignoreFile(file.getName())) {
                         missingFolders.add(file);
                     }
                 }
@@ -389,5 +386,9 @@ public class SynchronizeWorker {
             index++;
         }
         return newName + "(" + index + ")";
+    }
+
+    private static boolean ignoreFile(String fileName) {
+        return fileName.endsWith(REMOTE_SUFFIX) || fileName.endsWith(DELETED_SUFFIX) || fileName.endsWith(PYC_SUFFIX);
     }
 }
