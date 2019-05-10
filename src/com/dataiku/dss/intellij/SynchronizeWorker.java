@@ -36,6 +36,7 @@ import com.intellij.openapi.vfs.VirtualFileVisitor;
 public class SynchronizeWorker {
     private static final Logger log = Logger.getInstance(SynchronizeWorker.class);
     private static final String PYC_SUFFIX = ".pyc";
+    private static final String CLASS_SUFFIX = ".class";
     private static final String DELETED_SUFFIX = ".deleted";
     private static final String REMOTE_SUFFIX = ".remote";
     private final DssSettings settings;
@@ -389,6 +390,6 @@ public class SynchronizeWorker {
     }
 
     private static boolean ignoreFile(String fileName) {
-        return fileName.endsWith(REMOTE_SUFFIX) || fileName.endsWith(DELETED_SUFFIX) || fileName.endsWith(PYC_SUFFIX);
+        return fileName.endsWith(REMOTE_SUFFIX) || fileName.endsWith(DELETED_SUFFIX) || fileName.endsWith(PYC_SUFFIX) || fileName.endsWith(CLASS_SUFFIX);
     }
 }
