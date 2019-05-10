@@ -331,7 +331,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
             case "__NOT_INSTALLED__":
                 installClientLibsPanel.setVisible(true);
                 installClientLibsWarningLabel.setText("Dataiku Client library is not installed in the selected SDK.");
-                installClientLibsWarningLabel.setIcon(Icons.WARNING_16);
+                installClientLibsWarningLabel.setIcon(Icons.WARNING);
                 installClientLibsWarningLabel.setVisible(true);
                 installClientLibsButton.setVisible(true);
                 installClientLibsButton.setText("Install");
@@ -339,14 +339,14 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
             case "__UNKNOWN__":
                 installClientLibsPanel.setVisible(true);
                 installClientLibsWarningLabel.setText("Dataiku Client library might not be installed in the selected SDK.");
-                installClientLibsWarningLabel.setIcon(Icons.WARNING_16);
+                installClientLibsWarningLabel.setIcon(Icons.WARNING);
                 installClientLibsWarningLabel.setVisible(true);
                 installClientLibsButton.setVisible(false);
                 break;
             default:
                 installClientLibsPanel.setVisible(true);
                 installClientLibsWarningLabel.setText("Dataiku Client library " + installedVersion + " is installed in the selected SDK.");
-                installClientLibsWarningLabel.setIcon(Icons.INFO_16);
+                installClientLibsWarningLabel.setIcon(Icons.INFO);
                 installClientLibsWarningLabel.setVisible(true);
                 installClientLibsButton.setVisible(false);
                 break;

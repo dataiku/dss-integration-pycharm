@@ -83,7 +83,7 @@ public class DssServerDialog extends DialogWrapper {
         if (server.readonly) {
             JLabel label = new JLabel("This instance cannot be edited.");
             label.setFont(label.getFont().deriveFont(Font.BOLD));
-            label.setIcon(Icons.WARNING_16);
+            label.setIcon(Icons.WARNING);
             panel.add(label, newColSpanConstraints(lineIndex++));
             panel.add(new JLabel("Its configuration is written in environment variables or in ~/.dataiku/config.json file."), newColSpanConstraints(lineIndex++));
             panel.add(new JSeparator(), newColSpanConstraints(lineIndex++));
@@ -105,9 +105,9 @@ public class DssServerDialog extends DialogWrapper {
         panel.add(urlText, newConstraints(lineIndex, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
         lineIndex++;
 
-        panel.add(new JLabel("API Key:"), newConstraints(lineIndex, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
+        panel.add(new JLabel("Personal API key secret:"), newConstraints(lineIndex, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
         apiKeyField = new JPasswordField();
-        apiKeyField.setToolTipText("API key to connect to this instance (mandatory field)");
+        apiKeyField.setToolTipText("Personal API key secret to connect to this instance (mandatory field)");
         apiKeyField.setEnabled(!server.readonly);
         panel.add(apiKeyField, newConstraints(lineIndex, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
         lineIndex++;

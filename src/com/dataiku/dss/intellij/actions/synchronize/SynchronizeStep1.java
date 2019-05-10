@@ -16,6 +16,9 @@ import com.intellij.ide.wizard.CommitStepException;
 public class SynchronizeStep1 extends AbstractWizardStepEx {
     private SynchronizeTree selectionTree;
     private JPanel mainPanel;
+    private JPanel selectionTreePanel;
+    private JScrollPane selectionTreeScrollPane;
+    private JSeparator separator;
 
     SynchronizeStep1(SynchronizeModel model) {
         super("");
@@ -25,6 +28,11 @@ public class SynchronizeStep1 extends AbstractWizardStepEx {
         TreeNode rootNode = instanceNodes.size() == 1 ? instanceNodes.get(0) : model.selectionRootNode;
         selectionTree.setModel(new DefaultTreeModel(rootNode));
         selectionTree.setShowsRootHandles(false);
+        selectionTree.setOpaque(true);
+        selectionTreePanel.setOpaque(false);
+        selectionTreePanel.setBorder(BorderFactory.createLineBorder(separator.getForeground(), 1));
+        selectionTreeScrollPane.setOpaque(false);
+        selectionTreeScrollPane.setBorder(BorderFactory.createEmptyBorder());
         expandAllNodes(selectionTree, 0, selectionTree.getRowCount());
     }
 

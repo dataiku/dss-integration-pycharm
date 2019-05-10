@@ -59,7 +59,7 @@ public class DssSettingsPanel implements Disposable {
         });
         serverList.setCellRenderer(new ColoredListCellRenderer<DssServer>() {
             protected void customizeCellRenderer(@NotNull JList<? extends DssServer> list, DssServer server, int index, boolean selected, boolean hasFocus) {
-                setIcon(server.readonly ? Icons.BIRD_GRAY : Icons.BIRD_TEAL);
+                setIcon(Icons.BIRD_GRAY);
                 append(" " + server.name, REGULAR_ATTRIBUTES);
                 append("  [ " + server.baseUrl + " ]", GRAYED_ATTRIBUTES, false);
             }
