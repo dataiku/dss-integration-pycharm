@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.DataikuDSSPlugin;
 import com.dataiku.dss.intellij.MonitoredFilesIndex;
 import com.dataiku.dss.intellij.MonitoredPlugin;
@@ -33,21 +34,24 @@ import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.wm.impl.welcomeScreen.NewWelcomeScreen;
 
 public class SynchronizeAction extends AnAction implements DumbAware {
+    private static final Logger log = Logger.getInstance(SynchronizeAction.class);
 
     @Override
     public void actionPerformed(@NotNull AnActionEvent e) {
         final Project project = e.getProject();
         if (project == null) {
-            Messages.showErrorDialog("Cannot synchronize DSS recipes or plugins outside a project. Create or open a project and try again.", "No Active Project");
+            String msg = "Cannot synchronize DSS recipes or plugins outside a project. Create or open a project and try again.";
+            log.error(msg);
+            Messages.showErrorDialog(msg, "No Active Project");
             return;
         }
         ApplicationManager.getApplication().invokeLater(() -> prepareAndShowWizard(project));
     }
 
     private void prepareAndShowWizard(Project project) {
-        SynchronizeWizard wizard = new SynchronizeWizard(project, MonitoredFilesIndex.getInstance());
-        if (wizard.showAndGet()) {
-            SynchronizeModel model = wizard.getModel();
+        SynchronizeDialog dialog = new SynchronizeDialog(project, MonitoredFilesIndex.getInstance());
+        if (dialog.showAndGet()) {
+            SynchronizeModel model = dialog.getModel();
             try {
                 // Do the work
                 DssSettings dssSettings = DssSettings.getInstance();
@@ -57,8 +61,10 @@ public class SynchronizeAction extends AnAction implements DumbAware {
                 // Notify when it's done.
                 notifySynchronizationComplete(summary, project);
             } catch (IOException e) {
+                log.error(e.getMessage(), e);
                 Messages.showErrorDialog(e.getMessage(), "I/O Error");
             } catch (RuntimeException e) {
+                log.error(e.getMessage(), e);
                 Messages.showErrorDialog(e.getMessage(), "Error");
             }
         }

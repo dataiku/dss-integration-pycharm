@@ -37,13 +37,11 @@ public class CheckoutWorker {
     private static final Logger log = Logger.getInstance(CheckoutWorker.class);
 
     private final CheckoutModel model;
-    private final DataikuDSSPlugin requestor;
     private final VirtualFileUtils vFileManager;
 
     CheckoutWorker(DataikuDSSPlugin dssPlugin, CheckoutModel model) {
         Preconditions.checkNotNull(model, "model");
         this.model = model;
-        this.requestor = dssPlugin;
         this.vFileManager = new VirtualFileUtils(dssPlugin, false);
     }
 
