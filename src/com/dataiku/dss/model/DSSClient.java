@@ -6,6 +6,8 @@ import static org.apache.commons.codec.Charsets.UTF_8;
 import static org.apache.commons.codec.binary.Base64.encodeBase64;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.UUID;
@@ -69,7 +71,7 @@ public class DSSClient {
 
     public String getDssVersion() {
         try (CloseableHttpClient client = createHttpClient()) {
-            String url = buildUrl(PROJECTS, "");
+            URI url = buildUrl(PROJECTS, "");
             HttpResponse response = executeRequest(new HttpGet(url), client);
             Header header = response.getFirstHeader("DSS-Version");
             if (header != null) {
@@ -83,18 +85,18 @@ public class DSSClient {
 
     public List<Project> listProjects(String... tags) throws DssException {
         String tagPart = Joiner.on(',').join(tags);
-        String url = buildUrl(PROJECTS, tagPart);
+        URI url = buildUrl(PROJECTS, tagPart);
 
         return asList(executeGet(url, Project[].class));
     }
 
     public List<Recipe> listRecipes(String projectKey) throws DssException {
-        String url = buildUrl(PROJECTS, projectKey, RECIPES, "");
+        URI url = buildUrl(PROJECTS, projectKey, RECIPES, "");
         return asList(executeGet(url, Recipe[].class));
     }
 
     public RecipeAndPayload loadRecipe(String projectKey, String recipeName) throws DssException {
-        String url = buildUrl(PROJECTS, projectKey, RECIPES, recipeName);
+        URI url = buildUrl(PROJECTS, projectKey, RECIPES, recipeName);
         return executeGet(url, RecipeAndPayload.class);
     }
 
@@ -112,12 +114,12 @@ public class DSSClient {
         recipeAndPayload.payload = payload;
         String body = new GsonBuilder().setPrettyPrinting().create().toJson(recipeAndPayload);
 
-        String url = buildUrl(PROJECTS, recipe.projectKey, RECIPES, recipe.name);
+        URI url = buildUrl(PROJECTS, recipe.projectKey, RECIPES, recipe.name);
         executePut(url, body);
     }
 
     public List<Plugin> listPlugins() throws DssException {
-        String url = baseUrl + PUBLIC_API + "/" + PLUGINS + "/";
+        URI url = buildUrl(PLUGINS, "");
 
         try {
             return asList(executeGet(url, Plugin[].class));
@@ -131,22 +133,22 @@ public class DSSClient {
     }
 
     public List<FolderContent> listPluginFiles(String pluginId) throws DssException {
-        String url = buildUrl(PLUGINS, pluginId, CONTENTS, "");
+        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, "");
         return asList(executeGet(url, FolderContent[].class));
     }
 
     public byte[] downloadPluginFile(String pluginId, String path) throws DssException {
-        String url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
+        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
         return executeGetAndReturnByteArray(url);
     }
 
     public void deletePluginFile(String pluginId, String path) throws DssException {
-        String url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
+        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
         executeDelete(url);
     }
 
     public void uploadPluginFile(String pluginId, String path, byte[] content) throws DssException {
-        String url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
+        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
         try (CloseableHttpClient client = createHttpClient()) {
             HttpPost request = new HttpPost(url);
             request.setEntity(new ByteArrayEntity(content));
@@ -164,11 +166,11 @@ public class DSSClient {
 
     @NotNull
     @SuppressWarnings("UnusedReturnValue")
-    private String executePut(String url, String body) throws DssException {
+    private String executePut(URI url, String body) throws DssException {
         return new String(executePutAndReturnByteArray(url, body), UTF_8);
     }
 
-    private byte[] executePutAndReturnByteArray(String url, String body) throws DssException {
+    private byte[] executePutAndReturnByteArray(URI url, String body) throws DssException {
         try (CloseableHttpClient client = createHttpClient()) {
             HttpPut request = new HttpPut(url);
             request.setEntity(new StringEntity(body));
@@ -179,18 +181,18 @@ public class DSSClient {
         }
     }
 
-    private <T> T executeGet(String url, Class<T> clazz) throws DssException {
+    private <T> T executeGet(URI url, Class<T> clazz) throws DssException {
         String body = executeGet(url);
         return new GsonBuilder().create().fromJson(body, clazz);
     }
 
     @NotNull
-    private String executeGet(String url) throws DssException {
+    private String executeGet(URI url) throws DssException {
         return new String(executeGetAndReturnByteArray(url), UTF_8);
     }
 
     @NotNull
-    private byte[] executeGetAndReturnByteArray(String url) throws DssException {
+    private byte[] executeGetAndReturnByteArray(URI url) throws DssException {
         try {
             try (CloseableHttpClient client = createHttpClient()) {
                 HttpResponse response = executeRequest(new HttpGet(url), client);
@@ -201,7 +203,7 @@ public class DSSClient {
         }
     }
 
-    private void executeDelete(String url) throws DssException {
+    private void executeDelete(URI url) throws DssException {
         try {
             try (CloseableHttpClient client = createHttpClient()) {
                 executeRequest(new HttpDelete(url), client);
@@ -210,6 +212,7 @@ public class DSSClient {
             throw new DssException(e);
         }
     }
+
     private CloseableHttpClient createHttpClient() throws GeneralSecurityException {
         HttpClientBuilder httpClientBuilder = HttpClientBuilder.create();
         if (noCheckCertificate) {
@@ -249,8 +252,18 @@ public class DSSClient {
     }
 
     @NotNull
-    private String buildUrl(String... parts) {
-        return baseUrl + PUBLIC_API + '/' + Joiner.on('/').join(parts);
+    private URI buildUrl(String... parts) {
+        try {
+            URI baseUri = new URI(baseUrl + PUBLIC_API);
+            return new URI(
+                    baseUri.getScheme(),
+                    baseUri.getAuthority(),
+                    baseUri.getPath() + '/' + Joiner.on('/').join(parts),
+                    null,
+                    null);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException("Invalid URL", e);
+        }
     }
 
     private static String fixBaseUrl(String url) {
