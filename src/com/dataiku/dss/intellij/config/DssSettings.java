@@ -1,13 +1,17 @@
 package com.dataiku.dss.intellij.config;
 
-import static com.intellij.openapi.util.PasswordUtil.encodePassword;
+import static com.dataiku.dss.intellij.config.DssInstance.ENVIRONMENT_VARIABLE_INSTANCE_ID;
+import static com.dataiku.dss.intellij.config.DssInstance.ENVIRONMENT_VARIABLE_INSTANCE_LABEL;
 
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
@@ -19,6 +23,7 @@ import com.dataiku.dss.model.DSSClient;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.State;
@@ -28,12 +33,12 @@ import com.intellij.openapi.components.Storage;
 @SuppressWarnings("WeakerAccess")
 public final class DssSettings implements ApplicationComponent, PersistentStateComponent<DssSettings.DssConfig> {
     private static final Logger log = Logger.getInstance(DssSettings.class);
-    private static final boolean READ_ONLY = true;
-    private static final boolean CHECK_CERTIFICATE = false;
-    private static final boolean IS_DEFAULT = true;
-    private static final String DEFAULT_DSS_INSTANCE = "default";
     private static final String ENV_VAR__DKU_DSS_URL = "DKU_DSS_URL";
     private static final String ENV_VAR__DKU_API_KEY = "DKU_API_KEY";
+    private static final String ENV_VAR__DKU_NO_CHECK_CERTIFICATE = "DKU_NO_CHECK_CERTIFICATE";
+    private File dataikuConfigFile;
+    private List<DssInstance> servers = new LinkedList<>();
+    private DssInstance defaultServer;
 
     public interface Listener {
         void onConfigurationUpdated();
@@ -45,9 +50,8 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
     @SuppressWarnings("WeakerAccess")
     public static class DssConfig {
-        public List<DssServer> servers = new LinkedList<>();
         public boolean enableBackgroundSynchronization = true;
-        public int backgroundSynchronizationPollIntervalInSeconds = 120; // 2 minute
+        public int backgroundSynchronizationPollIntervalInSeconds = 120; // 2 minutes
 
         public DssConfig() {
         }
@@ -65,10 +69,6 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
     public void loadState(DssConfig state) {
         if (state != null) {
-            List<DssServer> servers = state.servers;
-            for (DssServer server : servers) {
-                addServer(server.name, server.baseUrl, server.encryptedApiKey, server.noCheckCertificate, false, false);
-            }
             config.enableBackgroundSynchronization = state.enableBackgroundSynchronization;
             config.backgroundSynchronizationPollIntervalInSeconds = state.backgroundSynchronizationPollIntervalInSeconds;
         }
@@ -82,16 +82,18 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
     @Override
     public void initComponent() {
-        // Read special file & environment variables for possibles pre-canned values
-        try {
-            loadDataikuConfig(getDataikuConfigFile());
-        } catch (RuntimeException e) {
-            log.warn("Unable to read DSS configuration from {user.home}/.dataiku/config.json file", e);
-        }
         try {
             loadConfigFromEnvironmentVariables();
         } catch (RuntimeException e) {
             log.warn("Unable to read DSS configuration from environment variables", e);
+        }
+
+        // Read special file & environment variables for possibles pre-canned values
+        dataikuConfigFile = dataikuConfigFile();
+        try {
+            loadDataikuConfig(dataikuConfigFile);
+        } catch (IOException | RuntimeException e) {
+            log.warn(String.format("Unable to read DSS configuration from '%s' file", dataikuConfigFile), e);
         }
     }
 
@@ -103,14 +105,19 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         listeners.remove(listener);
     }
 
-    public void updateConfig(List<DssServer> servers, boolean enableBackgroundSync, int backgroundSyncPollingInterval) {
-        config.servers.clear();
-        config.servers.addAll(servers);
+    public void updateConfig(List<DssInstance> servers, DssInstance defaultServer, boolean enableBackgroundSync, int backgroundSyncPollingInterval) throws IOException {
+        this.servers.clear();
+        this.servers.addAll(servers);
+        this.defaultServer = defaultServer;
+
         config.enableBackgroundSynchronization = enableBackgroundSync;
         config.backgroundSynchronizationPollIntervalInSeconds = backgroundSyncPollingInterval;
+
         for (Listener listener : listeners) {
             listener.onConfigurationUpdated();
         }
+
+        saveDataikuConfig();
     }
 
     public boolean isBackgroundSynchronizationEnabled() {
@@ -121,18 +128,18 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         return config.backgroundSynchronizationPollIntervalInSeconds;
     }
 
-    public DssServer getDefaultServer() {
-        return config.servers.stream().findFirst().orElse(null);
+    public DssInstance getDefaultServer() {
+        return this.servers.stream().findFirst().orElse(null);
     }
 
-    public List<DssServer> getDssServers() {
-        return config.servers;
+    public List<DssInstance> getDssServers() {
+        return this.servers;
     }
 
-    public DssServer getDssServer(String name) {
-        Preconditions.checkNotNull(name);
-        for (DssServer server : config.servers) {
-            if (name.equals(server.name)) {
+    public DssInstance getDssServer(String id) {
+        Preconditions.checkNotNull(id);
+        for (DssInstance server : this.servers) {
+            if (id.equals(server.id)) {
                 return server;
             }
         }
@@ -140,24 +147,53 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     }
 
     @NotNull
-    public DSSClient getDssClient(String instanceName) {
-        DssServer dssServer = getDssServer(instanceName);
+    public DSSClient getDssClient(String instanceId) {
+        DssInstance dssServer = getDssServer(instanceId);
         if (dssServer == null) {
-            throw new IllegalStateException(String.format("Unknown DSS instance name: '%s'", instanceName));
+            throw new IllegalStateException(String.format("Unknown DSS instance name: '%s'", instanceId));
         }
         return dssServer.createClient();
     }
 
     @VisibleForTesting
-    void loadDataikuConfig(File dataikuConfigFile) {
-        if (dataikuConfigFile != null) {
+    void loadDataikuConfig(File dataikuConfigFile) throws IOException {
+        if (dataikuConfigFile.exists()) {
             try {
                 try (FileReader fileReader = new FileReader(dataikuConfigFile)) {
                     loadDataikuConfig(new Gson().fromJson(fileReader, DataikuConfig.class));
                 }
             } catch (IOException e) {
                 log.warn(String.format("Unable to read '%s' file.", dataikuConfigFile), e);
+                throw e;
             }
+        }
+    }
+
+    private void saveDataikuConfig() throws IOException {
+        DataikuConfig dataikuConfig = new DataikuConfig();
+        dataikuConfig.dss_instances = new LinkedHashMap<>();
+        for (DssInstance server : servers) {
+            DataikuConfig.DssInstanceConfig instanceConfig = new DataikuConfig.DssInstanceConfig();
+            instanceConfig.url = server.baseUrl;
+            instanceConfig.api_key = server.apiKey;
+            instanceConfig.no_check_certificate = server.noCheckCertificate;
+            if (!Objects.equals(server.label, server.id)) {
+                instanceConfig.label = server.label;
+            }
+            dataikuConfig.dss_instances.put(server.id, instanceConfig);
+        }
+        dataikuConfig.default_instance = defaultServer.id;
+        saveDataikuConfig(dataikuConfig);
+    }
+
+    private void saveDataikuConfig(DataikuConfig config) throws IOException {
+        try {
+            try (FileWriter fileWriter = new FileWriter(dataikuConfigFile)) {
+                new GsonBuilder().setPrettyPrinting().create().toJson(config, fileWriter);
+            }
+        } catch (IOException e) {
+            log.warn(String.format("Unable to save settings into '%s' file.", dataikuConfigFile), e);
+            throw e;
         }
     }
 
@@ -165,51 +201,43 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         String url = System.getenv(ENV_VAR__DKU_DSS_URL);
         String apiKey = System.getenv(ENV_VAR__DKU_API_KEY);
         if (url != null && url.length() > 0 && apiKey != null && apiKey.length() > 0) {
-            addServer(DEFAULT_DSS_INSTANCE, url, encodePassword(apiKey), CHECK_CERTIFICATE, false, READ_ONLY);
+            String noCheckCertificateEnv = System.getenv(ENV_VAR__DKU_NO_CHECK_CERTIFICATE);
+            boolean noCheckCertificate = noCheckCertificateEnv != null && noCheckCertificateEnv.trim().length() > 0 && !noCheckCertificateEnv.toLowerCase().equals("false");
+            addServer(ENVIRONMENT_VARIABLE_INSTANCE_ID, ENVIRONMENT_VARIABLE_INSTANCE_LABEL, url, apiKey, noCheckCertificate);
         }
     }
 
     private void loadDataikuConfig(DataikuConfig dataikuConfig) {
         if (dataikuConfig != null && dataikuConfig.dss_instances != null) {
             String defaultInstanceName = dataikuConfig.default_instance;
-            dataikuConfig.dss_instances.forEach((instanceName, serverConfig) -> {
-                if (instanceName != null && serverConfig != null) {
-                    boolean isDefault = instanceName.equals(defaultInstanceName);
-                    addServer(instanceName, serverConfig.url, encodePassword(serverConfig.api_key), serverConfig.no_check_certificate, isDefault, READ_ONLY);
+            dataikuConfig.dss_instances.forEach((id, instanceConfig) -> {
+                if (id != null && instanceConfig != null) {
+                    String label = instanceConfig.label;
+                    if (label == null || label.trim().isEmpty()) {
+                        label = id;
+                    }
+                    addServer(id, label, instanceConfig.url, instanceConfig.api_key, instanceConfig.no_check_certificate);
                 }
             });
+            defaultServer = getDssServer(defaultInstanceName);
+            if (defaultServer != null) {
+                defaultServer.isDefault = true;
+            }
         }
     }
 
     @VisibleForTesting
-    File getDataikuConfigFile() {
-        String userHome = System.getProperty("user.home");
-        if (userHome != null) {
-            File configFile = new File(new File(userHome, ".dataiku"), "config.json");
-            if (configFile.exists()) {
-                return configFile;
-            }
-        }
-        return null;
+    File dataikuConfigFile() {
+        return new File(new File(System.getProperty("user.home"), ".dataiku"), "config.json");
     }
 
-    private void addServer(String name, String baseUrl, String encryptedApiKey, Boolean noCheckCertificate, boolean isDefault, boolean isReadOnly) {
-        DssServer existingServer = config.servers.stream().filter(s -> name.equals(s.name)).findFirst().orElse(null);
+    private void addServer(String id, String label, String baseUrl, String encryptedApiKey, Boolean noCheckCertificate) {
+        // Remove existing server with same name if exist.
+        DssInstance existingServer = servers.stream().filter(s -> id.equals(s.id)).findFirst().orElse(null);
         if (existingServer != null) {
-            if (existingServer.readonly) {
-                return; // if a non-editable server is already present in the list, we don't want to override it.
-            }
-            // Remove existing server with same name if exist.
-            config.servers.remove(existingServer);
+            this.servers.remove(existingServer);
         }
 
-        DssServer newServer = new DssServer(name, baseUrl, encryptedApiKey, noCheckCertificate != null && noCheckCertificate);
-        newServer.readonly = isReadOnly;
-        newServer.isDefault = isDefault;
-        if (isDefault) {
-            config.servers.add(0, newServer);
-        } else {
-            config.servers.add(newServer);
-        }
+        this.servers.add(new DssInstance(id, label, baseUrl, encryptedApiKey, noCheckCertificate != null && noCheckCertificate));
     }
 }

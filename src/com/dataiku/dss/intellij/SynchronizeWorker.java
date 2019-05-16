@@ -17,7 +17,7 @@ import java.util.Set;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.VirtualFileUtils;
 import com.dataiku.dss.model.DSSClient;
@@ -55,13 +55,13 @@ public class SynchronizeWorker {
     public SynchronizeSummary synchronizeWithDSS(SynchronizeRequest request) throws IOException {
         log.info("Starting synchronization at " + DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(LocalDateTime.now()));
         for (MonitoredRecipeFile recipeFile : request.recipeFiles) {
-            DssServer dssServer = settings.getDssServer(recipeFile.recipe.instance);
+            DssInstance dssServer = settings.getDssServer(recipeFile.recipe.instance);
             if (dssServer != null) {
                 synchronizeRecipe(dssServer, recipeFile);
             }
         }
         for (MonitoredPlugin plugin : request.plugins) {
-            DssServer dssServer = settings.getDssServer(plugin.plugin.instance);
+            DssInstance dssServer = settings.getDssServer(plugin.plugin.instance);
             if (dssServer != null) {
                 synchronizePlugin(dssServer, plugin);
             }
@@ -73,12 +73,12 @@ public class SynchronizeWorker {
         return summary;
     }
 
-    private void synchronizeRecipe(DssServer dssServer, MonitoredRecipeFile monitoredFile) throws IOException {
+    private void synchronizeRecipe(DssInstance dssServer, MonitoredRecipeFile monitoredFile) throws IOException {
         Preconditions.checkNotNull(dssServer);
         Preconditions.checkNotNull(monitoredFile);
 
         DSSClient dssClient = dssServer.createClient();
-        Recipe recipe = recipeCache.getRecipe(dssServer.name, monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
+        Recipe recipe = recipeCache.getRecipe(dssServer.id, monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
         if (recipe == null) {
             Messages.showErrorDialog(String.format("Recipe '%s' has been deleted from project '%s' on DSS instance.", monitoredFile.recipe.recipeName, monitoredFile.recipe.projectKey), "Synchronization Error");
             return;
@@ -137,7 +137,7 @@ public class SynchronizeWorker {
         }
     }
 
-    private void synchronizePlugin(DssServer dssInstance, MonitoredPlugin monitoredPlugin) throws IOException {
+    private void synchronizePlugin(DssInstance dssInstance, MonitoredPlugin monitoredPlugin) throws IOException {
         DSSClient dssClient = dssInstance.createClient();
         String pluginId = monitoredPlugin.plugin.pluginId;
         List<FolderContent> folderContents = dssClient.listPluginFiles(pluginId);

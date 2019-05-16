@@ -16,7 +16,7 @@ import com.dataiku.dss.intellij.MetadataFile;
 import com.dataiku.dss.intellij.MetadataFilesIndex;
 import com.dataiku.dss.intellij.MonitoredFilesIndex;
 import com.dataiku.dss.intellij.MonitoredPlugin;
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.utils.RecipeUtils;
 import com.dataiku.dss.intellij.utils.VirtualFileUtils;
 import com.dataiku.dss.model.DSSClient;
@@ -58,7 +58,7 @@ public class CheckoutWorker {
         String projectKey = model.projectKey;
 
         // Retrieve recipe & its payload
-        DssServer dssServer = model.server;
+        DssInstance dssServer = model.server;
 
         String[] checkoutLocation = model.checkoutLocation.isEmpty() ? new String[0] : model.checkoutLocation.split("/");
         List<VirtualFile> createdFileList = new ArrayList<>();
@@ -72,7 +72,7 @@ public class CheckoutWorker {
 
             // Write recipe file
             VirtualFile moduleRootFolder = getModuleRootFolder(ModuleRootManager.getInstance(model.module));
-            String serverName = model.server.name;
+            String instanceId = model.server.id;
             String filename = getFilename(recipe);
             String[] path = appendToArray(checkoutLocation, filename);
             VirtualFile file = vFileManager.getOrCreateVirtualFile(moduleRootFolder, path);
@@ -86,7 +86,7 @@ public class CheckoutWorker {
             recipeMetadata.contentHash = getContentHash(recipeContent);
             recipeMetadata.projectKey = projectKey;
             recipeMetadata.recipeName = recipe.name;
-            recipeMetadata.instance = serverName;
+            recipeMetadata.instance = instanceId;
             metadata.addOrUpdateRecipe(recipeMetadata);
 
             // Monitor the file so that if the underlying recipe is edited on DSS side, the file is updated and vice-versa.
@@ -115,7 +115,7 @@ public class CheckoutWorker {
         List<Plugin> plugins = model.plugins;
         for (Plugin plugin : plugins) {
             // Track plugin
-            DssPluginMetadata pluginMetadata = new DssPluginMetadata(model.server.name, plugin.id, plugin.id);
+            DssPluginMetadata pluginMetadata = new DssPluginMetadata(model.server.id, plugin.id, plugin.id);
 
             // Create folder for plugin
             VirtualFile folder = vFileManager.getOrCreateVirtualDirectory(moduleRootFolder, plugin.id);
@@ -146,7 +146,7 @@ public class CheckoutWorker {
 
                 // Write metadata
                 pluginMetadata.files.add(new DssPluginFileMetadata(
-                        model.server.name,
+                        model.server.id,
                         pluginId,
                         pluginId + "/" + pluginFile.path,
                         pluginFile.path,
@@ -167,7 +167,7 @@ public class CheckoutWorker {
 
                 // Write metadata
                 pluginMetadata.files.add(new DssPluginFileMetadata(
-                        model.server.name,
+                        model.server.id,
                         pluginId,
                         pluginId + "/" + pluginFile.path,
                         pluginFile.path,

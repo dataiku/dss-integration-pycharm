@@ -1,5 +1,6 @@
 package com.dataiku.dss.intellij.config;
 
+import static com.dataiku.dss.intellij.config.DssInstance.ENVIRONMENT_VARIABLE_INSTANCE_ID;
 import static com.intellij.ui.SimpleTextAttributes.GRAYED_ATTRIBUTES;
 import static com.intellij.ui.SimpleTextAttributes.REGULAR_ATTRIBUTES;
 import static com.intellij.uiDesigner.core.GridConstraints.ANCHOR_WEST;
@@ -13,8 +14,10 @@ import static com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_WANT_GROW;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.swing.*;
@@ -22,7 +25,9 @@ import javax.swing.*;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Icons;
+import com.intellij.icons.AllIcons;
 import com.intellij.openapi.Disposable;
+import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.ui.AnActionButton;
 import com.intellij.ui.AnActionButtonRunnable;
@@ -37,12 +42,14 @@ import com.intellij.uiDesigner.core.GridLayoutManager;
 
 public class DssSettingsPanel implements Disposable {
     private JPanel mainPanel;
-    private JBList<DssServer> serverList;
-    private final List<DssServer> servers = new ArrayList<>();
+    private JBList<DssInstance> serverList;
+    private final List<DssInstance> servers = new ArrayList<>();
+    private DssInstance defaultServer;
     private JSpinner pollingIntervalTextField;
     private JCheckBox automaticSynchronizationCheckBox;
     private Label pollingIntervalLabel1;
     private Label pollingIntervalLabel2;
+    private JPanel serversPanel;
 
     public DssSettingsPanel() {
     }
@@ -57,11 +64,14 @@ public class DssSettingsPanel implements Disposable {
                 }
             }
         });
-        serverList.setCellRenderer(new ColoredListCellRenderer<DssServer>() {
-            protected void customizeCellRenderer(@NotNull JList<? extends DssServer> list, DssServer server, int index, boolean selected, boolean hasFocus) {
+        serverList.setCellRenderer(new ColoredListCellRenderer<DssInstance>() {
+            protected void customizeCellRenderer(@NotNull JList<? extends DssInstance> list, DssInstance server, int index, boolean selected, boolean hasFocus) {
                 setIcon(Icons.BIRD_GRAY);
-                append(" " + server.name, REGULAR_ATTRIBUTES);
+                append(" " + server.label, REGULAR_ATTRIBUTES);
                 append("  [ " + server.baseUrl + " ]", GRAYED_ATTRIBUTES, false);
+                if (server.isDefault) {
+                    append(" (Default)", REGULAR_ATTRIBUTES, false);
+                }
             }
 
             @NotNull
@@ -72,13 +82,18 @@ public class DssSettingsPanel implements Disposable {
             }
         });
 
-        JPanel serversPanel = new JPanel(new BorderLayout());
+        serversPanel = new JPanel(new BorderLayout(10, 10));
         ToolbarDecorator toolbarDecorator = ToolbarDecorator.createDecorator(serverList);
         toolbarDecorator.setEditActionName("Edit").setEditAction((e) -> editServer());
         toolbarDecorator.setAddAction(new AddServerAction());
         toolbarDecorator.setRemoveAction(new RemoveServerAction());
+        if (servers.stream().noneMatch(s -> ENVIRONMENT_VARIABLE_INSTANCE_ID.equals(s.id))) {
+            toolbarDecorator.addExtraAction(new MakeDefaultAction());
+        }
         toolbarDecorator.setMoveUpAction(new MoveUpServerAction());
         toolbarDecorator.setMoveDownAction(new MoveDownServerAction());
+        JLabel label = new JLabel("Instances configurations are stored in ~/.dataiku/config.json");
+        serversPanel.add(label, "South");
         serversPanel.add(toolbarDecorator.createPanel(), "Center");
         JBPanel instancesPanel = new JBPanel(new BorderLayout()).withBorder(IdeBorderFactory.createTitledBorder("Instances"));
         instancesPanel.add(serversPanel);
@@ -125,7 +140,6 @@ public class DssSettingsPanel implements Disposable {
         return result;
     }
 
-
     public JComponent getComponent() {
         if (mainPanel == null) {
             create();
@@ -136,7 +150,38 @@ public class DssSettingsPanel implements Disposable {
     public boolean isModified(@NotNull DssSettings settings) {
         return automaticSynchronizationCheckBox.isSelected() != settings.isBackgroundSynchronizationEnabled() ||
                 getPollingIntervalValue() != settings.getBackgroundSynchronizationPollIntervalInSeconds() ||
-                !servers.equals(settings.getDssServers());
+                !servers.equals(settings.getDssServers()) ||
+                !Objects.equals(defaultServer, settings.getDefaultServer());
+    }
+
+    public void save(@NotNull DssSettings settings) {
+        try {
+            settings.updateConfig(
+                    new ArrayList<>(servers),
+                    defaultServer,
+                    automaticSynchronizationCheckBox.isSelected(),
+                    getPollingIntervalValue());
+        } catch (IOException e) {
+            Messages.showErrorDialog("Unable to save ~/.dataiku/config.json. For more details, check the logs.", "Cannot Save Configuration");
+        }
+    }
+
+    public void load(@NotNull DssSettings settings) {
+        servers.clear();
+        CollectionListModel<DssInstance> listModel = new CollectionListModel<>(new ArrayList<>());
+        listModel.add(settings.getDssServers());
+        servers.addAll(settings.getDssServers());
+        serverList.setModel(listModel);
+        if (!servers.isEmpty()) {
+            serverList.setSelectedValue(servers.get(0), true);
+        }
+        defaultServer = settings.getDefaultServer();
+        automaticSynchronizationCheckBox.setSelected(settings.isBackgroundSynchronizationEnabled());
+        pollingIntervalTextField.setModel(new SpinnerNumberModel(settings.getBackgroundSynchronizationPollIntervalInSeconds(), 10, 3600, 10));
+        updatePollingIntervalState();
+    }
+
+    public void dispose() {
     }
 
     private int getPollingIntervalValue() {
@@ -144,71 +189,59 @@ public class DssSettingsPanel implements Disposable {
         return Math.min(Math.max(10, value.intValue()), 3600);
     }
 
-    public void save(@NotNull DssSettings settings) {
-        settings.updateConfig(
-                new ArrayList<>(servers),
-                automaticSynchronizationCheckBox.isSelected(),
-                getPollingIntervalValue());
-    }
-
-    public void load(@NotNull DssSettings settings) {
-        servers.clear();
-        CollectionListModel<DssServer> listModel = new CollectionListModel<>(new ArrayList<>());
-        listModel.add(settings.getDssServers());
-        servers.addAll(settings.getDssServers());
-        serverList.setModel(listModel);
-        if (!servers.isEmpty()) {
-            serverList.setSelectedValue(servers.get(0), true);
-        }
-        automaticSynchronizationCheckBox.setSelected(settings.isBackgroundSynchronizationEnabled());
-        pollingIntervalTextField.setModel(new SpinnerNumberModel(settings.getBackgroundSynchronizationPollIntervalInSeconds(), 10, 3600, 10));
-        updatePollingIntervalState();
-    }
-
-    private DssServer getSelectedServer() {
+    private DssInstance getSelectedServer() {
         return serverList.getSelectedValue();
     }
 
     private void editServer() {
-        DssServer selectedServer = getSelectedServer();
+        DssInstance selectedServer = getSelectedServer();
         int selectedIndex = serverList.getSelectedIndex();
         if (selectedServer != null) {
-            DssServerDialog dialog = new DssServerDialog(selectedServer);
+            DssInstanceDialog dialog = new DssInstanceDialog(selectedServer);
             if (dialog.showAndGet()) {
-                DssServer newServer = dialog.getServer();
-                ListModel<DssServer> model = serverList.getModel();
-                ((CollectionListModel<DssServer>) model).setElementAt(newServer, selectedIndex);
+                DssInstance newServer = dialog.getServer();
+                ListModel<DssInstance> model = serverList.getModel();
+                ((CollectionListModel<DssInstance>) model).setElementAt(newServer, selectedIndex);
                 servers.set(servers.indexOf(selectedServer), newServer);
             }
         }
     }
 
-    public void dispose() {
-    }
-
     private class AddServerAction implements AnActionButtonRunnable {
         public void run(AnActionButton anActionButton) {
-            Set<String> existingNames = servers.stream().map(DssServer::getName).collect(Collectors.toSet());
-            DssServerDialog dialog = new DssServerDialog(existingNames);
+            DssInstanceDialog dialog = new DssInstanceDialog();
             if (dialog.showAndGet()) {
-                DssServer created = dialog.getServer();
+                DssInstance created = dialog.getServer();
+                created.id = findNextUniqueId(created.label);
                 servers.add(created);
-                ((CollectionListModel<DssServer>) serverList.getModel()).add(created);
+                ((CollectionListModel<DssInstance>) serverList.getModel()).add(created);
                 serverList.setSelectedIndex(serverList.getModel().getSize() - 1);
             }
+        }
+
+        private String findNextUniqueId(String label) {
+            Set<String> existingIds = servers.stream().map(DssInstance::getId).collect(Collectors.toSet());
+            String initialId = label.replaceAll("\\W", "-");
+            String id = initialId;
+            int index = 2;
+            while (existingIds.contains(id)) {
+                id = initialId + index;
+                index++;
+            }
+            return id;
         }
     }
 
     private class RemoveServerAction implements AnActionButtonRunnable {
         public void run(AnActionButton anActionButton) {
-            DssServer server = getSelectedServer();
+            DssInstance server = getSelectedServer();
             int selectedIndex = serverList.getSelectedIndex();
             if (server != null) {
-                if (server.readonly) {
-                    Messages.showDialog("Its configuration is written in environment variables or in ~/.dataiku/config.json file.", "Cannot remove DSS instance.", new String[]{Messages.OK_BUTTON}, 0, null);
+                if (ENVIRONMENT_VARIABLE_INSTANCE_ID.equals(server.id)) {
+                    Messages.showDialog("Its configuration is written in environment variables.", "Cannot Remove DSS Instance.", new String[]{Messages.OK_BUTTON}, 0, null);
                     return;
                 }
-                CollectionListModel<DssServer> model = (CollectionListModel<DssServer>) serverList.getModel();
+                CollectionListModel<DssInstance> model = (CollectionListModel<DssInstance>) serverList.getModel();
                 model.remove(server);
                 servers.remove(server);
                 if (model.getSize() > 0) {
@@ -221,10 +254,10 @@ public class DssSettingsPanel implements Disposable {
 
     private class MoveUpServerAction implements AnActionButtonRunnable {
         public void run(AnActionButton anActionButton) {
-            DssServer server = getSelectedServer();
+            DssInstance server = getSelectedServer();
             int selectedIndex = serverList.getSelectedIndex();
             if (server != null && selectedIndex > 0) {
-                CollectionListModel<DssServer> model = (CollectionListModel<DssServer>) serverList.getModel();
+                CollectionListModel<DssInstance> model = (CollectionListModel<DssInstance>) serverList.getModel();
                 int newIndex = selectedIndex - 1;
                 model.remove(server);
                 model.add(newIndex, server);
@@ -239,10 +272,10 @@ public class DssSettingsPanel implements Disposable {
 
     private class MoveDownServerAction implements AnActionButtonRunnable {
         public void run(AnActionButton anActionButton) {
-            DssServer server = getSelectedServer();
+            DssInstance server = getSelectedServer();
             int selectedIndex = serverList.getSelectedIndex();
             if (server != null && selectedIndex < servers.size() - 1) {
-                CollectionListModel<DssServer> model = (CollectionListModel<DssServer>) serverList.getModel();
+                CollectionListModel<DssInstance> model = (CollectionListModel<DssInstance>) serverList.getModel();
                 int newIndex = selectedIndex + 1;
                 model.remove(server);
                 model.add(newIndex, server);
@@ -251,6 +284,26 @@ public class DssSettingsPanel implements Disposable {
                 servers.add(newIndex, server);
 
                 serverList.setSelectedIndex(newIndex);
+            }
+        }
+    }
+
+    private class MakeDefaultAction extends AnActionButton {
+
+        public MakeDefaultAction() {
+            super("Make as Default", "Make this instance as Default DSS instance", AllIcons.Nodes.HomeFolder);
+        }
+
+        @Override
+        public void actionPerformed(AnActionEvent anActionEvent) {
+            DssInstance selectedServer = getSelectedServer();
+            if (selectedServer != null) {
+                servers.forEach(server -> server.isDefault = false);
+
+                selectedServer.isDefault = true;
+                defaultServer = selectedServer;
+
+                serversPanel.repaint();
             }
         }
     }

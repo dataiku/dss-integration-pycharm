@@ -10,5 +10,6 @@ public class DataikuConfig {
         public String url;
         public String api_key;
         public Boolean no_check_certificate;
+        public String label;
     }
 }

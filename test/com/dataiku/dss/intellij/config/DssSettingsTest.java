@@ -9,7 +9,6 @@ import org.junit.Test;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
-import com.intellij.openapi.util.PasswordUtil;
 
 public class DssSettingsTest {
     private static final String CONFIG_JSON_CONTENT = "{\"dss_instances\":{\"default\":{\"url\":\"https://dataiku.acme.com:11200\",\"api_key\":\"my-secret-api-key\"}},\"default_instance\":\"default\"}";
@@ -22,12 +21,12 @@ public class DssSettingsTest {
 
             DssSettings dssSettings = new DssSettings();
             dssSettings.loadDataikuConfig(file);
-            DssServer dssServer = dssSettings.getDssServer("default");
+            DssInstance dssServer = dssSettings.getDssServer("default");
             assertNotNull(dssServer);
             assertEquals("https://dataiku.acme.com:11200", dssServer.baseUrl);
-            assertEquals("my-secret-api-key", PasswordUtil.decodePassword(dssServer.encryptedApiKey));
-            assertEquals(true, dssServer.readonly);
+            assertEquals("my-secret-api-key", dssServer.apiKey);
             assertEquals(false, dssServer.noCheckCertificate);
+            assertEquals(dssServer, dssSettings.getDefaultServer());
         } finally {
             if (!file.delete()) {
                 file.deleteOnExit();

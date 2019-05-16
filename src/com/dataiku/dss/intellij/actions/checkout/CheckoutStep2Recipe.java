@@ -16,7 +16,7 @@ import org.jetbrains.annotations.Nullable;
 
 import com.dataiku.dss.Icons;
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.utils.RecipeUtils;
 import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.Recipe;
@@ -204,7 +204,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
 
     private void init() throws DssException {
         // Fill projects model
-        DssServer dssServer = model.server;
+        DssInstance dssServer = model.server;
         projectComboBox.removeAllItems();
         if (dssServer != null) {
             HashSet<String> labels = new HashSet<>();
@@ -273,9 +273,9 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private class ProjectItem {
         public final String projectKey;
         public final String label;
-        public final DssServer dssServer;
+        public final DssInstance dssServer;
 
-        public ProjectItem(String projectKey, String label, DssServer dssServer) {
+        public ProjectItem(String projectKey, String label, DssInstance dssServer) {
             this.projectKey = projectKey;
             this.label = label;
             this.dssServer = dssServer;

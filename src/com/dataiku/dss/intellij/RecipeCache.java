@@ -4,7 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.Recipe;
@@ -19,12 +19,12 @@ public class RecipeCache {
         this.dssSettings = dssSettings;
     }
 
-    public Recipe getRecipe(String dssServerName, String projectKey, String recipeName) throws DssException {
-        Preconditions.checkNotNull(dssServerName, "dssServerName");
+    public Recipe getRecipe(String instanceId, String projectKey, String recipeName) throws DssException {
+        Preconditions.checkNotNull(instanceId, "instanceId");
         Preconditions.checkNotNull(projectKey, "projectKey");
         Preconditions.checkNotNull(recipeName, "recipeName");
 
-        List<Recipe> projectRecipes = getProjectRecipes(dssServerName, projectKey);
+        List<Recipe> projectRecipes = getProjectRecipes(instanceId, projectKey);
         for (Recipe recipe: projectRecipes) {
             if (recipeName.equals(recipe.name))
                 return recipe;
@@ -32,13 +32,13 @@ public class RecipeCache {
         return null;
     }
 
-    private List<Recipe> getProjectRecipes(String dssServerName, String projectKey) throws DssException {
-        RecipeCacheProject dssProject = new RecipeCacheProject(dssServerName, projectKey);
+    private List<Recipe> getProjectRecipes(String instanceId, String projectKey) throws DssException {
+        RecipeCacheProject dssProject = new RecipeCacheProject(instanceId, projectKey);
         List<Recipe> projectRecipes = cachedRecipes.get(dssProject);
         if (projectRecipes == null) {
-            DssServer dssServer = dssSettings.getDssServer(dssServerName);
+            DssInstance dssServer = dssSettings.getDssServer(instanceId);
             if (dssServer == null) {
-                throw new IllegalStateException("Unknown DSS instance name: " + dssServerName);
+                throw new IllegalStateException("Unknown DSS instance name: " + instanceId);
             }
             projectRecipes = dssServer.createClient().listRecipes(projectKey);
             cachedRecipes.put(dssProject, projectRecipes);

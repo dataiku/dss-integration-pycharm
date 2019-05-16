@@ -2,7 +2,7 @@ package com.dataiku.dss.intellij.actions.checkout;
 
 import java.util.List;
 
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.Plugin;
 import com.dataiku.dss.model.dss.Recipe;
@@ -16,7 +16,7 @@ public class CheckoutModel {
         PLUGIN
     }
 
-    public DssServer server;
+    public DssInstance server;
     public String serverVersion;
     public DSSClient serverClient;
     public ItemType itemType;

@@ -2,7 +2,7 @@ package com.dataiku.dss.intellij.actions.synchronize.nodes;
 
 import java.util.List;
 
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 
 public class SynchronizeNodeRoot extends SynchronizeBaseNode {
     @Override
@@ -10,7 +10,7 @@ public class SynchronizeNodeRoot extends SynchronizeBaseNode {
         return "[ROOT]";
     }
 
-    public SynchronizeNodeDssInstance getOrAddInstanceNode(DssServer dssServer) {
+    public SynchronizeNodeDssInstance getOrAddInstanceNode(DssInstance dssServer) {
         for (SynchronizeNodeDssInstance node : listChildren(SynchronizeNodeDssInstance.class)) {
             if (node.dssServer.equals(dssServer)) {
                 return node;

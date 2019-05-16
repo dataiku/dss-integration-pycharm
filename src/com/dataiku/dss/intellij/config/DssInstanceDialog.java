@@ -1,5 +1,6 @@
 package com.dataiku.dss.intellij.config;
 
+import static com.dataiku.dss.intellij.config.DssInstance.ENVIRONMENT_VARIABLE_INSTANCE_ID;
 import static com.intellij.uiDesigner.core.GridConstraints.ANCHOR_CENTER;
 import static com.intellij.uiDesigner.core.GridConstraints.ANCHOR_WEST;
 import static com.intellij.uiDesigner.core.GridConstraints.FILL_HORIZONTAL;
@@ -11,10 +12,6 @@ import static com.intellij.uiDesigner.core.GridConstraints.SIZEPOLICY_WANT_GROW;
 import java.awt.*;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Set;
 import javax.swing.*;
 
 import org.jetbrains.annotations.Nullable;
@@ -23,97 +20,94 @@ import com.dataiku.dss.Icons;
 import com.intellij.ide.wizard.CommitStepException;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.Messages;
-import com.intellij.openapi.util.PasswordUtil;
 import com.intellij.ui.components.JBTextField;
 import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
 
-public class DssServerDialog extends DialogWrapper {
+public class DssInstanceDialog extends DialogWrapper {
 
     private static final String API_KEY_PLACEHOLDER = "__DATAIKU_DSS_API_KEY_PLACEHOLDER__";
 
-    private final DssServer server;
-    private final Collection<String> existingNames;
+    private final DssInstance server;
+    private final boolean readonly;
     private JPanel panel;
     private JBTextField urlText;
-    private JTextField nameField;
+    private JTextField labelField;
     private JPasswordField apiKeyField;
     private JCheckBox disableSslCertificateCheckBox;
 
-    public DssServerDialog(DssServer serverToEdit) {
-        this(serverToEdit, Collections.emptySet());
+    public DssInstanceDialog() {
+        this(null);
     }
 
-    public DssServerDialog(Set<String> existingNames) {
-        this(null, existingNames);
-    }
-
-    private DssServerDialog(DssServer serverToEdit, Set<String> existingNames) {
+    public DssInstanceDialog(DssInstance serverToEdit) {
         super(true); // use current window as parent
 
         boolean editing = serverToEdit != null;
-        this.existingNames = existingNames;
 
-        server = new DssServer();
+        server = new DssInstance();
         if (editing) {
-            server.name = serverToEdit.name;
+            server.id = serverToEdit.id;
+            server.label = serverToEdit.label;
             server.baseUrl = serverToEdit.baseUrl;
-            server.encryptedApiKey = serverToEdit.encryptedApiKey;
+            server.apiKey = serverToEdit.apiKey;
             server.noCheckCertificate = serverToEdit.noCheckCertificate;
-            server.readonly = serverToEdit.readonly;
             server.isDefault = serverToEdit.isDefault;
+            readonly = ENVIRONMENT_VARIABLE_INSTANCE_ID.equals(server.id);
+        } else {
+            readonly = false;
         }
 
         init();
         setTitle((editing ? "Edit" : "New") + " Instance");
-        setOKActionEnabled(!server.readonly);
+        setOKActionEnabled(!readonly);
     }
 
-    public DssServer getServer() {
+    public DssInstance getServer() {
         return server;
     }
 
     @Nullable
     @Override
     protected JComponent createCenterPanel() {
-        panel = new JPanel(new GridLayoutManager(server.readonly ? 8 : 5, 2));
-        panel.setPreferredSize(new Dimension(480, server.readonly ? 220 : 160));
+        panel = new JPanel(new GridLayoutManager(readonly ? 8 : 5, 2));
+        panel.setPreferredSize(new Dimension(480, readonly ? 220 : 160));
 
         int lineIndex = 0;
-        if (server.readonly) {
+        if (readonly) {
             JLabel label = new JLabel("This instance cannot be edited.");
             label.setFont(label.getFont().deriveFont(Font.BOLD));
             label.setIcon(Icons.WARNING);
             panel.add(label, newColSpanConstraints(lineIndex++));
-            panel.add(new JLabel("Its configuration is written in environment variables or in ~/.dataiku/config.json file."), newColSpanConstraints(lineIndex++));
+            panel.add(new JLabel("Its configuration has been set via environment variables."), newColSpanConstraints(lineIndex++));
             panel.add(new JSeparator(), newColSpanConstraints(lineIndex++));
         }
 
-        panel.add(new JLabel("Name:"), newConstraints(lineIndex, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
-        nameField = new JTextField();
-        nameField.setMinimumSize(new Dimension(320, 28));
-        nameField.setPreferredSize(new Dimension(320, 28));
-        nameField.setToolTipText("Name of this instance (mandatory field)");
-        panel.add(nameField, newConstraints(lineIndex, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
+        panel.add(new JLabel("Display Name:"), newConstraints(lineIndex, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
+        labelField = new JTextField();
+        labelField.setMinimumSize(new Dimension(320, 28));
+        labelField.setPreferredSize(new Dimension(320, 28));
+        labelField.setToolTipText("Name of this instance (mandatory field)");
+        panel.add(labelField, newConstraints(lineIndex, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
         lineIndex++;
 
         panel.add(new JLabel("Base URL:"), newConstraints(lineIndex, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
         urlText = new JBTextField();
         urlText.getEmptyText().setText("https://dss-instance:11200");
         urlText.setToolTipText("URL to connect to this instance (mandatory field)");
-        urlText.setEnabled(!server.readonly);
+        urlText.setEnabled(!readonly);
         panel.add(urlText, newConstraints(lineIndex, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
         lineIndex++;
 
         panel.add(new JLabel("Personal API key secret:"), newConstraints(lineIndex, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED));
         apiKeyField = new JPasswordField();
         apiKeyField.setToolTipText("Personal API key secret to connect to this instance (mandatory field)");
-        apiKeyField.setEnabled(!server.readonly);
+        apiKeyField.setEnabled(!readonly);
         panel.add(apiKeyField, newConstraints(lineIndex, 1, GridConstraints.FILL_HORIZONTAL, ANCHOR_CENTER, SIZEPOLICY_WANT_GROW));
         lineIndex++;
 
         disableSslCertificateCheckBox = new JCheckBox("Disable SSL certificate checks");
-        disableSslCertificateCheckBox.setEnabled(!server.readonly);
+        disableSslCertificateCheckBox.setEnabled(!readonly);
         panel.add(disableSslCertificateCheckBox, newColSpanConstraints(lineIndex));
         lineIndex++;
 
@@ -126,8 +120,8 @@ public class DssServerDialog extends DialogWrapper {
 
     @Override
     public JComponent getPreferredFocusedComponent() {
-        if (nameField.isEnabled()) {
-            return nameField;
+        if (labelField.isEnabled()) {
+            return labelField;
         } else {
             return urlText.isEnabled() ? urlText : null;
         }
@@ -147,32 +141,28 @@ public class DssServerDialog extends DialogWrapper {
     }
 
     private void fillFields() {
-        if (!isBlank(server.name)) {
-            nameField.setText(server.name);
-            nameField.setEnabled(false);
+        if (!isBlank(server.label)) {
+            labelField.setText(server.label);
         }
         if (!isBlank(server.baseUrl)) {
             urlText.setText(server.baseUrl);
         }
-        if (!isBlank(server.encryptedApiKey)) {
+        if (!isBlank(server.apiKey)) {
             apiKeyField.setText(API_KEY_PLACEHOLDER);
         }
         disableSslCertificateCheckBox.setSelected(server.noCheckCertificate);
     }
 
     private void commit() throws CommitStepException {
-        validateName();
+        validateLabel();
         validateUrl();
         save();
     }
 
-    private void validateName() throws CommitStepException {
-        String name = nameField.getText().trim();
+    private void validateLabel() throws CommitStepException {
+        String name = labelField.getText().trim();
         if (isBlank(name)) {
-            throw new CommitStepException("Please provide a name.");
-        }
-        if (existingNames.contains(name)) {
-            throw new CommitStepException("There is already a Dataiku DSS instance with that name. Please choose another name.");
+            throw new CommitStepException("Please provide a label.");
         }
     }
 
@@ -188,14 +178,13 @@ public class DssServerDialog extends DialogWrapper {
     }
 
     private void save() throws CommitStepException {
-        server.name = nameField.getText().trim();
+        server.label = labelField.getText().trim();
         server.baseUrl = urlText.getText().trim();
 
-        char[] apiKey = apiKeyField.getPassword();
-        if (!Arrays.equals(API_KEY_PLACEHOLDER.toCharArray(), apiKey)) {
-            server.encryptedApiKey = PasswordUtil.encodePassword(apiKey);
+        String apiKey = new String(apiKeyField.getPassword());
+        if (!API_KEY_PLACEHOLDER.equals(apiKey)) {
+            server.apiKey = apiKey;
         }
-        clearPasswordArray(apiKey);
 
         server.noCheckCertificate = disableSslCertificateCheckBox.isSelected();
 
@@ -210,15 +199,6 @@ public class DssServerDialog extends DialogWrapper {
             return server.createClient().canConnect();
         } catch (RuntimeException e) {
             return false;
-        }
-    }
-
-    /**
-     * For security reasons, write zeros to overwrite the password
-     */
-    private static void clearPasswordArray(char[] password) {
-        for (int i = 0; i < password.length; i++) {
-            password[i] = 0;
         }
     }
 

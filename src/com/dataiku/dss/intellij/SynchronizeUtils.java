@@ -6,7 +6,7 @@ import javax.swing.event.HyperlinkEvent;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.intellij.actions.synchronize.SynchronizeSummaryDialog;
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.VirtualFileUtils;
 import com.dataiku.dss.model.DSSClient;
@@ -32,7 +32,7 @@ public class SynchronizeUtils {
         saveRecipeToDss(dssClient, monitoredFile, fileContent, true);
     }
 
-    public static void saveRecipeToDss(DssServer dssInstance, MonitoredRecipeFile monitoredFile, String fileContent) throws IOException {
+    public static void saveRecipeToDss(DssInstance dssInstance, MonitoredRecipeFile monitoredFile, String fileContent) throws IOException {
         saveRecipeToDss(dssInstance.createClient(), monitoredFile, fileContent, true);
     }
 

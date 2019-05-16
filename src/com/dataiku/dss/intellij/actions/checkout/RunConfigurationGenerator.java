@@ -6,7 +6,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.google.common.base.Preconditions;
 import com.intellij.execution.RunManager;
 import com.intellij.execution.RunnerAndConfigurationSettings;
@@ -17,7 +17,6 @@ import com.intellij.execution.configurations.ConfigurationTypeUtil;
 import com.intellij.execution.configurations.RunConfiguration;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.project.Project;
-import com.intellij.openapi.util.PasswordUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 
 public class RunConfigurationGenerator {
@@ -44,7 +43,7 @@ public class RunConfigurationGenerator {
         return pythonTemplate.getConfiguration();
     }
 
-    public RunConfiguration createScriptRunConfiguration(Module module, VirtualFile scriptFile, DssServer dssServer, String projectKey, String recipeName) {
+    public RunConfiguration createScriptRunConfiguration(Module module, VirtualFile scriptFile, DssInstance dssServer, String projectKey, String recipeName) {
         Preconditions.checkNotNull(module, "module");
         Preconditions.checkNotNull(scriptFile, "scriptFile");
         Preconditions.checkNotNull(dssServer, "dssServer");
@@ -67,7 +66,8 @@ public class RunConfigurationGenerator {
         Map<String, String> envs = new HashMap<>(runConfiguration.getEnvs());
         if (!dssServer.isDefault) {
             envs.put("DKU_DSS_URL", dssServer.baseUrl);
-            envs.put("DKU_API_KEY", PasswordUtil.decodePassword(dssServer.encryptedApiKey));
+            envs.put("DKU_API_KEY", dssServer.apiKey);
+            envs.put("DKU_NO_CHECK_CERTIFICATE", String.valueOf(dssServer.noCheckCertificate));
         }
         envs.put("DKU_CURRENT_PROJECT_KEY", projectKey);
         runConfiguration.setEnvs(envs);

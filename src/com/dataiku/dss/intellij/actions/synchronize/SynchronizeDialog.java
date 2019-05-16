@@ -15,7 +15,7 @@ import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugin;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipe;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRoot;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeTree;
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
@@ -90,7 +90,7 @@ public class SynchronizeDialog extends DialogWrapper {
 
     private void addPlugins(SynchronizeNodeRoot root, List<MonitoredPlugin> plugins) {
         plugins.forEach(monitoredPlugin -> {
-            DssServer dssInstance = DssSettings.getInstance().getDssServer(monitoredPlugin.plugin.instance);
+            DssInstance dssInstance = DssSettings.getInstance().getDssServer(monitoredPlugin.plugin.instance);
             if (dssInstance != null) {
                 SynchronizeNodePlugin pluginTreeNode = new SynchronizeNodePlugin(monitoredPlugin);
                 root.getOrAddInstanceNode(dssInstance).getOrAddPluginsNode().add(pluginTreeNode);
@@ -100,7 +100,7 @@ public class SynchronizeDialog extends DialogWrapper {
 
     private void addRecipes(SynchronizeNodeRoot root, List<MonitoredRecipeFile> monitoredFiles) {
         monitoredFiles.forEach(monitoredFile -> {
-            DssServer dssInstance = DssSettings.getInstance().getDssServer(monitoredFile.recipe.instance);
+            DssInstance dssInstance = DssSettings.getInstance().getDssServer(monitoredFile.recipe.instance);
             if (dssInstance != null) {
                 root.getOrAddInstanceNode(dssInstance)
                         .getOrAddRecipesNode()

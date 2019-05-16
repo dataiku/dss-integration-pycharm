@@ -1,11 +1,11 @@
 package com.dataiku.dss.intellij.actions.synchronize.nodes;
 
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 
 public class SynchronizeNodeDssInstance extends SynchronizeBaseNode {
-    public final DssServer dssServer;
+    public final DssInstance dssServer;
 
-    public SynchronizeNodeDssInstance(DssServer dssServer) {
+    public SynchronizeNodeDssInstance(DssInstance dssServer) {
         this.dssServer = dssServer;
     }
 
@@ -37,6 +37,6 @@ public class SynchronizeNodeDssInstance extends SynchronizeBaseNode {
 
     @Override
     public String toString() {
-        return dssServer.name + " [" + dssServer.baseUrl + "]";
+        return dssServer.label + " [" + dssServer.baseUrl + "]";
     }
 }

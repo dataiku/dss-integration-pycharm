@@ -15,7 +15,7 @@ import java.util.List;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -27,7 +27,7 @@ public class DataikuInternalClientInstaller {
     private static Logger log = Logger.getInstance(DataikuInternalClientInstaller.class);
 
     @NotNull
-    public static String getInstallCommandPreview(DssServer dssServer) {
+    public static String getInstallCommandPreview(DssInstance dssServer) {
         return Joiner.on(" ").join(getInstallCommandList(dssServer, true));
     }
 
@@ -49,7 +49,7 @@ public class DataikuInternalClientInstaller {
                 .orElse(null);
     }
 
-    public Process installAsync(String interpreterPath, DssServer dssServer) throws IOException {
+    public Process installAsync(String interpreterPath, DssInstance dssServer) throws IOException {
         Preconditions.checkNotNull(dssServer, "dssServer");
         Preconditions.checkNotNull(interpreterPath, "interpreterPath");
 
@@ -152,7 +152,7 @@ public class DataikuInternalClientInstaller {
         }
     }
 
-    private static List<String> getInstallCommandList(DssServer dssServer, boolean forDisplay) {
+    private static List<String> getInstallCommandList(DssInstance dssServer, boolean forDisplay) {
         List<String> commands = new ArrayList<>(asList(getPipCommand(forDisplay), "install", "--upgrade"));
         if (dssServer.noCheckCertificate) {
             commands.add("--trusted-host=" + extractHostAndPort(dssServer.baseUrl));
@@ -162,7 +162,7 @@ public class DataikuInternalClientInstaller {
     }
 
     @NotNull
-    private static String clientTarGzUrl(DssServer dssServer) {
+    private static String clientTarGzUrl(DssInstance dssServer) {
         return dssServer.baseUrl + "/public/packages/dataiku-internal-client.tar.gz";
     }
 }

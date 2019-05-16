@@ -14,7 +14,7 @@ import javax.swing.text.DefaultCaret;
 import org.jetbrains.annotations.Nullable;
 
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.google.common.base.Joiner;
 import com.intellij.openapi.projectRoots.Sdk;
 import com.intellij.openapi.ui.DialogWrapper;
@@ -24,11 +24,11 @@ import com.intellij.ui.components.JBScrollPane;
 public class DataikuInternalClientLibsInstallerDialog extends DialogWrapper {
     private static final Logger log = Logger.getInstance(DataikuInternalClientLibsInstallerDialog.class);
     private final Sdk sdk;
-    private final DssServer dssServer;
+    private final DssInstance dssServer;
     private JTextArea textArea;
     private Process installProcess;
 
-    public DataikuInternalClientLibsInstallerDialog(Sdk sdk, DssServer dssServer) {
+    public DataikuInternalClientLibsInstallerDialog(Sdk sdk, DssInstance dssServer) {
         super(true); // use current window as parent
         this.sdk = sdk;
         this.dssServer = dssServer;

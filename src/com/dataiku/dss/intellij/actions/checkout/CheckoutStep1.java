@@ -5,7 +5,7 @@ import javax.swing.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.dataiku.dss.intellij.config.DssServer;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.model.DSSClient;
 import com.intellij.ide.wizard.AbstractWizardStepEx;
@@ -103,7 +103,7 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
         return module;
     }
 
-    private DssServer validateDssServer(ServerItem serverItem) throws CommitStepException {
+    private DssInstance validateDssServer(ServerItem serverItem) throws CommitStepException {
         if (!serverItem.client.canConnect()) {
             throw new CommitStepException("Unable to connect to the selected DSS instance. Make sure it is running and reachable from your computer.");
         }
@@ -122,17 +122,17 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
     }
 
     private static class ServerItem {
-        private final DssServer server;
+        private final DssInstance server;
         private final DSSClient client;
 
-        ServerItem(DssServer dssServer) {
+        ServerItem(DssInstance dssServer) {
             this.server = dssServer;
             this.client = dssServer.createClient();
         }
 
         @Override
         public String toString() {
-            return server.name + " [" + server.baseUrl + "]";
+            return server.label + " [" + server.baseUrl + "]";
         }
     }
 }
