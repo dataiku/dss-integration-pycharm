@@ -58,7 +58,7 @@ public class CheckoutWorker {
         String projectKey = model.projectKey;
 
         // Retrieve recipe & its payload
-        DssInstance dssServer = model.server;
+        DssInstance dssInstance = model.server;
 
         String[] checkoutLocation = model.checkoutLocation.isEmpty() ? new String[0] : model.checkoutLocation.split("/");
         List<VirtualFile> createdFileList = new ArrayList<>();
@@ -93,7 +93,7 @@ public class CheckoutWorker {
             MonitoredFilesIndex.getInstance().index(file, metadata, recipeMetadata);
 
             // Create the associated run configuration
-            new RunConfigurationGenerator().createScriptRunConfiguration(model.module, file, dssServer, model.projectKey, recipe.name);
+            new RunConfigurationGenerator().createScriptRunConfiguration(model.module, file, dssInstance, model.projectKey, recipe.name);
             createdFileList.add(file);
         }
 

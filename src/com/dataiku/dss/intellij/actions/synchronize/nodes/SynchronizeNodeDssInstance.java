@@ -3,10 +3,10 @@ package com.dataiku.dss.intellij.actions.synchronize.nodes;
 import com.dataiku.dss.intellij.config.DssInstance;
 
 public class SynchronizeNodeDssInstance extends SynchronizeBaseNode {
-    public final DssInstance dssServer;
+    public final DssInstance dssInstance;
 
-    public SynchronizeNodeDssInstance(DssInstance dssServer) {
-        this.dssServer = dssServer;
+    public SynchronizeNodeDssInstance(DssInstance dssInstance) {
+        this.dssInstance = dssInstance;
     }
 
     public SynchronizeNodeRecipes getRecipesNode() {
@@ -37,6 +37,6 @@ public class SynchronizeNodeDssInstance extends SynchronizeBaseNode {
 
     @Override
     public String toString() {
-        return dssServer.label + "  [ " + dssServer.baseUrl + " ]";
+        return dssInstance.label + "  [ " + dssInstance.baseUrl + " ]";
     }
 }

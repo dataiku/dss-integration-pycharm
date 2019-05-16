@@ -1,5 +1,8 @@
 package com.dataiku.dss.intellij.actions.synchronize.nodes;
 
+import static com.intellij.ui.SimpleTextAttributes.GRAY_ATTRIBUTES;
+import static com.intellij.ui.SimpleTextAttributes.REGULAR_ATTRIBUTES;
+
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import javax.swing.*;
@@ -26,9 +29,13 @@ public class SynchronizeTree extends Tree {
     private static class MyCellRenderer extends ColoredTreeCellRenderer {
         @Override
         public void customizeCellRenderer(@NotNull JTree tree, Object value, boolean selected, boolean expanded, boolean leaf, int row, boolean hasFocus) {
-            if (value instanceof SynchronizeNodeRecipe) {
-                SynchronizeNodeRecipe x = (SynchronizeNodeRecipe) value;
-                String filename = x.recipe.file.getName().toLowerCase();
+            if (value instanceof SynchronizeNodeDssInstance) {
+                SynchronizeNodeDssInstance node = (SynchronizeNodeDssInstance) value;
+                append(node.dssInstance.label, REGULAR_ATTRIBUTES);
+                append("  " + node.dssInstance.baseUrl, GRAY_ATTRIBUTES);
+            } else if (value instanceof SynchronizeNodeRecipe) {
+                SynchronizeNodeRecipe node = (SynchronizeNodeRecipe) value;
+                String filename = node.recipe.file.getName().toLowerCase();
                 if (filename.endsWith(".py")) {
                     setIcon(Icons.RECIPE_PYTHON);
                 } else if (filename.endsWith(".r")) {
@@ -40,12 +47,15 @@ public class SynchronizeTree extends Tree {
                 } else {
                     setIcon(AllIcons.FileTypes.Any_type);
                 }
+                append(node.toString());
             } else if (value instanceof SynchronizeNodePlugin) {
                 setIcon(AllIcons.Nodes.Plugin);
+                append(value.toString());
             } else {
                 setIcon(AllIcons.Nodes.Folder);
+                append(value.toString());
             }
-            append(value.toString());
+
         }
     }
 

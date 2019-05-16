@@ -10,15 +10,19 @@ public class SynchronizeNodeRoot extends SynchronizeBaseNode {
         return "[ROOT]";
     }
 
-    public SynchronizeNodeDssInstance getOrAddInstanceNode(DssInstance dssServer) {
+    public SynchronizeNodeDssInstance getOrAddInstanceNode(DssInstance dssInstance) {
         for (SynchronizeNodeDssInstance node : listChildren(SynchronizeNodeDssInstance.class)) {
-            if (node.dssServer.equals(dssServer)) {
+            if (node.dssInstance.equals(dssInstance)) {
                 return node;
             }
         }
         // Not found, add it
-        SynchronizeNodeDssInstance newNode = new SynchronizeNodeDssInstance(dssServer);
-        add(newNode);
+        SynchronizeNodeDssInstance newNode = new SynchronizeNodeDssInstance(dssInstance);
+        if (newNode.dssInstance.isDefault) {
+            insert(newNode, 0);
+        } else {
+            add(newNode);
+        }
         return newNode;
     }
 

@@ -24,14 +24,14 @@ import com.intellij.ui.components.JBScrollPane;
 public class DataikuInternalClientLibsInstallerDialog extends DialogWrapper {
     private static final Logger log = Logger.getInstance(DataikuInternalClientLibsInstallerDialog.class);
     private final Sdk sdk;
-    private final DssInstance dssServer;
+    private final DssInstance dssInstance;
     private JTextArea textArea;
     private Process installProcess;
 
-    public DataikuInternalClientLibsInstallerDialog(Sdk sdk, DssInstance dssServer) {
+    public DataikuInternalClientLibsInstallerDialog(Sdk sdk, DssInstance dssInstance) {
         super(true); // use current window as parent
         this.sdk = sdk;
-        this.dssServer = dssServer;
+        this.dssInstance = dssInstance;
         init();
         setTitle("Install Dataiku Internal Client Libraries");
         setOKButtonText("Close");
@@ -71,8 +71,8 @@ public class DataikuInternalClientLibsInstallerDialog extends DialogWrapper {
     }
 
     private void startInstallation() throws IOException {
-        textArea.append("> " + DataikuInternalClientInstaller.getInstallCommandPreview(dssServer) + "\n");
-        installProcess = new DataikuInternalClientInstaller().installAsync(sdk.getHomePath(), dssServer);
+        textArea.append("> " + DataikuInternalClientInstaller.getInstallCommandPreview(dssInstance) + "\n");
+        installProcess = new DataikuInternalClientInstaller().installAsync(sdk.getHomePath(), dssInstance);
         new Thread(new ProcessOutput(installProcess.getInputStream())).start();
     }
 

@@ -1,8 +1,9 @@
 package com.dataiku.dss.intellij.config;
 
 import static com.dataiku.dss.intellij.config.DssInstance.ENVIRONMENT_VARIABLE_INSTANCE_ID;
-import static com.intellij.ui.SimpleTextAttributes.GRAYED_ATTRIBUTES;
+import static com.intellij.ui.SimpleTextAttributes.GRAY_ATTRIBUTES;
 import static com.intellij.ui.SimpleTextAttributes.REGULAR_ATTRIBUTES;
+import static com.intellij.ui.SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES;
 import static com.intellij.uiDesigner.core.GridConstraints.ANCHOR_WEST;
 import static com.intellij.uiDesigner.core.GridConstraints.FILL_HORIZONTAL;
 import static com.intellij.uiDesigner.core.GridConstraints.FILL_NONE;
@@ -68,9 +69,9 @@ public class DssSettingsPanel implements Disposable {
             protected void customizeCellRenderer(@NotNull JList<? extends DssInstance> list, DssInstance server, int index, boolean selected, boolean hasFocus) {
                 setIcon(Icons.BIRD_GRAY);
                 append(" " + server.label, REGULAR_ATTRIBUTES);
-                append("  [ " + server.baseUrl + " ]", GRAYED_ATTRIBUTES, false);
+                append("  " + server.baseUrl, GRAY_ATTRIBUTES);
                 if (server.isDefault) {
-                    append(" (Default)", REGULAR_ATTRIBUTES, false);
+                    append(" (Default)", REGULAR_BOLD_ATTRIBUTES);
                 }
             }
 

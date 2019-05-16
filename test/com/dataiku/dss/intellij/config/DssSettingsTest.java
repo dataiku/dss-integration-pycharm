@@ -21,12 +21,12 @@ public class DssSettingsTest {
 
             DssSettings dssSettings = new DssSettings();
             dssSettings.loadDataikuConfig(file);
-            DssInstance dssServer = dssSettings.getDssInstance("default");
-            assertNotNull(dssServer);
-            assertEquals("https://dataiku.acme.com:11200", dssServer.baseUrl);
-            assertEquals("my-secret-api-key", dssServer.apiKey);
-            assertEquals(false, dssServer.noCheckCertificate);
-            assertEquals(dssServer, dssSettings.getDefaultInstances());
+            DssInstance dssInstance = dssSettings.getDssInstance("default");
+            assertNotNull(dssInstance);
+            assertEquals("https://dataiku.acme.com:11200", dssInstance.baseUrl);
+            assertEquals("my-secret-api-key", dssInstance.apiKey);
+            assertEquals(false, dssInstance.noCheckCertificate);
+            assertEquals(dssInstance, dssSettings.getDefaultInstances());
         } finally {
             if (!file.delete()) {
                 file.deleteOnExit();

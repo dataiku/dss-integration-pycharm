@@ -38,12 +38,12 @@ public class DssInstance {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        DssInstance dssServer = (DssInstance) o;
-        return Objects.equals(id, dssServer.id) &&
-                Objects.equals(label, dssServer.label) &&
-                Objects.equals(baseUrl, dssServer.baseUrl) &&
-                Objects.equals(apiKey, dssServer.apiKey) &&
-                noCheckCertificate == dssServer.noCheckCertificate;
+        DssInstance dssInstance = (DssInstance) o;
+        return Objects.equals(id, dssInstance.id) &&
+                Objects.equals(label, dssInstance.label) &&
+                Objects.equals(baseUrl, dssInstance.baseUrl) &&
+                Objects.equals(apiKey, dssInstance.apiKey) &&
+                noCheckCertificate == dssInstance.noCheckCertificate;
     }
 
     @Override
