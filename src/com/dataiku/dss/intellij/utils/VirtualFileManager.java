@@ -19,11 +19,11 @@ import com.intellij.openapi.application.WriteAction;
 import com.intellij.openapi.vfs.VirtualFile;
 
 @SuppressWarnings("WeakerAccess")
-public class VirtualFileUtils {
+public class VirtualFileManager {
     private final Object requestor;
     private final boolean runInBackgroundThread;
 
-    public VirtualFileUtils(final Object requestor, boolean runInBackgroundThread) {
+    public VirtualFileManager(final Object requestor, boolean runInBackgroundThread) {
         this.requestor = requestor;
         this.runInBackgroundThread = runInBackgroundThread;
     }

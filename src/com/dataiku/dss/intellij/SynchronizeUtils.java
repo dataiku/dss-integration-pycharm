@@ -8,7 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import com.dataiku.dss.intellij.actions.synchronize.SynchronizeSummaryDialog;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
-import com.dataiku.dss.intellij.utils.VirtualFileUtils;
+import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
@@ -43,7 +43,7 @@ public class SynchronizeUtils {
                 monitoredPlugin.plugin.pluginId,
                 monitoredPlugin.plugin.pluginId + "/" + path,
                 path,
-                VirtualFileUtils.getContentHash(fileContent));
+                VirtualFileManager.getContentHash(fileContent));
         monitoredPlugin.metadataFile.addOrUpdatePluginFile(pluginFileMetadata, flushMetadata);
     }
 
@@ -57,7 +57,7 @@ public class SynchronizeUtils {
 
             // Update metadata & schedule associated metadata file to be updated
             recipe.versionNumber = updatedRecipe.recipe.versionTag.versionNumber;
-            recipe.contentHash = VirtualFileUtils.getContentHash(fileContent);
+            recipe.contentHash = VirtualFileManager.getContentHash(fileContent);
 
             if (flushMetadata) {
                 monitoredFile.metadataFile.flush();

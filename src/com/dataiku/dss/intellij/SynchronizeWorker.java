@@ -1,7 +1,7 @@
 package com.dataiku.dss.intellij;
 
 import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
-import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getContentHash;
+import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
 import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.IOException;
@@ -19,7 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
-import com.dataiku.dss.intellij.utils.VirtualFileUtils;
+import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.FolderContent;
@@ -42,14 +42,14 @@ public class SynchronizeWorker {
     private final DssSettings settings;
 
     private final RecipeCache recipeCache;
-    private final VirtualFileUtils vFileManager;
+    private final VirtualFileManager vFileManager;
     private final Set<MetadataFile> dirtyMetadataFiles = new HashSet<>();
     private final SynchronizeSummary summary = new SynchronizeSummary();
 
     public SynchronizeWorker(DataikuDSSPlugin dssPlugin, DssSettings settings, RecipeCache recipeCache, boolean runInBackgroundThread) {
         this.settings = settings;
         this.recipeCache = recipeCache;
-        this.vFileManager = new VirtualFileUtils(dssPlugin, runInBackgroundThread);
+        this.vFileManager = new VirtualFileManager(dssPlugin, runInBackgroundThread);
     }
 
     public SynchronizeSummary synchronizeWithDSS(SynchronizeRequest request) throws IOException {
@@ -86,7 +86,7 @@ public class SynchronizeWorker {
         long remoteVersionNumber = recipe.versionTag.versionNumber;
         int originalHash = monitoredFile.recipe.contentHash;
         long originalVersionNumber = monitoredFile.recipe.versionNumber;
-        String localFileContent = VirtualFileUtils.readVirtualFile(monitoredFile.file);
+        String localFileContent = VirtualFileManager.readVirtualFile(monitoredFile.file);
         int localHash = getContentHash(localFileContent);
 
         if (remoteVersionNumber == originalVersionNumber) {
@@ -169,8 +169,8 @@ public class SynchronizeWorker {
         for (VirtualFile file : missingFiles) {
             String fileUrl = file.getUrl();
             String path = fileUrl.substring(baseUrl.length() + 1);
-            byte[] content = VirtualFileUtils.readVirtualFileAsByteArray(file);
-            int contentHash = VirtualFileUtils.getContentHash(content);
+            byte[] content = VirtualFileManager.readVirtualFileAsByteArray(file);
+            int contentHash = VirtualFileManager.getContentHash(content);
 
             DssPluginFileMetadata trackedFile = monitoredPlugin.findFile(path);
             if (trackedFile == null) {
@@ -254,7 +254,7 @@ public class SynchronizeWorker {
                         synchronizePluginFolder(dssClient, monitoredPlugin, file, pluginFile.children);
                     }
                 } else {
-                    VirtualFile file = VirtualFileUtils.getVirtualFile(parent, pluginFile.name);
+                    VirtualFile file = VirtualFileManager.getVirtualFile(parent, pluginFile.name);
                     if (file != null && file.exists() && file.isValid()) {
                         // Recurse if necessary
                         if (pluginFile.children != null && !pluginFile.children.isEmpty()) {
@@ -278,7 +278,7 @@ public class SynchronizeWorker {
                     updatePluginFileMetadata(monitoredPlugin, pluginFile.path, getContentHash(fileContent));
                     summary.locallyUpdated.add(String.format("Plugin file '%s' downloaded from DSS instance.", pluginFile.path));
                 } else {
-                    VirtualFile file = VirtualFileUtils.getVirtualFile(parent, pluginFile.name);
+                    VirtualFile file = VirtualFileManager.getVirtualFile(parent, pluginFile.name);
                     if (file == null || !file.exists() || !file.isValid()) {
                         // File locally deleted.
                         deletePluginFile(dssClient, monitoredPlugin, pluginId, pluginFile);
@@ -291,7 +291,7 @@ public class SynchronizeWorker {
                             if (localHash != originalHash) {
                                 // File locally modified => Upload it to DSS
                                 log.info(" - Uploading file. It has been locally modified and left untouched remotely since last synchronization.");
-                                dssClient.uploadPluginFile(pluginId, pluginFile.path, VirtualFileUtils.readVirtualFileAsByteArray(file));
+                                dssClient.uploadPluginFile(pluginId, pluginFile.path, VirtualFileManager.readVirtualFileAsByteArray(file));
                                 updatePluginFileMetadata(monitoredPlugin, pluginFile.path, localHash);
                                 summary.dssUpdated.add(String.format("Plugin file '%s' saved into DSS instance.", pluginFile.path));
                             } else {
@@ -313,7 +313,7 @@ public class SynchronizeWorker {
                             } else {
                                 // Conflict!! Checkout remote file as .remote and send the local version to DSS
                                 log.warn(String.format(" - Conflict detected. Uploading it and saving remote version locally with '%s' extension.", REMOTE_SUFFIX));
-                                dssClient.uploadPluginFile(pluginId, pluginFile.path, VirtualFileUtils.readVirtualFileAsByteArray(file));
+                                dssClient.uploadPluginFile(pluginId, pluginFile.path, VirtualFileManager.readVirtualFileAsByteArray(file));
                                 updatePluginFileMetadata(monitoredPlugin, pluginFile.path, localHash);
 
                                 VirtualFile newFile = vFileManager.getOrCreateVirtualFile(parent, pluginFile.name + REMOTE_SUFFIX);

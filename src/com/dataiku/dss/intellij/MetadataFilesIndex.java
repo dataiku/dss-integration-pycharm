@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.utils.ComponentUtils;
-import com.dataiku.dss.intellij.utils.VirtualFileUtils;
+import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.metadata.DssMetadata;
 import com.google.gson.GsonBuilder;
 import com.intellij.openapi.components.ApplicationComponent;
@@ -77,7 +77,7 @@ public class MetadataFilesIndex implements ApplicationComponent {
         if (metadataFile == null || !metadataFile.isValid() || !metadataFile.exists()) {
             return null;
         }
-        DssMetadata result = new GsonBuilder().create().fromJson(VirtualFileUtils.readVirtualFile(metadataFile), DssMetadata.class);
+        DssMetadata result = new GsonBuilder().create().fromJson(VirtualFileManager.readVirtualFile(metadataFile), DssMetadata.class);
         if (result.plugins == null) {
             result.plugins = new ArrayList<>();
         }

@@ -1,6 +1,6 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
-import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getContentHash;
+import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
 import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.IOException;
@@ -18,7 +18,7 @@ import com.dataiku.dss.intellij.MonitoredFilesIndex;
 import com.dataiku.dss.intellij.MonitoredPlugin;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.utils.RecipeUtils;
-import com.dataiku.dss.intellij.utils.VirtualFileUtils;
+import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.FolderContent;
 import com.dataiku.dss.model.dss.Plugin;
@@ -37,12 +37,12 @@ public class CheckoutWorker {
     private static final Logger log = Logger.getInstance(CheckoutWorker.class);
 
     private final CheckoutModel model;
-    private final VirtualFileUtils vFileManager;
+    private final VirtualFileManager vFileManager;
 
     CheckoutWorker(DataikuDSSPlugin dssPlugin, CheckoutModel model) {
         Preconditions.checkNotNull(model, "model");
         this.model = model;
-        this.vFileManager = new VirtualFileUtils(dssPlugin, false);
+        this.vFileManager = new VirtualFileManager(dssPlugin, false);
     }
 
     public List<VirtualFile> checkout() throws IOException {

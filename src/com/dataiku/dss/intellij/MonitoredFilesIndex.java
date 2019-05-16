@@ -9,7 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.utils.ComponentUtils;
-import com.dataiku.dss.intellij.utils.VirtualFileUtils;
+import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.metadata.DssPluginMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
 import com.google.common.base.Preconditions;
@@ -131,7 +131,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
 
     public synchronized MonitoredPlugin getMonitoredPlugin(VirtualFile file) {
         for (MonitoredPlugin plugin : monitoredPlugins.values()) {
-            String path = VirtualFileUtils.getRelativePath(plugin.pluginBaseDir, file);
+            String path = VirtualFileManager.getRelativePath(plugin.pluginBaseDir, file);
             if (path != null) {
                 return plugin;
             }

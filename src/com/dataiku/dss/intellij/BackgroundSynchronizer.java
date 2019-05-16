@@ -3,7 +3,7 @@ package com.dataiku.dss.intellij;
 import static com.dataiku.dss.intellij.SynchronizeUtils.renameRecipeFile;
 import static com.dataiku.dss.intellij.SynchronizeUtils.savePluginFileToDss;
 import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
-import static com.dataiku.dss.intellij.utils.VirtualFileUtils.getContentHash;
+import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 import java.io.IOException;
@@ -15,7 +15,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.config.DssSettings;
-import com.dataiku.dss.intellij.utils.VirtualFileUtils;
+import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ReadAction;
@@ -276,10 +276,10 @@ public class BackgroundSynchronizer implements ApplicationComponent {
         }
 
         private void syncModifiedPluginFile(MonitoredPlugin monitoredPlugin, VirtualFile modifiedFile) {
-            String path = VirtualFileUtils.getRelativePath(monitoredPlugin.pluginBaseDir, modifiedFile);
+            String path = VirtualFileManager.getRelativePath(monitoredPlugin.pluginBaseDir, modifiedFile);
             DssPluginFileMetadata trackedFile = monitoredPlugin.findFile(path);
             try {
-                byte[] fileContent = ReadAction.compute(() -> VirtualFileUtils.readVirtualFileAsByteArray(modifiedFile));
+                byte[] fileContent = ReadAction.compute(() -> VirtualFileManager.readVirtualFileAsByteArray(modifiedFile));
                 if (trackedFile == null) {
                     // New file, send it to DSS
                     savePluginFileToDss(dssSettings, monitoredPlugin, path, fileContent, true);
@@ -296,7 +296,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
         private void syncModifiedRecipeFile(MonitoredRecipeFile monitoredFile) {
             try {
-                String fileContent = ReadAction.compute(() -> VirtualFileUtils.readVirtualFile(monitoredFile.file));
+                String fileContent = ReadAction.compute(() -> VirtualFileManager.readVirtualFile(monitoredFile.file));
                 if (getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
                     log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS instance", monitoredFile.recipe));
                     saveRecipeToDss(dssSettings, monitoredFile, fileContent);
@@ -308,7 +308,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
         private void syncRenamedRecipeFile(MonitoredRecipeFile monitoredFile, VirtualFile newFile) {
             try {
-                String fileContent = ReadAction.compute(() -> VirtualFileUtils.readVirtualFile(monitoredFile.file));
+                String fileContent = ReadAction.compute(() -> VirtualFileManager.readVirtualFile(monitoredFile.file));
                 if (getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
                     log.info(String.format("File for recipe '%s' has been locally renamed. Recipe will not be renamed on DSS.", monitoredFile.recipe));
                     renameRecipeFile(monitoredFile, newFile, true);
