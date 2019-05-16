@@ -1,5 +1,7 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
+import java.util.ArrayList;
+import java.util.List;
 import javax.swing.*;
 
 import org.jetbrains.annotations.NotNull;
@@ -13,6 +15,8 @@ import com.intellij.ide.wizard.CommitStepException;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.project.Project;
+import com.intellij.ui.ColoredListCellRenderer;
+import com.intellij.ui.SimpleTextAttributes;
 
 public class CheckoutStep1 extends AbstractWizardStepEx {
     public static final Object ID = "CheckoutStep1";
@@ -20,7 +24,7 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
     private final CheckoutModel model;
     private final Project project;
     private JComboBox<String> intellijModulesComboBox;
-    private JComboBox<ServerItem> instanceComboBox;
+    private JComboBox<InstanceItem> instanceComboBox;
     private JComboBox<String> itemTypeComboBox;
     private JPanel panel;
 
@@ -36,8 +40,18 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
                 .getAllModuleDescriptions()
                 .forEach(module -> intellijModulesComboBox.addItem(module.getName()));
 
-        DssSettings.getInstance().getDssServers()
-                .forEach(root -> instanceComboBox.addItem(new ServerItem(root)));
+        // Display all instances, with the default one first.
+        List<DssInstance> dssInstances = new ArrayList<>(DssSettings.getInstance().getDssInstances());
+        dssInstances.sort((instance1, instance2) -> instance1.isDefault ? -1 : (instance2.isDefault ? 1 : 0));
+        dssInstances.forEach(instance -> instanceComboBox.addItem(new InstanceItem(instance)));
+
+        instanceComboBox.setRenderer(new ColoredListCellRenderer<InstanceItem>() {
+            @Override
+            protected void customizeCellRenderer(@NotNull JList<? extends InstanceItem> list, InstanceItem item, int index, boolean selected, boolean hasFocus) {
+                append(item.instance.label, SimpleTextAttributes.REGULAR_ATTRIBUTES);
+                append("  " + item.instance.baseUrl, SimpleTextAttributes.GRAY_ATTRIBUTES);
+            }
+        });
     }
 
     @NotNull
@@ -69,13 +83,13 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
     public void commit(CommitType commitType) throws CommitStepException {
         model.module = validateModule((String) intellijModulesComboBox.getSelectedItem());
 
-        ServerItem serverItem = (ServerItem) instanceComboBox.getSelectedItem();
-        if (serverItem == null) {
+        InstanceItem instanceItem = (InstanceItem) instanceComboBox.getSelectedItem();
+        if (instanceItem == null) {
             throw new CommitStepException("Please select a DSS instance");
         }
-        model.server = validateDssServer(serverItem);
-        model.serverClient = serverItem.client;
-        model.serverVersion = serverItem.client.getDssVersion();
+        model.server = validateDssInstance(instanceItem);
+        model.serverClient = instanceItem.client;
+        model.serverVersion = instanceItem.client.getDssVersion();
 
         model.itemType = validateItemType((String) itemTypeComboBox.getSelectedItem());
     }
@@ -103,11 +117,11 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
         return module;
     }
 
-    private DssInstance validateDssServer(ServerItem serverItem) throws CommitStepException {
-        if (!serverItem.client.canConnect()) {
+    private DssInstance validateDssInstance(InstanceItem instanceItem) throws CommitStepException {
+        if (!instanceItem.client.canConnect()) {
             throw new CommitStepException("Unable to connect to the selected DSS instance. Make sure it is running and reachable from your computer.");
         }
-        return serverItem.server;
+        return instanceItem.instance;
     }
 
     private CheckoutModel.ItemType validateItemType(String itemType) throws CommitStepException {
@@ -121,18 +135,13 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
         }
     }
 
-    private static class ServerItem {
-        private final DssInstance server;
+    private static class InstanceItem {
+        private final DssInstance instance;
         private final DSSClient client;
 
-        ServerItem(DssInstance dssServer) {
-            this.server = dssServer;
-            this.client = dssServer.createClient();
-        }
-
-        @Override
-        public String toString() {
-            return server.label + " [" + server.baseUrl + "]";
+        InstanceItem(DssInstance dssInstance) {
+            this.instance = dssInstance;
+            this.client = dssInstance.createClient();
         }
     }
 }

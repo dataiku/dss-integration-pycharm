@@ -128,15 +128,15 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         return config.backgroundSynchronizationPollIntervalInSeconds;
     }
 
-    public DssInstance getDefaultServer() {
+    public DssInstance getDefaultInstances() {
         return this.servers.stream().findFirst().orElse(null);
     }
 
-    public List<DssInstance> getDssServers() {
+    public List<DssInstance> getDssInstances() {
         return this.servers;
     }
 
-    public DssInstance getDssServer(String id) {
+    public DssInstance getDssInstance(String id) {
         Preconditions.checkNotNull(id);
         for (DssInstance server : this.servers) {
             if (id.equals(server.id)) {
@@ -148,7 +148,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
     @NotNull
     public DSSClient getDssClient(String instanceId) {
-        DssInstance dssServer = getDssServer(instanceId);
+        DssInstance dssServer = getDssInstance(instanceId);
         if (dssServer == null) {
             throw new IllegalStateException(String.format("Unknown DSS instance name: '%s'", instanceId));
         }
@@ -219,7 +219,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
                     addServer(id, label, instanceConfig.url, instanceConfig.api_key, instanceConfig.no_check_certificate);
                 }
             });
-            defaultServer = getDssServer(defaultInstanceName);
+            defaultServer = getDssInstance(defaultInstanceName);
             if (defaultServer != null) {
                 defaultServer.isDefault = true;
             }

@@ -27,8 +27,8 @@ public class DataikuInternalClientInstaller {
     private static final Logger log = Logger.getInstance(DataikuInternalClientInstaller.class);
 
     @NotNull
-    public static String getInstallCommandPreview(DssInstance dssServer) {
-        return Joiner.on(" ").join(getInstallCommandList(dssServer, true));
+    public static String getInstallCommandPreview(DssInstance dssInstance) {
+        return Joiner.on(" ").join(getInstallCommandList(dssInstance, true));
     }
 
     public String getInstalledVersion(String interpreterPath) throws InterruptedException {
@@ -49,13 +49,13 @@ public class DataikuInternalClientInstaller {
                 .orElse(null);
     }
 
-    public Process installAsync(String interpreterPath, DssInstance dssServer) throws IOException {
-        Preconditions.checkNotNull(dssServer, "dssServer");
+    public Process installAsync(String interpreterPath, DssInstance dssInstance) throws IOException {
+        Preconditions.checkNotNull(dssInstance, "dssInstance");
         Preconditions.checkNotNull(interpreterPath, "interpreterPath");
 
         File workingDir = new File(interpreterPath).getParentFile();
         ProcessBuilder pipInstall = new ProcessBuilder()
-                .command(getInstallCommandList(dssServer, false))
+                .command(getInstallCommandList(dssInstance, false))
                 .redirectErrorStream(true)
                 .directory(workingDir);
         return pipInstall.start();
@@ -149,17 +149,17 @@ public class DataikuInternalClientInstaller {
         }
     }
 
-    private static List<String> getInstallCommandList(DssInstance dssServer, boolean forDisplay) {
+    private static List<String> getInstallCommandList(DssInstance dssInstance, boolean forDisplay) {
         List<String> commands = new ArrayList<>(asList(getPipCommand(forDisplay), "install", "--upgrade"));
-        if (dssServer.noCheckCertificate) {
-            commands.add("--trusted-host=" + extractHostAndPort(dssServer.baseUrl));
+        if (dssInstance.noCheckCertificate) {
+            commands.add("--trusted-host=" + extractHostAndPort(dssInstance.baseUrl));
         }
-        commands.add(clientTarGzUrl(dssServer));
+        commands.add(clientTarGzUrl(dssInstance));
         return commands;
     }
 
     @NotNull
-    private static String clientTarGzUrl(DssInstance dssServer) {
-        return dssServer.baseUrl + "/public/packages/dataiku-internal-client.tar.gz";
+    private static String clientTarGzUrl(DssInstance dssInstance) {
+        return dssInstance.baseUrl + "/public/packages/dataiku-internal-client.tar.gz";
     }
 }

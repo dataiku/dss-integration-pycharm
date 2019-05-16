@@ -55,15 +55,15 @@ public class SynchronizeWorker {
     public SynchronizeSummary synchronizeWithDSS(SynchronizeRequest request) throws IOException {
         log.info("Starting synchronization at " + DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(LocalDateTime.now()));
         for (MonitoredRecipeFile recipeFile : request.recipeFiles) {
-            DssInstance dssServer = settings.getDssServer(recipeFile.recipe.instance);
-            if (dssServer != null) {
-                synchronizeRecipe(dssServer, recipeFile);
+            DssInstance dssInstance = settings.getDssInstance(recipeFile.recipe.instance);
+            if (dssInstance != null) {
+                synchronizeRecipe(dssInstance, recipeFile);
             }
         }
         for (MonitoredPlugin plugin : request.plugins) {
-            DssInstance dssServer = settings.getDssServer(plugin.plugin.instance);
-            if (dssServer != null) {
-                synchronizePlugin(dssServer, plugin);
+            DssInstance dssInstance = settings.getDssInstance(plugin.plugin.instance);
+            if (dssInstance != null) {
+                synchronizePlugin(dssInstance, plugin);
             }
         }
 
@@ -73,12 +73,12 @@ public class SynchronizeWorker {
         return summary;
     }
 
-    private void synchronizeRecipe(DssInstance dssServer, MonitoredRecipeFile monitoredFile) throws IOException {
-        Preconditions.checkNotNull(dssServer);
+    private void synchronizeRecipe(DssInstance dssInstance, MonitoredRecipeFile monitoredFile) throws IOException {
+        Preconditions.checkNotNull(dssInstance);
         Preconditions.checkNotNull(monitoredFile);
 
-        DSSClient dssClient = dssServer.createClient();
-        Recipe recipe = recipeCache.getRecipe(dssServer.id, monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
+        DSSClient dssClient = dssInstance.createClient();
+        Recipe recipe = recipeCache.getRecipe(dssInstance.id, monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
         if (recipe == null) {
             Messages.showErrorDialog(String.format("Recipe '%s' has been deleted from project '%s' on DSS instance.", monitoredFile.recipe.recipeName, monitoredFile.recipe.projectKey), "Synchronization Error");
             return;

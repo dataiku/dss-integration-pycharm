@@ -37,6 +37,6 @@ public class SynchronizeNodeDssInstance extends SynchronizeBaseNode {
 
     @Override
     public String toString() {
-        return dssServer.label + " [" + dssServer.baseUrl + "]";
+        return dssServer.label + "  [ " + dssServer.baseUrl + " ]";
     }
 }

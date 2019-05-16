@@ -90,7 +90,7 @@ public class SynchronizeDialog extends DialogWrapper {
 
     private void addPlugins(SynchronizeNodeRoot root, List<MonitoredPlugin> plugins) {
         plugins.forEach(monitoredPlugin -> {
-            DssInstance dssInstance = DssSettings.getInstance().getDssServer(monitoredPlugin.plugin.instance);
+            DssInstance dssInstance = DssSettings.getInstance().getDssInstance(monitoredPlugin.plugin.instance);
             if (dssInstance != null) {
                 SynchronizeNodePlugin pluginTreeNode = new SynchronizeNodePlugin(monitoredPlugin);
                 root.getOrAddInstanceNode(dssInstance).getOrAddPluginsNode().add(pluginTreeNode);
@@ -100,7 +100,7 @@ public class SynchronizeDialog extends DialogWrapper {
 
     private void addRecipes(SynchronizeNodeRoot root, List<MonitoredRecipeFile> monitoredFiles) {
         monitoredFiles.forEach(monitoredFile -> {
-            DssInstance dssInstance = DssSettings.getInstance().getDssServer(monitoredFile.recipe.instance);
+            DssInstance dssInstance = DssSettings.getInstance().getDssInstance(monitoredFile.recipe.instance);
             if (dssInstance != null) {
                 root.getOrAddInstanceNode(dssInstance)
                         .getOrAddRecipesNode()

@@ -231,9 +231,9 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
 
     private void init() throws DssException {
         // Fill projects model
-        DssInstance dssServer = model.server;
+        DssInstance dssInstance = model.server;
         projectComboBox.removeAllItems();
-        if (dssServer != null) {
+        if (dssInstance != null) {
             HashSet<String> labels = new HashSet<>();
             for (com.dataiku.dss.model.dss.Project p : model.serverClient.listProjects()) {
                 // If two projects have the same name, use the projectKey in label to distinguish them
@@ -242,7 +242,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
                     label = label + " (" + p.projectKey + ")";
                 }
                 labels.add(label);
-                projectComboBox.addItem(new ProjectItem(p.projectKey, label, dssServer));
+                projectComboBox.addItem(new ProjectItem(p.projectKey, label, dssInstance));
             }
         }
         // Fill SDKs model
@@ -304,12 +304,12 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private class ProjectItem {
         public final String projectKey;
         public final String label;
-        public final DssInstance dssServer;
+        public final DssInstance dssInstance;
 
-        public ProjectItem(String projectKey, String label, DssInstance dssServer) {
+        public ProjectItem(String projectKey, String label, DssInstance dssInstance) {
             this.projectKey = projectKey;
             this.label = label;
-            this.dssServer = dssServer;
+            this.dssInstance = dssInstance;
         }
 
         @Override

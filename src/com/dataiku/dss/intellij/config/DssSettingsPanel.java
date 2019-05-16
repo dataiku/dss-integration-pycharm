@@ -150,8 +150,8 @@ public class DssSettingsPanel implements Disposable {
     public boolean isModified(@NotNull DssSettings settings) {
         return automaticSynchronizationCheckBox.isSelected() != settings.isBackgroundSynchronizationEnabled() ||
                 getPollingIntervalValue() != settings.getBackgroundSynchronizationPollIntervalInSeconds() ||
-                !servers.equals(settings.getDssServers()) ||
-                !Objects.equals(defaultServer, settings.getDefaultServer());
+                !servers.equals(settings.getDssInstances()) ||
+                !Objects.equals(defaultServer, settings.getDefaultInstances());
     }
 
     public void save(@NotNull DssSettings settings) {
@@ -169,13 +169,13 @@ public class DssSettingsPanel implements Disposable {
     public void load(@NotNull DssSettings settings) {
         servers.clear();
         CollectionListModel<DssInstance> listModel = new CollectionListModel<>(new ArrayList<>());
-        listModel.add(settings.getDssServers());
-        servers.addAll(settings.getDssServers());
+        listModel.add(settings.getDssInstances());
+        servers.addAll(settings.getDssInstances());
         serverList.setModel(listModel);
         if (!servers.isEmpty()) {
             serverList.setSelectedValue(servers.get(0), true);
         }
-        defaultServer = settings.getDefaultServer();
+        defaultServer = settings.getDefaultInstances();
         automaticSynchronizationCheckBox.setSelected(settings.isBackgroundSynchronizationEnabled());
         pollingIntervalTextField.setModel(new SpinnerNumberModel(settings.getBackgroundSynchronizationPollIntervalInSeconds(), 10, 3600, 10));
         updatePollingIntervalState();

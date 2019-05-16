@@ -36,22 +36,22 @@ public class RecipeCache {
         RecipeCacheProject dssProject = new RecipeCacheProject(instanceId, projectKey);
         List<Recipe> projectRecipes = cachedRecipes.get(dssProject);
         if (projectRecipes == null) {
-            DssInstance dssServer = dssSettings.getDssServer(instanceId);
-            if (dssServer == null) {
+            DssInstance dssInstance = dssSettings.getDssInstance(instanceId);
+            if (dssInstance == null) {
                 throw new IllegalStateException("Unknown DSS instance name: " + instanceId);
             }
-            projectRecipes = dssServer.createClient().listRecipes(projectKey);
+            projectRecipes = dssInstance.createClient().listRecipes(projectKey);
             cachedRecipes.put(dssProject, projectRecipes);
         }
         return projectRecipes;
     }
 
     private static class RecipeCacheProject {
-        private final String dssServerName;
+        private final String dssInstanceName;
         private final String projectKey;
 
-        RecipeCacheProject(String dssServerName, String projectKey) {
-            this.dssServerName = dssServerName;
+        RecipeCacheProject(String dssInstanceName, String projectKey) {
+            this.dssInstanceName = dssInstanceName;
             this.projectKey = projectKey;
         }
 
@@ -64,13 +64,13 @@ public class RecipeCache {
                 return false;
             }
             RecipeCacheProject that = (RecipeCacheProject) o;
-            return Objects.equal(dssServerName, that.dssServerName) &&
+            return Objects.equal(dssInstanceName, that.dssInstanceName) &&
                     Objects.equal(projectKey, that.projectKey);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hashCode(dssServerName, projectKey);
+            return Objects.hashCode(dssInstanceName, projectKey);
         }
     }
 }

@@ -43,10 +43,10 @@ public class RunConfigurationGenerator {
         return pythonTemplate.getConfiguration();
     }
 
-    public RunConfiguration createScriptRunConfiguration(Module module, VirtualFile scriptFile, DssInstance dssServer, String projectKey, String recipeName) {
+    public RunConfiguration createScriptRunConfiguration(Module module, VirtualFile scriptFile, DssInstance dssInstance, String projectKey, String recipeName) {
         Preconditions.checkNotNull(module, "module");
         Preconditions.checkNotNull(scriptFile, "scriptFile");
-        Preconditions.checkNotNull(dssServer, "dssServer");
+        Preconditions.checkNotNull(dssInstance, "dssInstance");
         Preconditions.checkNotNull(projectKey, "projectKey");
         Preconditions.checkNotNull(recipeName, "recipeName");
 
@@ -64,10 +64,10 @@ public class RunConfigurationGenerator {
 
         // Set the environment variables, SDK, script name and working directory.
         Map<String, String> envs = new HashMap<>(runConfiguration.getEnvs());
-        if (!dssServer.isDefault) {
-            envs.put("DKU_DSS_URL", dssServer.baseUrl);
-            envs.put("DKU_API_KEY", dssServer.apiKey);
-            envs.put("DKU_NO_CHECK_CERTIFICATE", String.valueOf(dssServer.noCheckCertificate));
+        if (!dssInstance.isDefault) {
+            envs.put("DKU_DSS_URL", dssInstance.baseUrl);
+            envs.put("DKU_API_KEY", dssInstance.apiKey);
+            envs.put("DKU_NO_CHECK_CERTIFICATE", String.valueOf(dssInstance.noCheckCertificate));
         }
         envs.put("DKU_CURRENT_PROJECT_KEY", projectKey);
         runConfiguration.setEnvs(envs);
