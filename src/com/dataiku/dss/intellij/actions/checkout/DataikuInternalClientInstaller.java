@@ -24,7 +24,7 @@ import com.intellij.openapi.util.SystemInfo;
 @SuppressWarnings("WeakerAccess")
 public class DataikuInternalClientInstaller {
     private static final String DATAIKU_INTERNAL_CLIENT = "dataiku-internal-client";
-    private static Logger log = Logger.getInstance(DataikuInternalClientInstaller.class);
+    private static final Logger log = Logger.getInstance(DataikuInternalClientInstaller.class);
 
     @NotNull
     public static String getInstallCommandPreview(DssInstance dssServer) {
@@ -62,7 +62,7 @@ public class DataikuInternalClientInstaller {
     }
 
     private ProcessOutcome executeProcess(ProcessBuilder pb) throws InterruptedException {
-        ProcessOutput output = null;
+        ProcessOutput output;
         try {
             log.info("Executing command: " + Joiner.on(" ").join(pb.command()));
             Process process = pb.start();

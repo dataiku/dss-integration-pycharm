@@ -47,8 +47,8 @@ public class RecipeCache {
     }
 
     private static class RecipeCacheProject {
-        private String dssServerName;
-        private String projectKey;
+        private final String dssServerName;
+        private final String projectKey;
 
         RecipeCacheProject(String dssServerName, String projectKey) {
             this.dssServerName = dssServerName;

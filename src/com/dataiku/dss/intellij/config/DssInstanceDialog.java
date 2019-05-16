@@ -194,7 +194,7 @@ public class DssInstanceDialog extends DialogWrapper {
         }
     }
 
-    private boolean checkConnection() throws CommitStepException {
+    private boolean checkConnection() {
         try {
             return server.createClient().canConnect();
         } catch (RuntimeException e) {

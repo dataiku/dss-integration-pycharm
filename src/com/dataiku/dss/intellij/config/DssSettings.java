@@ -36,8 +36,11 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     private static final String ENV_VAR__DKU_DSS_URL = "DKU_DSS_URL";
     private static final String ENV_VAR__DKU_API_KEY = "DKU_API_KEY";
     private static final String ENV_VAR__DKU_NO_CHECK_CERTIFICATE = "DKU_NO_CHECK_CERTIFICATE";
+
+    private final List<DssInstance> servers = new LinkedList<>();
+    private final DssConfig config = new DssConfig();
+    private final List<Listener> listeners = new ArrayList<>();
     private File dataikuConfigFile;
-    private List<DssInstance> servers = new LinkedList<>();
     private DssInstance defaultServer;
 
     public interface Listener {
@@ -56,9 +59,6 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         public DssConfig() {
         }
     }
-
-    private DssConfig config = new DssConfig();
-    private final List<Listener> listeners = new ArrayList<>();
 
     public DssSettings() {
     }

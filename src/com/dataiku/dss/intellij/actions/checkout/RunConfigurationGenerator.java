@@ -20,7 +20,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.vfs.VirtualFile;
 
 public class RunConfigurationGenerator {
-    private static Logger log = Logger.getInstance(RunConfigurationGenerator.class);
+    private static final Logger log = Logger.getInstance(RunConfigurationGenerator.class);
 
     public RunConfiguration getDefaultPythonRunConfiguration(Module module) {
         Preconditions.checkNotNull(module, "module");

@@ -10,10 +10,10 @@ import com.google.common.io.FileWriteMode;
 import com.google.common.io.Files;
 
 public class Logger {
-    @SuppressWarnings("FieldCanBeLocal") private static boolean DEBUG_MODE = true;
-    private static PrintStream ADDITIONAL_LOGGER = createAdditionalLogger();
+    @SuppressWarnings("FieldCanBeLocal") private static final boolean DEBUG_MODE = true;
+    private static final PrintStream ADDITIONAL_LOGGER = createAdditionalLogger();
 
-    private com.intellij.openapi.diagnostic.Logger logger;
+    private final com.intellij.openapi.diagnostic.Logger logger;
 
     public static Logger getInstance(@NotNull Class clazz) {
         return new Logger(clazz);

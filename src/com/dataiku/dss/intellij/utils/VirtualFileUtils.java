@@ -55,7 +55,7 @@ public class VirtualFileUtils {
         return null;
     }
 
-    public static VirtualFile getVirtualFile(VirtualFile parent, String... names) throws IOException {
+    public static VirtualFile getVirtualFile(VirtualFile parent, String... names) {
         if (names.length == 1) {
             return parent.findChild(names[0]);
         } else {

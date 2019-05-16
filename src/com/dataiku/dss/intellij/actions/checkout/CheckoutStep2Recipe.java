@@ -48,7 +48,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private JPanel panel;
     private JComboBox<ProjectItem> projectComboBox;
     private JList<RecipeItem> recipesList;
-    private DefaultListModel<RecipeItem> recipesListItems = new DefaultListModel<>();
+    private final DefaultListModel<RecipeItem> recipesListItems = new DefaultListModel<>();
     private JLabel locationLabel;
     private JTextField locationTextField;
     private JCheckBox runConfigurationCheckBox;
@@ -478,9 +478,9 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     }
 
     private static class SdkItem {
-        Sdk sdk;
+        public final Sdk sdk;
 
-        SdkItem(Sdk sdk) {
+        public SdkItem(Sdk sdk) {
             this.sdk = sdk;
         }
 

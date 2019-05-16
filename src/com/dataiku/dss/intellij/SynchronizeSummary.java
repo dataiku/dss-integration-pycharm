@@ -4,11 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class SynchronizeSummary {
-    public List<String> locallyDeleted = new ArrayList<>();
-    public List<String> locallyUpdated = new ArrayList<>();
-    public List<String> dssUpdated = new ArrayList<>();
-    public List<String> dssDeleted = new ArrayList<>();
-    public List<String> conflicts = new ArrayList<>();
+    public final List<String> locallyDeleted = new ArrayList<>();
+    public final List<String> locallyUpdated = new ArrayList<>();
+    public final List<String> dssUpdated = new ArrayList<>();
+    public final List<String> dssDeleted = new ArrayList<>();
+    public final List<String> conflicts = new ArrayList<>();
 
     public boolean isEmpty() {
         return locallyUpdated.isEmpty()

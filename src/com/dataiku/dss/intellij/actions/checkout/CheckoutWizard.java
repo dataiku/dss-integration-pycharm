@@ -9,17 +9,12 @@ import com.intellij.ide.wizard.AbstractWizardStepEx;
 import com.intellij.openapi.project.Project;
 
 public class CheckoutWizard {
-    private CheckoutModel model;
-    private AbstractWizardEx wizard;
+    private final CheckoutModel model;
+    private final AbstractWizardEx wizard;
 
     public CheckoutWizard(Project project) {
         model = new CheckoutModel();
-        init(project, model);
-    }
-
-    private void init(Project project, CheckoutModel model) {
-        List<AbstractWizardStepEx> steps = createSteps(project, model);
-        wizard = new Wizard("Open Dataiku DSS", project, steps);
+        wizard = new Wizard("Open Dataiku DSS", project, createSteps(project, model));
     }
 
     private static List<AbstractWizardStepEx> createSteps(Project project, CheckoutModel model) {

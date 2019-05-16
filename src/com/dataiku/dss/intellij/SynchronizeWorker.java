@@ -43,8 +43,8 @@ public class SynchronizeWorker {
 
     private final RecipeCache recipeCache;
     private final VirtualFileUtils vFileManager;
-    private Set<MetadataFile> dirtyMetadataFiles = new HashSet<>();
-    private SynchronizeSummary summary = new SynchronizeSummary();
+    private final Set<MetadataFile> dirtyMetadataFiles = new HashSet<>();
+    private final SynchronizeSummary summary = new SynchronizeSummary();
 
     public SynchronizeWorker(DataikuDSSPlugin dssPlugin, DssSettings settings, RecipeCache recipeCache, boolean runInBackgroundThread) {
         this.settings = settings;
@@ -352,7 +352,7 @@ public class SynchronizeWorker {
         dirtyMetadataFiles.add(monitoredPlugin.metadataFile);
     }
 
-    private void removePluginFileMetadata(MonitoredPlugin monitoredPlugin, String path) throws IOException {
+    private void removePluginFileMetadata(MonitoredPlugin monitoredPlugin, String path) {
         DssPluginMetadata pluginMetadata = monitoredPlugin.plugin;
         DssPluginFileMetadata pluginFileMetadata = pluginMetadata.findFile(path);
         if (pluginFileMetadata != null) {

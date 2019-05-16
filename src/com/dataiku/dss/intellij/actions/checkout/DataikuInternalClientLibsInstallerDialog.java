@@ -58,8 +58,6 @@ public class DataikuInternalClientLibsInstallerDialog extends DialogWrapper {
             textArea.append("--------------------\n");
             textArea.append(e.getMessage());
             textArea.append("\n");
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
         }
 
         return scroll;
@@ -72,7 +70,7 @@ public class DataikuInternalClientLibsInstallerDialog extends DialogWrapper {
         }
     }
 
-    private void startInstallation() throws IOException, InterruptedException {
+    private void startInstallation() throws IOException {
         textArea.append("> " + DataikuInternalClientInstaller.getInstallCommandPreview(dssServer) + "\n");
         installProcess = new DataikuInternalClientInstaller().installAsync(sdk.getHomePath(), dssServer);
         new Thread(new ProcessOutput(installProcess.getInputStream())).start();
