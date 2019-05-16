@@ -31,7 +31,7 @@ public class DataikuInternalClientInstaller {
         return Joiner.on(" ").join(getInstallCommandList(dssServer, true));
     }
 
-    public String getInstalledVersion(String interpreterPath) {
+    public String getInstalledVersion(String interpreterPath) throws InterruptedException {
         Preconditions.checkNotNull(interpreterPath, "interpreterPath");
         File workingDir = new File(interpreterPath).getParentFile();
         ProcessBuilder pipList = new ProcessBuilder()
@@ -61,7 +61,7 @@ public class DataikuInternalClientInstaller {
         return pipInstall.start();
     }
 
-    private ProcessOutcome executeProcess(ProcessBuilder pb) {
+    private ProcessOutcome executeProcess(ProcessBuilder pb) throws InterruptedException {
         ProcessOutput output = null;
         try {
             log.info("Executing command: " + Joiner.on(" ").join(pb.command()));
@@ -72,11 +72,8 @@ public class DataikuInternalClientInstaller {
             int exitCode = process.waitFor();
             consumerThread.join();
             return new ProcessOutcome(exitCode, output.read(), null);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return new ProcessOutcome(-1, Collections.emptyList(), null);
-        } catch (Exception e) {
-            return new ProcessOutcome(-1, output == null ? Collections.emptyList() : output.read(), e);
+        } catch (IOException e) {
+            return new ProcessOutcome(-1, Collections.emptyList(), e);
         }
     }
 

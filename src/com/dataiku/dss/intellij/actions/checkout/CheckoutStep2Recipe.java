@@ -4,10 +4,10 @@ import java.awt.*;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.swing.*;
 
@@ -26,6 +26,8 @@ import com.intellij.facet.FacetConfiguration;
 import com.intellij.facet.FacetManager;
 import com.intellij.ide.wizard.AbstractWizardStepEx;
 import com.intellij.ide.wizard.CommitStepException;
+import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.application.ModalityState;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.projectRoots.ProjectJdkTable;
 import com.intellij.openapi.projectRoots.Sdk;
@@ -41,7 +43,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private static final RecipeItem NO_RECIPE = new RecipeItem(null);
 
     private final CheckoutModel model;
-    private final Map<String, String> sdkInstallationCacheState = new HashMap<>();
+    private final Map<String, String> sdkInstallationCacheState = new ConcurrentHashMap<>();
 
     private JPanel panel;
     private JComboBox<ProjectItem> projectComboBox;
@@ -57,6 +59,8 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private JPanel installClientLibsPanel;
     private JPanel sdkPanel;
     private JLabel sdkLabel;
+    private Thread installClientLibsThread;
+    private boolean initialized;
 
     CheckoutStep2Recipe(CheckoutModel model) {
         super("Recipe");
@@ -64,6 +68,9 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
 
         projectComboBox.addActionListener(e -> {
             if (e.getActionCommand().equals("comboBoxChanged")) {
+                if (!initialized) {
+                    return;
+                }
                 try {
                     updateRecipes();
                     updateCheckoutLocation();
@@ -75,8 +82,16 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
         });
         recipesList.setModel(recipesListItems);
         recipesList.setCellRenderer(new RecipeListCellRenderer());
-        recipesList.addListSelectionListener(e -> updateRunConfiguration());
+        recipesList.addListSelectionListener(e -> {
+            if (!initialized) {
+                return;
+            }
+            updateRunConfiguration(true);
+        });
         runConfigurationCheckBox.addActionListener(e -> {
+            if (!initialized) {
+                return;
+            }
             boolean selected = runConfigurationCheckBox.isSelected();
             installClientLibsPanel.setEnabled(selected);
             sdkLabel.setEnabled(selected);
@@ -85,6 +100,9 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
             installClientLibsWarningLabel.setEnabled(selected);
         });
         sdkComboBox.addActionListener(e -> {
+            if (!initialized) {
+                return;
+            }
             if (e.getActionCommand().equals("comboBoxChanged")) {
                 if (runConfigurationPanel.isVisible()) {
                     updateInstallClientSetting();
@@ -92,6 +110,9 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
             }
         });
         installClientLibsButton.addActionListener(e -> {
+            if (!initialized) {
+                return;
+            }
             SdkItem selectedSdkItem = (SdkItem) sdkComboBox.getSelectedItem();
             if (selectedSdkItem != null) {
                 if (new DataikuInternalClientLibsInstallerDialog(selectedSdkItem.sdk, model.server).showAndGet()) {
@@ -155,6 +176,12 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
 
     @Override
     public void commit(CommitType commitType) throws CommitStepException {
+        if (installClientLibsThread != null) {
+            if (installClientLibsThread.isAlive()) {
+                installClientLibsThread.interrupt();
+            }
+            installClientLibsThread = null;
+        }
         if (commitType == CommitType.Prev) {
             return; // Ignore everything.
         }
@@ -222,8 +249,10 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
         sdkComboBox.removeAllItems();
         List<Sdk> pythonSdks = getAllPythonSdks();
         Sdk modulePythonSdk = findPythonSdk(model.module);
-        if (!pythonSdks.contains(modulePythonSdk)) {
-            pythonSdks.add(modulePythonSdk);
+        if (modulePythonSdk != null) {
+            if (!pythonSdks.contains(modulePythonSdk)) {
+                pythonSdks.add(modulePythonSdk);
+            }
         }
         for (Sdk pythonSdk : pythonSdks) {
             sdkComboBox.addItem(new SdkItem(pythonSdk));
@@ -232,17 +261,19 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
 
         updateRecipes();
         updateCheckoutLocation();
-        updateRunConfiguration();
+        updateRunConfiguration(false);
         updateInstallClientSetting();
+
+        initialized = true;
     }
 
-    private void updateRunConfiguration() {
+    private void updateRunConfiguration(boolean updateInstallClientPanel) {
         boolean hasPythonRecipe = recipesList.getSelectedValuesList().stream().anyMatch(item -> "python".equals(item.recipe.type));
         runConfigurationPanel.setVisible(hasPythonRecipe);
         runConfigurationCheckBox.setSelected(hasPythonRecipe);
         sdkPanel.setEnabled(hasPythonRecipe);
         installClientLibsPanel.setEnabled(hasPythonRecipe);
-        if (hasPythonRecipe) {
+        if (hasPythonRecipe && updateInstallClientPanel) {
             updateInstallClientSetting();
         }
     }
@@ -326,34 +357,66 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
     private void updateInstallClientSetting() {
         SdkItem selectedItem = (SdkItem) sdkComboBox.getSelectedItem();
         if (selectedItem != null) {
-            String installedVersion = isClientLibraryInstalled(selectedItem.sdk);
-            switch (installedVersion) {
-            case "__NOT_INSTALLED__":
+            final Sdk sdk = selectedItem.sdk;
+            String installedVersion = sdkInstallationCacheState.get(sdk.getName());
+            if (installedVersion == null) {
                 installClientLibsPanel.setVisible(true);
-                installClientLibsWarningLabel.setText("Dataiku Client library is not installed in the selected SDK.");
-                installClientLibsWarningLabel.setIcon(Icons.WARNING);
-                installClientLibsWarningLabel.setVisible(true);
-                installClientLibsButton.setVisible(true);
-                installClientLibsButton.setText("Install");
-                break;
-            case "__UNKNOWN__":
-                installClientLibsPanel.setVisible(true);
-                installClientLibsWarningLabel.setText("Dataiku Client library might not be installed in the selected SDK.");
-                installClientLibsWarningLabel.setIcon(Icons.WARNING);
+                installClientLibsWarningLabel.setText("Analyzing Selected SDK...");
+                installClientLibsWarningLabel.setIcon(null);
+                installClientLibsWarningLabel.setEnabled(false);
                 installClientLibsWarningLabel.setVisible(true);
                 installClientLibsButton.setVisible(false);
-                break;
-            default:
-                installClientLibsPanel.setVisible(true);
-                installClientLibsWarningLabel.setText("Dataiku Client library " + installedVersion + " is installed in the selected SDK.");
-                installClientLibsWarningLabel.setIcon(Icons.INFO);
-                installClientLibsWarningLabel.setVisible(true);
-                installClientLibsButton.setVisible(false);
-                break;
+                if (installClientLibsThread != null && installClientLibsThread.isAlive()) {
+                    installClientLibsThread.interrupt();
+                }
+                installClientLibsThread = new Thread(() -> {
+                    try {
+                        String installedNonCached = isClientLibraryInstalledNonCached(sdk);
+                        sdkInstallationCacheState.put(sdk.getName(), installedNonCached);
+                        ApplicationManager.getApplication().invokeLater(() -> updateInstallClientSetting(installedNonCached), ModalityState.any());
+                    } catch (InterruptedException e) {
+                        // Nothing to do, just let the thread exit.
+                        log.debug("Thread to check for client libs installation has been interrupted", e);
+                    }
+                });
+                installClientLibsThread.start();
+            } else {
+                //String installedVersion = isClientLibraryInstalled(selectedItem.sdk);
+                updateInstallClientSetting(installedVersion);
             }
         } else {
             // No SDK selected.
             installClientLibsPanel.setVisible(false);
+        }
+    }
+
+    private void updateInstallClientSetting(String installedVersion) {
+        switch (installedVersion) {
+        case "__NOT_INSTALLED__":
+            installClientLibsPanel.setVisible(true);
+            installClientLibsWarningLabel.setText("Dataiku Client library is not installed in the selected SDK.");
+            installClientLibsWarningLabel.setIcon(Icons.WARNING);
+            installClientLibsWarningLabel.setVisible(true);
+            installClientLibsWarningLabel.setEnabled(true);
+            installClientLibsButton.setVisible(true);
+            installClientLibsButton.setText("Install");
+            break;
+        case "__UNKNOWN__":
+            installClientLibsPanel.setVisible(true);
+            installClientLibsWarningLabel.setText("Dataiku Client library might not be installed in the selected SDK.");
+            installClientLibsWarningLabel.setIcon(Icons.WARNING);
+            installClientLibsWarningLabel.setVisible(true);
+            installClientLibsWarningLabel.setEnabled(true);
+            installClientLibsButton.setVisible(false);
+            break;
+        default:
+            installClientLibsPanel.setVisible(true);
+            installClientLibsWarningLabel.setText("Dataiku Client library " + installedVersion + " is installed in the selected SDK.");
+            installClientLibsWarningLabel.setIcon(Icons.INFO);
+            installClientLibsWarningLabel.setVisible(true);
+            installClientLibsWarningLabel.setEnabled(true);
+            installClientLibsButton.setVisible(false);
+            break;
         }
     }
 
@@ -366,7 +429,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
         return result;
     }
 
-    private String isClientLibraryInstalled(Sdk pythonSdk) {
+    private String isClientLibraryInstalled(Sdk pythonSdk) throws InterruptedException {
         String installationState = sdkInstallationCacheState.get(pythonSdk.getName());
         if (installationState == null) {
             installationState = isClientLibraryInstalledNonCached(pythonSdk);
@@ -375,7 +438,7 @@ public class CheckoutStep2Recipe extends AbstractWizardStepEx {
         return installationState;
     }
 
-    private String isClientLibraryInstalledNonCached(Sdk pythonSdk) {
+    private String isClientLibraryInstalledNonCached(Sdk pythonSdk) throws InterruptedException {
         try {
             String version = new DataikuInternalClientInstaller().getInstalledVersion(pythonSdk.getHomePath());
             return version == null ? "__NOT_INSTALLED__" : version;
