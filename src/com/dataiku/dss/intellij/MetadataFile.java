@@ -188,8 +188,14 @@ public class MetadataFile {
 
     public String writeDataBlob(byte[] data) throws IOException {
         File parentFile = metadataFile.getParentFile();
+        File blobsDir = new File(parentFile, "blobs");
+        if (!blobsDir.exists()) {
+            if (!blobsDir.mkdirs()) {
+                throw new IOException("Unable to create directory " + blobsDir.getPath());
+            }
+        }
         String blobId = UUID.randomUUID().toString().replaceAll("-", "");
-        File file = new File(new File(parentFile, "blobs"), blobId + ".db");
+        File file = new File(blobsDir, blobId + ".db");
         Files.write(data, file);
         return blobId;
     }

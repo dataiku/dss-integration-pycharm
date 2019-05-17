@@ -160,4 +160,31 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         }
         return new ArrayList<>(result.values());
     }
+
+    public synchronized List<MonitoredRecipeFile> getMonitoredFilesNestedUnderDir(VirtualFile directory) {
+        List<MonitoredRecipeFile> result = new ArrayList<>();
+
+        for (MonitoredRecipeFile monitoredRecipeFile : monitoredRecipeFiles.values()) {
+            String path = VirtualFileManager.getRelativePath(directory, monitoredRecipeFile.file);
+            if (path != null) {
+                result.add(monitoredRecipeFile);
+            }
+        }
+
+        return result;
+    }
+
+    public synchronized List<MonitoredPlugin> getMonitoredPluginsNestedUnderDir(VirtualFile directory) {
+        List<MonitoredPlugin> result = new ArrayList<>();
+
+        for (MonitoredPlugin monitoredPlugin : monitoredPlugins.values()) {
+            String path = VirtualFileManager.getRelativePath(directory, monitoredPlugin.pluginBaseDir);
+            if (path != null) {
+                result.add(monitoredPlugin);
+            }
+        }
+
+        return result;
+    }
 }
+

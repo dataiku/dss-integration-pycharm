@@ -87,6 +87,16 @@ public class SynchronizeWorker {
         long remoteVersionNumber = recipe.versionTag.versionNumber;
         int originalHash = monitoredFile.recipe.contentHash;
         long originalVersionNumber = monitoredFile.recipe.versionNumber;
+        if (!monitoredFile.file.exists()) {
+            // Recreate the missing file
+            byte[] data = monitoredFile.recipe.data;
+            if (data == null) {
+                data = monitoredFile.metadataFile.readDataBlob(monitoredFile.recipe.dataBlobId);
+            }
+            if (data != null) {
+                vFileManager.writeToVirtualFile(monitoredFile.file, data, UTF_8);
+            }
+        }
         String localFileContent = VirtualFileManager.readVirtualFile(monitoredFile.file);
         int localHash = getContentHash(localFileContent);
 

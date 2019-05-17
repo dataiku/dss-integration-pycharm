@@ -182,18 +182,10 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
         @Override
         public void fileDeleted(@NotNull VirtualFileEvent event) {
-            // We want to unindex files
+            // We want to de-index files
             VirtualFile file = event.getFile();
-            MonitoredRecipeFile monitoredFile = monitoredFilesIndex.getMonitoredFile(file);
-            if (monitoredFile != null) {
-                monitoredFilesIndex.removeFromIndex(monitoredFile);
-                try {
-                    monitoredFile.metadataFile.removeRecipe(monitoredFile.recipe);
-                } catch (IOException e) {
-                    log.warn(String.format("Unable to update DSS metadata after removal of file '%s'", file), e);
-                }
-            } else {
-                MonitoredPlugin deletedPlugin = monitoredFilesIndex.getMonitoredPluginFromBaseDir(event.getFile());
+            if (file.isDirectory()) {
+                MonitoredPlugin deletedPlugin = monitoredFilesIndex.getMonitoredPluginFromBaseDir(file);
                 if (deletedPlugin != null) {
                     monitoredFilesIndex.removeFromIndex(deletedPlugin);
                     try {
@@ -202,10 +194,42 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                         log.warn(String.format("Unable to update DSS metadata after removal of plugin '%s'", deletedPlugin.plugin.pluginId), e);
                     }
                 } else {
-                    if (dssSettings.isBackgroundSynchronizationEnabled()) {
-                        if (monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
+                    if (monitoredFilesIndex.getMonitoredPlugin(file) != null) {
+                        if (dssSettings.isBackgroundSynchronizationEnabled()) {
                             scheduleSynchronization(NOW);
                         }
+                    } else {
+                        // We need to enumerate all plugins & recipes to see if they are nested under the deleted directory, and act upon.
+                        for (MonitoredRecipeFile nestedRecipeFile : monitoredFilesIndex.getMonitoredFilesNestedUnderDir(file)) {
+                            monitoredFilesIndex.removeFromIndex(nestedRecipeFile);
+                            try {
+                                nestedRecipeFile.metadataFile.removeRecipe(nestedRecipeFile.recipe);
+                            } catch (IOException e) {
+                                log.warn(String.format("Unable to update DSS metadata after removal of file '%s'", file), e);
+                            }
+                        }
+                        for (MonitoredPlugin nestedPlugin : monitoredFilesIndex.getMonitoredPluginsNestedUnderDir(file)) {
+                            monitoredFilesIndex.removeFromIndex(nestedPlugin);
+                            try {
+                                nestedPlugin.metadataFile.removePlugin(nestedPlugin.plugin.pluginId);
+                            } catch (IOException e) {
+                                log.warn(String.format("Unable to update DSS metadata after removal of plugin '%s'", nestedPlugin.plugin.pluginId), e);
+                            }
+                        }
+                    }
+                }
+            } else {
+                MonitoredRecipeFile deletedRecipeFile = monitoredFilesIndex.getMonitoredFile(file);
+                if (deletedRecipeFile != null) {
+                    monitoredFilesIndex.removeFromIndex(deletedRecipeFile);
+                    try {
+                        deletedRecipeFile.metadataFile.removeRecipe(deletedRecipeFile.recipe);
+                    } catch (IOException e) {
+                        log.warn(String.format("Unable to update DSS metadata after removal of file '%s'", file), e);
+                    }
+                } else if (monitoredFilesIndex.getMonitoredPlugin(file) != null) {
+                    if (dssSettings.isBackgroundSynchronizationEnabled()) {
+                        scheduleSynchronization(NOW);
                     }
                 }
             }
@@ -317,6 +341,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 log.warn(String.format("Unable to synchronize recipe '%s'.", monitoredFile.recipe), e);
             }
         }
+
     }
 
     private class DssSettingsListener implements DssSettings.Listener {
