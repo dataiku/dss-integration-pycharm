@@ -6,6 +6,8 @@ public class DssRecipeMetadata {
     public String recipeName;
     public String path;
     public int contentHash;
+    public String dataBlobId;
+    public transient byte[] data; // Present if not flushed yet into a data-block
     public long versionNumber;
 
     @Override

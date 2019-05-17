@@ -4,8 +4,15 @@ import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 
+import org.jetbrains.annotations.NotNull;
+
+import com.dataiku.dss.Logger;
 import com.dataiku.dss.model.metadata.DssMetadata;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.dataiku.dss.model.metadata.DssPluginMetadata;
@@ -16,7 +23,9 @@ import com.google.gson.GsonBuilder;
 import com.intellij.openapi.vfs.VirtualFile;
 
 public class MetadataFile {
-    private final File metadataFile;
+    private static final Logger log = Logger.getInstance(MetadataFile.class);
+
+    public final File metadataFile;
     public final DssMetadata metadata;
 
     MetadataFile(VirtualFile moduleContentRoot, DssMetadata metadata) {
@@ -101,16 +110,97 @@ public class MetadataFile {
     }
 
     public void flush() throws IOException {
-        writeMetadata(metadataFile, metadata);
+        writeMetadata();
     }
 
-    private static void writeMetadata(File metadataFile, DssMetadata metadata) throws IOException {
-        if (!metadataFile.getParentFile().exists()) {
-            if (!metadataFile.getParentFile().mkdirs()) {
-                throw new IOException("Unable to create directory " + metadataFile.getParentFile().getPath());
+    private void writeMetadata() throws IOException {
+        File parentFile = metadataFile.getParentFile();
+        if (!parentFile.exists()) {
+            if (!parentFile.mkdirs()) {
+                throw new IOException("Unable to create directory " + parentFile.getPath());
             }
         }
+
+        // Save all new data-blobs
+        flushBlobs();
+
+        // Save the main file
         Files.write(toJson(metadata).getBytes(UTF_8), metadataFile);
+
+        // Delete all unused blob files
+        cleanUpBlobs(listBlobIds());
+    }
+
+    private void flushBlobs() throws IOException {
+        for (DssRecipeMetadata recipe : metadata.recipes) {
+            if (recipe.data != null) {
+                recipe.dataBlobId = writeDataBlob(recipe.data);
+                recipe.data = null;
+            }
+        }
+        for (DssPluginMetadata plugin : metadata.plugins) {
+            List<DssPluginFileMetadata> files = plugin.files;
+            for (DssPluginFileMetadata file : files) {
+                if (file.data != null) {
+                    file.dataBlobId = writeDataBlob(file.data);
+                    file.data = null;
+                }
+            }
+        }
+    }
+
+    @NotNull
+    private Set<String> listBlobIds() {
+        Set<String> referencedBlobIds = new HashSet<>();
+        for (DssRecipeMetadata recipe : metadata.recipes) {
+            if (recipe.dataBlobId != null) {
+                referencedBlobIds.add(recipe.dataBlobId);
+            }
+        }
+        for (DssPluginMetadata plugin : metadata.plugins) {
+            List<DssPluginFileMetadata> files = plugin.files;
+            for (DssPluginFileMetadata file : files) {
+                if (file.dataBlobId != null) {
+                    referencedBlobIds.add(file.dataBlobId);
+                }
+            }
+        }
+        return referencedBlobIds;
+    }
+
+    private void cleanUpBlobs(Set<String> referencedBlobIds) {
+        File blobsDir = new File(metadataFile.getParentFile(), "blobs");
+        File[] files = blobsDir.listFiles((dir, name) -> {
+            if (!name.endsWith(".db")) {
+                return false;
+            }
+            String blobId = name.substring(0, name.length() - 3);
+            return !referencedBlobIds.contains(blobId);
+        });
+        if (files != null) {
+            for (File file : files) {
+                if (!file.delete()) {
+                    log.info("Unable to delete unused blob file: " + file);
+                }
+            }
+        }
+    }
+
+    public String writeDataBlob(byte[] data) throws IOException {
+        File parentFile = metadataFile.getParentFile();
+        String blobId = UUID.randomUUID().toString().replaceAll("-", "");
+        File file = new File(new File(parentFile, "blobs"), blobId + ".db");
+        Files.write(data, file);
+        return blobId;
+    }
+
+    public byte[] readDataBlob(String blobId) throws IOException {
+        File parentFile = metadataFile.getParentFile();
+        File blobIdFile = new File(new File(parentFile, "blobs"), blobId + ".db");
+        if (blobIdFile.exists()) {
+            return Files.asByteSource(blobIdFile).read();
+        }
+        return null;
     }
 
     private static String toJson(Object obj) {

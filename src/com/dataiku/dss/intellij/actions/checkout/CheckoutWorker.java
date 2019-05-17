@@ -81,12 +81,13 @@ public class CheckoutWorker {
             // Write metadata
             MetadataFile metadata = MetadataFilesIndex.getInstance().getOrCreateMetadata(moduleRootFolder);
             DssRecipeMetadata recipeMetadata = new DssRecipeMetadata();
+            recipeMetadata.instance = instanceId;
+            recipeMetadata.projectKey = projectKey;
+            recipeMetadata.recipeName = recipe.name;
             recipeMetadata.path = Joiner.on("/").join(path);
             recipeMetadata.versionNumber = recipeAndPayload.recipe.versionTag.versionNumber;
             recipeMetadata.contentHash = getContentHash(recipeContent);
-            recipeMetadata.projectKey = projectKey;
-            recipeMetadata.recipeName = recipe.name;
-            recipeMetadata.instance = instanceId;
+            recipeMetadata.data = recipeContent.getBytes(UTF_8);
             metadata.addOrUpdateRecipe(recipeMetadata);
 
             // Monitor the file so that if the underlying recipe is edited on DSS side, the file is updated and vice-versa.
@@ -150,7 +151,8 @@ public class CheckoutWorker {
                         pluginId,
                         pluginId + "/" + pluginFile.path,
                         pluginFile.path,
-                        0));
+                        0,
+                        (byte[]) null));
 
                 // Recurse if necessary
                 if (pluginFile.children != null && !pluginFile.children.isEmpty()) {
@@ -171,7 +173,8 @@ public class CheckoutWorker {
                         pluginId,
                         pluginId + "/" + pluginFile.path,
                         pluginFile.path,
-                        getContentHash(fileContent)));
+                        getContentHash(fileContent),
+                        fileContent));
 
                 createdFileList.add(file);
             }

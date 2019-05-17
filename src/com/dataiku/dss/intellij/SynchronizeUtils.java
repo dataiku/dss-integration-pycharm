@@ -1,5 +1,7 @@
 package com.dataiku.dss.intellij;
 
+import static org.apache.commons.codec.Charsets.UTF_8;
+
 import java.io.IOException;
 import javax.swing.event.HyperlinkEvent;
 
@@ -43,7 +45,8 @@ public class SynchronizeUtils {
                 monitoredPlugin.plugin.pluginId,
                 monitoredPlugin.plugin.pluginId + "/" + path,
                 path,
-                VirtualFileManager.getContentHash(fileContent));
+                VirtualFileManager.getContentHash(fileContent),
+                fileContent);
         monitoredPlugin.metadataFile.addOrUpdatePluginFile(pluginFileMetadata, flushMetadata);
     }
 
@@ -58,6 +61,7 @@ public class SynchronizeUtils {
             // Update metadata & schedule associated metadata file to be updated
             recipe.versionNumber = updatedRecipe.recipe.versionTag.versionNumber;
             recipe.contentHash = VirtualFileManager.getContentHash(fileContent);
+            recipe.data = fileContent.getBytes(UTF_8);
 
             if (flushMetadata) {
                 monitoredFile.metadataFile.flush();
