@@ -1,6 +1,8 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import javax.swing.*;
 
@@ -36,9 +38,7 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
     }
 
     public void init() {
-        ModuleManager.getInstance(project)
-                .getAllModuleDescriptions()
-                .forEach(module -> intellijModulesComboBox.addItem(module.getName()));
+        listModules().forEach(module -> intellijModulesComboBox.addItem(module.getName()));
 
         // Display all instances, with the default one first.
         List<DssInstance> dssInstances = new ArrayList<>(DssSettings.getInstance().getDssInstances());
@@ -133,6 +133,13 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
         default:
             throw new CommitStepException("Unexpected item type: " + itemType);
         }
+    }
+
+    @NotNull
+    private List<Module> listModules() {
+        List<Module> modules = Arrays.asList(ModuleManager.getInstance(project).getSortedModules());
+        Collections.reverse(modules);
+        return modules;
     }
 
     private static class InstanceItem {
