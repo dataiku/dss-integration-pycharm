@@ -118,9 +118,7 @@ public class DssSettingsPanel implements Disposable {
         mainPanel.add(synchronizationPanel, newConstraints(0, 0, FILL_HORIZONTAL, ANCHOR_WEST, SIZEPOLICY_FIXED, SIZEPOLICY_FIXED));
         mainPanel.add(instancesPanel, newConstraints(1, 0, FILL_VERTICAL | FILL_HORIZONTAL, ANCHOR_WEST, SIZEPOLICY_CAN_GROW | SIZEPOLICY_WANT_GROW, SIZEPOLICY_CAN_GROW | SIZEPOLICY_WANT_GROW));
 
-        automaticSynchronizationCheckBox.addActionListener(e -> {
-            updatePollingIntervalState();
-        });
+        automaticSynchronizationCheckBox.addActionListener(e -> updatePollingIntervalState());
     }
 
     private void updatePollingIntervalState() {

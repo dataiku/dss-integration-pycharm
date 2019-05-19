@@ -49,7 +49,7 @@ public class SynchronizeTree extends Tree {
                 }
                 append(node.toString());
             } else if (value instanceof SynchronizeNodePlugin) {
-                setIcon(AllIcons.Nodes.Plugin);
+                setIcon(Icons.PLUGIN);
                 append(value.toString());
             } else {
                 setIcon(AllIcons.Nodes.Folder);

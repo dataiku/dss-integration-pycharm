@@ -15,17 +15,15 @@ public class FolderContent {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("FolderContent{");
-        sb.append("name='").append(name).append('\'');
-        sb.append(", path='").append(path).append('\'');
-        sb.append(", mimeType='").append(mimeType).append('\'');
-        sb.append(", size=").append(size);
-        sb.append(", children=").append(children);
-        sb.append(", data='").append(data).append('\'');
-        sb.append(", hasData=").append(hasData);
-        sb.append(", readOnly=").append(readOnly);
-        sb.append(", reason='").append(reason).append('\'');
-        sb.append('}');
-        return sb.toString();
+        return "FolderContent{" + "name='" + name + '\'' +
+                ", path='" + path + '\'' +
+                ", mimeType='" + mimeType + '\'' +
+                ", size=" + size +
+                ", children=" + children +
+                ", data='" + data + '\'' +
+                ", hasData=" + hasData +
+                ", readOnly=" + readOnly +
+                ", reason='" + reason + '\'' +
+                '}';
     }
 }

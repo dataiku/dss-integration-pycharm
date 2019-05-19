@@ -131,8 +131,7 @@ public class CheckoutStep2Plugin extends AbstractWizardStepEx {
                 result.setFont(list.getFont().deriveFont(Font.ITALIC));
                 result.setEnabled(false);
             } else {
-                boolean darkBackground = getLuma(result.getBackground()) < 112.0d;
-                result.setIcon(darkBackground ? Icons.PLUGIN_WHITE : Icons.PLUGIN);
+                result.setIcon(Icons.PLUGIN);
             }
             return result;
         }
@@ -142,10 +141,6 @@ public class CheckoutStep2Plugin extends AbstractWizardStepEx {
         public Dimension getPreferredSize() {
             Dimension preferredSize = super.getPreferredSize();
             return new Dimension(preferredSize.width, Math.max(preferredSize.height, 24));
-        }
-
-        private double getLuma(Color c) {
-            return 0.2126d * c.getRed() + 0.7152d * c.getGreen() + 0.0722d * c.getBlue();
         }
     }
 }
