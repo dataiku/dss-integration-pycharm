@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.dataiku.dss.intellij</id>
     <name>Dataiku DSS</name>
-    <version>0.9.1</version>
+    <version>0.9.9</version>
     <vendor email="support@dataiku.com" url="http://www.dataiku.com">Dataiku</vendor>
 
     <description><![CDATA[
@@ -9,18 +9,23 @@
     ]]></description>
 
     <change-notes><![CDATA[
+        0.9.9: In case of conflict, users can resolve them with the standard merge dialog.<br>
         0.9.1: Background synchronization can be enabled/disabled.<br>
         0.9.0: Almost ready!
     ]]>
     </change-notes>
 
-    <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html for description -->
-    <idea-version since-build="162"/>
+    <!--
+        We are compatible with IntelliJ IDEA and PyCharm
+        See [http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html] for more info
+    -->
+    <depends>com.intellij.modules.vcs</depends>
 
-    <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
-         on how to target different products -->
-    <depends>com.intellij.modules.lang</depends>
-    <!-- com.intellij.modules.python for PyCharm -->
+    <!--
+        We are compatible with IntelliJ IDEA and PyCharm from version 2017.2
+        See [http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html] for more info
+    -->
+    <idea-version since-build="172"/>
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationConfigurable id="dataikuDssApp" displayName="Dataiku DSS Settings" instance="com.dataiku.dss.intellij.config.DssSettingsConfigurable"/>
