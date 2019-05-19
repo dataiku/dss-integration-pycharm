@@ -5,7 +5,7 @@ public class DssPluginFileMetadata {
     public final String pluginId;
     public final String path;
     public final String remotePath;
-    public final int contentHash;
+    public int contentHash;
     public String dataBlobId;
     public byte[] data; // Present if not flushed yet into a data-blob
 

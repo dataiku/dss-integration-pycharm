@@ -1,7 +1,5 @@
 package com.dataiku.dss.intellij.actions.synchronize;
 
-import static com.dataiku.dss.intellij.SynchronizeUtils.notifySynchronizationComplete;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,9 +12,11 @@ import com.dataiku.dss.intellij.MonitoredFilesIndex;
 import com.dataiku.dss.intellij.MonitoredPlugin;
 import com.dataiku.dss.intellij.MonitoredRecipeFile;
 import com.dataiku.dss.intellij.RecipeCache;
+import com.dataiku.dss.intellij.SynchronizationNotifier;
 import com.dataiku.dss.intellij.SynchronizeRequest;
 import com.dataiku.dss.intellij.SynchronizeSummary;
 import com.dataiku.dss.intellij.SynchronizeWorker;
+import com.dataiku.dss.intellij.actions.merge.ResolveConflictsDialog;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeDssInstance;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugin;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugins;
@@ -58,8 +58,13 @@ public class SynchronizeAction extends AnAction implements DumbAware {
                 SynchronizeWorker synchronizeWorker = new SynchronizeWorker(DataikuDSSPlugin.getInstance(), dssSettings, new RecipeCache(dssSettings), false);
                 SynchronizeSummary summary = synchronizeWorker.synchronizeWithDSS(buildRequest(model));
 
+                if (summary.hasConflicts()) {
+                    ResolveConflictsDialog resolveConflictsDialog = new ResolveConflictsDialog(project, summary);
+                    resolveConflictsDialog.showAndGet();
+                }
+
                 // Notify when it's done.
-                notifySynchronizationComplete(summary, project);
+                SynchronizationNotifier.getInstance().notifySuccess(summary, project);
             } catch (IOException e) {
                 log.error(e.getMessage(), e);
                 Messages.showErrorDialog(e.getMessage(), "I/O Error");

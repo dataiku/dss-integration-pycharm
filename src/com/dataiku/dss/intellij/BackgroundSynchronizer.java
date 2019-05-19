@@ -14,8 +14,11 @@ import java.util.concurrent.ScheduledFuture;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
+import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.VirtualFileManager;
+import com.dataiku.dss.model.DSSClient;
+import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ReadAction;
@@ -37,6 +40,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     private static final int NOW = 0;
 
     private final MonitoredFilesIndex monitoredFilesIndex;
+    private final SynchronizationNotifier synchronizationNotifier;
     private final DataikuDSSPlugin dssPlugin;
     private final DssSettings dssSettings;
 
@@ -47,10 +51,11 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     private VirtualFileAdapter virtualFileAdapter;
     private DssSettingsListener dssSettingsListener;
 
-    public BackgroundSynchronizer(DataikuDSSPlugin dssPlugin, DssSettings dssSettings, MonitoredFilesIndex monitoredFilesIndex) {
+    public BackgroundSynchronizer(DataikuDSSPlugin dssPlugin, DssSettings dssSettings, MonitoredFilesIndex monitoredFilesIndex, SynchronizationNotifier synchronizationNotifier) {
         this.dssPlugin = dssPlugin;
         this.dssSettings = dssSettings;
         this.monitoredFilesIndex = monitoredFilesIndex;
+        this.synchronizationNotifier = synchronizationNotifier;
     }
 
     @NotNull
@@ -121,10 +126,10 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 try {
                     SynchronizeSummary summary = new SynchronizeWorker(dssPlugin, dssSettings, new RecipeCache(dssSettings), true).synchronizeWithDSS(request);
                     if (!summary.isEmpty()) {
-                        SynchronizeUtils.notifySynchronizationComplete(summary, null);
+                        synchronizationNotifier.notifySuccess(summary, null);
                     }
                 } catch (IOException e) {
-                    SynchronizeUtils.notifySynchronizationFailure(e, null);
+                    synchronizationNotifier.notifyFailure(e, null);
                 }
             }
         } catch (Exception e) {
@@ -307,10 +312,17 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 if (trackedFile == null) {
                     // New file, send it to DSS
                     savePluginFileToDss(dssSettings, monitoredPlugin, path, fileContent, true);
-                } else {
-                    if (getContentHash(fileContent) != trackedFile.contentHash) {
+                } else if (getContentHash(fileContent) != trackedFile.contentHash) {
+                    DssInstance dssInstance = dssSettings.getDssInstanceMandatory(monitoredPlugin.plugin.instance);
+                    DSSClient dssClient = dssInstance.createClient();
+                    byte[] remoteData = dssClient.downloadPluginFile(monitoredPlugin.plugin.pluginId, trackedFile.remotePath);
+                    int remoteHash = getContentHash(remoteData);
+                    if (trackedFile.contentHash == remoteHash) {
                         log.info(String.format("Plugin file '%s' has been locally modified. Saving it onto the remote DSS instance", path));
                         savePluginFileToDss(dssSettings, monitoredPlugin, path, fileContent, true);
+                    } else {
+                        // Conflict detected, run a global synchronization to correctly handle this corner-case.
+                        scheduleSynchronization(NOW);
                     }
                 }
             } catch (IOException e) {
@@ -322,8 +334,22 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             try {
                 String fileContent = ReadAction.compute(() -> VirtualFileManager.readVirtualFile(monitoredFile.file));
                 if (getContentHash(fileContent) != monitoredFile.recipe.contentHash) {
-                    log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS instance", monitoredFile.recipe));
-                    saveRecipeToDss(dssSettings, monitoredFile, fileContent);
+                    DSSClient dssClient = dssSettings.getDssClient(monitoredFile.recipe.instance);
+                    RecipeAndPayload remoteRecipe = dssClient.loadRecipe(monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
+                    if (remoteRecipe != null) {
+                        long remoteVersion = remoteRecipe.recipe.versionTag.versionNumber;
+                        long localVersion = monitoredFile.recipe.versionNumber;
+                        if (remoteVersion == localVersion) {
+                            log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS instance", monitoredFile.recipe));
+                            saveRecipeToDss(dssClient, monitoredFile, fileContent, true, remoteRecipe);
+                        } else {
+                            // Conflict detected, run a global synchronization to correctly handle this corner-case.
+                            scheduleSynchronization(NOW);
+                        }
+                    } else {
+                        // Conflict detected, run a global synchronization to correctly handle this corner-case.
+                        scheduleSynchronization(NOW);
+                    }
                 }
             } catch (IOException e) {
                 log.warn(String.format("Unable to synchronize recipe '%s'.", monitoredFile.recipe), e);

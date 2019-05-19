@@ -3,12 +3,19 @@ package com.dataiku.dss.intellij;
 import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -18,12 +25,15 @@ import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.dataiku.dss.model.metadata.DssPluginMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
 import com.google.common.base.Preconditions;
+import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.gson.GsonBuilder;
 import com.intellij.openapi.vfs.VirtualFile;
 
 public class MetadataFile {
     private static final Logger log = Logger.getInstance(MetadataFile.class);
+    private static final Pattern BLOB_NAME_PATTERN = Pattern.compile("^[a-f0-9]{32}$");
+    private static final String BLOBS_DIRECTORY = "blobs";
 
     public final File metadataFile;
     public final DssMetadata metadata;
@@ -169,14 +179,8 @@ public class MetadataFile {
     }
 
     private void cleanUpBlobs(Set<String> referencedBlobIds) {
-        File blobsDir = new File(metadataFile.getParentFile(), "blobs");
-        File[] files = blobsDir.listFiles((dir, name) -> {
-            if (!name.endsWith(".db")) {
-                return false;
-            }
-            String blobId = name.substring(0, name.length() - 3);
-            return !referencedBlobIds.contains(blobId);
-        });
+        File blobsDir = new File(metadataFile.getParentFile(), BLOBS_DIRECTORY);
+        File[] files = blobsDir.listFiles((dir, name) -> BLOB_NAME_PATTERN.matcher(name).matches() && !referencedBlobIds.contains(name));
         if (files != null) {
             for (File file : files) {
                 if (!file.delete()) {
@@ -187,24 +191,27 @@ public class MetadataFile {
     }
 
     public String writeDataBlob(byte[] data) throws IOException {
-        File parentFile = metadataFile.getParentFile();
-        File blobsDir = new File(parentFile, "blobs");
+        File blobsDir = new File(metadataFile.getParentFile(), BLOBS_DIRECTORY);
         if (!blobsDir.exists()) {
             if (!blobsDir.mkdirs()) {
                 throw new IOException("Unable to create directory " + blobsDir.getPath());
             }
         }
         String blobId = UUID.randomUUID().toString().replaceAll("-", "");
-        File file = new File(blobsDir, blobId + ".db");
-        Files.write(data, file);
+        File file = new File(blobsDir, blobId);
+        try (OutputStream out = new GZIPOutputStream(new FileOutputStream(file))) {
+            out.write(data);
+            out.flush();
+        }
         return blobId;
     }
 
     public byte[] readDataBlob(String blobId) throws IOException {
-        File parentFile = metadataFile.getParentFile();
-        File blobIdFile = new File(new File(parentFile, "blobs"), blobId + ".db");
+        File blobIdFile = new File(new File(metadataFile.getParentFile(), BLOBS_DIRECTORY), blobId);
         if (blobIdFile.exists()) {
-            return Files.asByteSource(blobIdFile).read();
+            try (InputStream in = new GZIPInputStream(new FileInputStream(blobIdFile))) {
+                return ByteStreams.toByteArray(in);
+            }
         }
         return null;
     }

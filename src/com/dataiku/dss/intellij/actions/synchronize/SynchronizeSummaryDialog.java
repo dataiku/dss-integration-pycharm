@@ -60,7 +60,7 @@ public class SynchronizeSummaryDialog extends DialogWrapper {
             printSummary(sb, "Files locally deleted:", summary.locallyDeleted);
             printSummary(sb, "Files uploaded to DSS instance:", summary.dssUpdated);
             printSummary(sb, "Files deleted from DSS instance:", summary.dssDeleted);
-            printSummary(sb, "Conflicted files:", summary.conflicts);
+            printSummary(sb, "Files in conflict:", summary.conflicts);
         } else {
             sb.append("No change detected.");
         }

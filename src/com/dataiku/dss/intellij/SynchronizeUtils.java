@@ -3,11 +3,7 @@ package com.dataiku.dss.intellij;
 import static org.apache.commons.codec.Charsets.UTF_8;
 
 import java.io.IOException;
-import javax.swing.event.HyperlinkEvent;
 
-import org.jetbrains.annotations.NotNull;
-
-import com.dataiku.dss.intellij.actions.synchronize.SynchronizeSummaryDialog;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.VirtualFileManager;
@@ -15,11 +11,7 @@ import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
-import com.intellij.notification.Notification;
-import com.intellij.notification.NotificationListener;
-import com.intellij.notification.NotificationType;
-import com.intellij.notification.Notifications;
-import com.intellij.openapi.project.Project;
+import com.google.common.base.Preconditions;
 import com.intellij.openapi.vfs.VirtualFile;
 
 public class SynchronizeUtils {
@@ -51,21 +43,31 @@ public class SynchronizeUtils {
     }
 
     public static void saveRecipeToDss(DSSClient dssClient, MonitoredRecipeFile monitoredFile, String fileContent, boolean flushMetadata) throws IOException {
+        DssRecipeMetadata recipe = monitoredFile.recipe;
+        RecipeAndPayload remoteRecipe = dssClient.loadRecipe(recipe.projectKey, recipe.recipeName);
+        if (remoteRecipe != null) {
+            saveRecipeToDss(dssClient, monitoredFile, fileContent, flushMetadata, remoteRecipe);
+        }
+    }
+
+    public static void saveRecipeToDss(DSSClient dssClient, MonitoredRecipeFile monitoredFile, String fileContent, boolean flushMetadata, RecipeAndPayload remoteRecipe) throws IOException {
+        Preconditions.checkNotNull(remoteRecipe);
+        if (fileContent.equals(remoteRecipe.payload)) {
+            return;
+        }
+
         // File has been updated locally, it needs to be sent to DSS.
         DssRecipeMetadata recipe = monitoredFile.recipe;
-        RecipeAndPayload existingRecipe = dssClient.loadRecipe(recipe.projectKey, recipe.recipeName);
-        if (existingRecipe != null && !fileContent.equals(existingRecipe.payload)) {
-            dssClient.saveRecipeContent(recipe.projectKey, recipe.recipeName, fileContent);
-            RecipeAndPayload updatedRecipe = dssClient.loadRecipe(recipe.projectKey, recipe.recipeName);
+        dssClient.saveRecipeContent(recipe.projectKey, recipe.recipeName, fileContent);
+        RecipeAndPayload updatedRecipe = dssClient.loadRecipe(recipe.projectKey, recipe.recipeName);
 
-            // Update metadata & schedule associated metadata file to be updated
-            recipe.versionNumber = updatedRecipe.recipe.versionTag.versionNumber;
-            recipe.contentHash = VirtualFileManager.getContentHash(fileContent);
-            recipe.data = fileContent.getBytes(UTF_8);
+        // Update metadata & schedule associated metadata file to be updated
+        recipe.versionNumber = updatedRecipe.recipe.versionTag.versionNumber;
+        recipe.contentHash = VirtualFileManager.getContentHash(fileContent);
+        recipe.data = fileContent.getBytes(UTF_8);
 
-            if (flushMetadata) {
-                monitoredFile.metadataFile.flush();
-            }
+        if (flushMetadata) {
+            monitoredFile.metadataFile.flush();
         }
     }
 
@@ -81,37 +83,4 @@ public class SynchronizeUtils {
             monitoredFile.metadataFile.flush();
         }
     }
-
-    public static void notifySynchronizationComplete(SynchronizeSummary summary, Project project) {
-        Notification notification = new Notification("Dataiku DSS",
-                "Synchronization with DSS completed",
-                summary.getQuickSummary(),
-                summary.conflicts.isEmpty() ? NotificationType.INFORMATION : NotificationType.WARNING,
-                new SynchronizationNotificationListener(project, summary));
-        Notifications.Bus.notify(notification, project);
-    }
-
-    public static void notifySynchronizationFailure(Exception e, Project project) {
-        Notification notification = new Notification("Dataiku DSS",
-                "Synchronization with DSS failed",
-                e.getMessage(),
-                NotificationType.ERROR);
-        Notifications.Bus.notify(notification, project);
-    }
-
-    private static class SynchronizationNotificationListener extends NotificationListener.Adapter {
-        private final Project project;
-        private final SynchronizeSummary summary;
-
-        SynchronizationNotificationListener(Project project, SynchronizeSummary summary) {
-            this.project = project;
-            this.summary = summary;
-        }
-
-        @Override
-        protected void hyperlinkActivated(@NotNull Notification notification, @NotNull HyperlinkEvent event) {
-            new SynchronizeSummaryDialog(project, summary).showAndGet();
-        }
-    }
-
 }

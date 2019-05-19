@@ -48,6 +48,10 @@
             <implementation-class>com.dataiku.dss.intellij.BackgroundSynchronizer</implementation-class>
             <interface-class>com.dataiku.dss.intellij.BackgroundSynchronizer</interface-class>
         </component>
+        <component>
+            <implementation-class>com.dataiku.dss.intellij.SynchronizationNotifier</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.SynchronizationNotifier</interface-class>
+        </component>
     </application-components>
 
     <actions>

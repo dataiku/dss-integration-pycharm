@@ -17,6 +17,8 @@ import java.util.Set;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
+import com.dataiku.dss.intellij.actions.merge.MonitoredPluginFileConflict;
+import com.dataiku.dss.intellij.actions.merge.MonitoredRecipeFileConflict;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.VirtualFileManager;
@@ -80,23 +82,24 @@ public class SynchronizeWorker {
 
         DSSClient dssClient = dssInstance.createClient();
         Recipe recipe = recipeCache.getRecipe(dssInstance.id, monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName);
-        if (recipe == null) {
-            Messages.showErrorDialog(String.format("Recipe '%s' has been deleted from project '%s' on DSS instance.", monitoredFile.recipe.recipeName, monitoredFile.recipe.projectKey), "Synchronization Error");
+        // De-index the missing file
+        if (recipe == null || !monitoredFile.file.exists()) {
+            if (recipe == null && monitoredFile.file.exists()) {
+                log.info(String.format("Recipe '%s' has been remotely deleted. Stop tracking it.", monitoredFile.recipe));
+                summary.conflicts.add(String.format("Recipe '%s' has been locally modified but remotely deleted. It will not be synchronized anymore.", monitoredFile.recipe));
+            } else if (recipe != null && !monitoredFile.file.exists()) {
+                log.info(String.format("Recipe '%s' has been locally deleted. Stop tracking it.", monitoredFile.recipe));
+                summary.conflicts.add(String.format("Recipe '%s' has been locally deleted. Reopen it if you need to change it again.", monitoredFile.recipe));
+            }
+            monitoredFile.metadataFile.metadata.recipes.remove(monitoredFile.recipe);
+            dirtyMetadataFiles.add(monitoredFile.metadataFile);
+            MonitoredFilesIndex.getInstance().removeFromIndex(monitoredFile);
             return;
         }
+
         long remoteVersionNumber = recipe.versionTag.versionNumber;
         int originalHash = monitoredFile.recipe.contentHash;
         long originalVersionNumber = monitoredFile.recipe.versionNumber;
-        if (!monitoredFile.file.exists()) {
-            // Recreate the missing file
-            byte[] data = monitoredFile.recipe.data;
-            if (data == null) {
-                data = monitoredFile.metadataFile.readDataBlob(monitoredFile.recipe.dataBlobId);
-            }
-            if (data != null) {
-                vFileManager.writeToVirtualFile(monitoredFile.file, data, UTF_8);
-            }
-        }
         String localFileContent = VirtualFileManager.readVirtualFile(monitoredFile.file);
         int localHash = getContentHash(localFileContent);
 
@@ -138,13 +141,16 @@ public class SynchronizeWorker {
                     summary.locallyUpdated.add(String.format("Recipe '%s.%s' updated with latest version found on DSS instance.", monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName));
                 } else {
                     // Conflict!! Save remote file as .remote and send the local version to DSS
-                    log.info(String.format("Conflict detected for recipe '%s' Uploading it and saving remote version locally with '%s' extension.", monitoredFile.recipe, REMOTE_SUFFIX));
-                    saveRecipeToDss(dssClient, monitoredFile, localFileContent, false);
-                    dirtyMetadataFiles.add(monitoredFile.metadataFile);
+                    log.info(String.format("Conflict detected for recipe '%s'.", monitoredFile.recipe));
+                    MonitoredRecipeFileConflict conflict = new MonitoredRecipeFileConflict(monitoredFile);
+                    conflict.localData = localFileContent.getBytes(UTF_8);
+                    conflict.remoteData = recipeAndPayload.payload.getBytes(UTF_8);
+                    conflict.originalData = monitoredFile.metadataFile.readDataBlob(monitoredFile.recipe.dataBlobId);
+                    conflict.originalVersionNumber = originalVersionNumber;
+                    conflict.remoteVersionNumber = remoteVersionNumber;
+                    summary.fileConflicts.add(conflict);
 
-                    VirtualFile newFile = vFileManager.getOrCreateVirtualFile(monitoredFile.file.getParent(), monitoredFile.file.getName() + REMOTE_SUFFIX);
-                    vFileManager.writeToVirtualFile(newFile, recipeAndPayload.payload.getBytes(UTF_8), UTF_8);
-                    summary.conflicts.add(String.format("Recipe '%s.%s' both modified locally and remotely. Local version has been saved into DSS and remote version has been saved locally with '%s' extension.", monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName, REMOTE_SUFFIX));
+                    summary.conflicts.add(String.format("Recipe '%s.%s' has been modified both locally and remotely.", monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName));
                 }
             }
         }
@@ -198,7 +204,7 @@ public class SynchronizeWorker {
                     // Rename the file into ".deleted" and stop tracking it.
                     String newName = findNonExistingFilename(file, file.getName() + DELETED_SUFFIX);
                     vFileManager.renameVirtualFile(file, newName);
-                    summary.conflicts.add(String.format("Plugin file '%s' removed from DSS instance but modified locally. Local copy has been renamed into '%s'.", path, newName));
+                    summary.conflicts.add(String.format("Plugin file '%s' has been removed from DSS instance but modified locally. Local copy has been renamed into '%s'.", path, newName));
                 } else {
                     // No, delete the file locally
                     vFileManager.deleteVirtualFile(file);
@@ -327,24 +333,16 @@ public class SynchronizeWorker {
                             } else {
                                 // Conflict!! Checkout remote file as .remote and send the local version to DSS
                                 log.warn(String.format(" - Conflict detected. Uploading it and saving remote version locally with '%s' extension.", REMOTE_SUFFIX));
+
                                 byte[] content = VirtualFileManager.readVirtualFileAsByteArray(file);
-                                dssClient.uploadPluginFile(pluginId, pluginFile.path, content);
-                                updatePluginFileMetadata(monitoredPlugin, pluginFile.path, localHash, content);
 
-                                // Write .remote file
-                                VirtualFile newFile = vFileManager.getOrCreateVirtualFile(parent, pluginFile.name + REMOTE_SUFFIX);
-                                vFileManager.writeToVirtualFile(newFile, fileContent, null);
+                                MonitoredPluginFileConflict conflict = new MonitoredPluginFileConflict(file, monitoredPlugin, trackedFile);
+                                conflict.localData = content;
+                                conflict.remoteData = fileContent;
+                                conflict.originalData = monitoredPlugin.metadataFile.readDataBlob(trackedFile.dataBlobId);
+                                summary.fileConflicts.add(conflict);
 
-                                // Write .original file
-                                if (trackedFile.dataBlobId != null) {
-                                    byte[] originalContent = monitoredPlugin.metadataFile.readDataBlob(trackedFile.dataBlobId);
-                                    if (originalContent != null) {
-                                        VirtualFile originalFile = vFileManager.getOrCreateVirtualFile(parent, pluginFile.name + ORIGINAL_SUFFIX);
-                                        vFileManager.writeToVirtualFile(originalFile, originalContent, null);
-                                    }
-                                }
-
-                                summary.conflicts.add(String.format("Plugin file '%s' both modified locally and remotely. Local version has been saved into DSS and remote version has been saved locally with '%s' extension.", pluginFile.path, REMOTE_SUFFIX));
+                                summary.conflicts.add(String.format("Plugin file '%s' has been modified both locally and remotely..", pluginFile.path));
                             }
                         }
                     }

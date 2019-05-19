@@ -147,6 +147,15 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     }
 
     @NotNull
+    public DssInstance getDssInstanceMandatory(String id) {
+        DssInstance result = getDssInstance(id);
+        if (result == null) {
+            throw new IllegalArgumentException("Unknown DSS instance: " + id);
+        }
+        return result;
+    }
+
+    @NotNull
     public DSSClient getDssClient(String instanceId) {
         DssInstance dssInstance = getDssInstance(instanceId);
         if (dssInstance == null) {
