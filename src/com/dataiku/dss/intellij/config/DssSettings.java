@@ -55,6 +55,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     public static class DssConfig {
         public boolean enableBackgroundSynchronization = true;
         public int backgroundSynchronizationPollIntervalInSeconds = 120; // 2 minutes
+        public boolean trackingEnabled = true;
 
         public DssConfig() {
         }
@@ -71,6 +72,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         if (state != null) {
             config.enableBackgroundSynchronization = state.enableBackgroundSynchronization;
             config.backgroundSynchronizationPollIntervalInSeconds = state.backgroundSynchronizationPollIntervalInSeconds;
+            config.trackingEnabled = state.trackingEnabled;
         }
     }
 
@@ -105,19 +107,24 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         listeners.remove(listener);
     }
 
-    public void updateConfig(List<DssInstance> servers, DssInstance defaultServer, boolean enableBackgroundSync, int backgroundSyncPollingInterval) throws IOException {
+    public void updateConfig(List<DssInstance> servers, DssInstance defaultServer, boolean enableBackgroundSync, int backgroundSyncPollingInterval, boolean trackingEnabled) throws IOException {
         this.servers.clear();
         this.servers.addAll(servers);
         this.defaultServer = defaultServer;
 
         config.enableBackgroundSynchronization = enableBackgroundSync;
         config.backgroundSynchronizationPollIntervalInSeconds = backgroundSyncPollingInterval;
+        config.trackingEnabled = trackingEnabled;
 
         for (Listener listener : listeners) {
             listener.onConfigurationUpdated();
         }
 
         saveDataikuConfig();
+    }
+
+    public boolean isTrackingEnabled() {
+        return config.trackingEnabled;
     }
 
     public boolean isBackgroundSynchronizationEnabled() {
@@ -128,8 +135,8 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         return config.backgroundSynchronizationPollIntervalInSeconds;
     }
 
-    public DssInstance getDefaultInstances() {
-        return this.servers.stream().findFirst().orElse(null);
+    public DssInstance getDefaultInstance() {
+        return this.defaultServer;
     }
 
     public List<DssInstance> getDssInstances() {

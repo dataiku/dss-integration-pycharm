@@ -85,7 +85,6 @@ public class CheckoutStep2Plugin extends AbstractWizardStepEx {
 
     @Override
     public void commit(CommitType commitType) throws CommitStepException {
-        // Recipes
         model.plugins = pluginList.getSelectedValuesList().stream().map(item -> item.plugin).collect(Collectors.toList());
         if (model.plugins.isEmpty()) {
             throw new CommitStepException("Please select at least one plugin");

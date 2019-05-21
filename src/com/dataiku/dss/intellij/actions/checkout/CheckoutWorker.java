@@ -17,6 +17,7 @@ import com.dataiku.dss.intellij.MetadataFilesIndex;
 import com.dataiku.dss.intellij.MonitoredFilesIndex;
 import com.dataiku.dss.intellij.MonitoredPlugin;
 import com.dataiku.dss.intellij.config.DssInstance;
+import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.RecipeUtils;
 import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.DSSClient;
@@ -27,8 +28,10 @@ import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.dataiku.dss.model.metadata.DssPluginMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
+import com.dataiku.dss.wt1.WT1;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.intellij.openapi.fileEditor.impl.NonProjectFileWritingAccessProvider;
 import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -36,16 +39,28 @@ import com.intellij.openapi.vfs.VirtualFile;
 public class CheckoutWorker {
     private static final Logger log = Logger.getInstance(CheckoutWorker.class);
 
+    private final DssSettings dssSettings;
+    private final WT1 wt1;
     private final CheckoutModel model;
     private final VirtualFileManager vFileManager;
 
-    CheckoutWorker(DataikuDSSPlugin dssPlugin, CheckoutModel model) {
+    CheckoutWorker(DssSettings dssSettings, DataikuDSSPlugin dssPlugin, WT1 wt1, CheckoutModel model) {
         Preconditions.checkNotNull(model, "model");
+        this.dssSettings = dssSettings;
+        this.wt1 = wt1;
         this.model = model;
         this.vFileManager = new VirtualFileManager(dssPlugin, false);
     }
 
     public List<VirtualFile> checkout() throws IOException {
+        if (dssSettings.isTrackingEnabled()) {
+            wt1.track("pycharm-checkout",
+                    model.recipes != null ?
+                            ImmutableMap.of("recipes", model.recipes.size()) :
+                            ImmutableMap.of("plugins", model.plugins.size()
+                            ));
+        }
+
         if (model.itemType == CheckoutModel.ItemType.RECIPE) {
             return checkoutRecipe(model);
         } else {

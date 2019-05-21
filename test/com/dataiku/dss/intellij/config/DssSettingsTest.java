@@ -26,7 +26,7 @@ public class DssSettingsTest {
             assertEquals("https://dataiku.acme.com:11200", dssInstance.baseUrl);
             assertEquals("my-secret-api-key", dssInstance.apiKey);
             assertEquals(false, dssInstance.noCheckCertificate);
-            assertEquals(dssInstance, dssSettings.getDefaultInstances());
+            assertEquals(dssInstance, dssSettings.getDefaultInstance());
         } finally {
             if (!file.delete()) {
                 file.deleteOnExit();

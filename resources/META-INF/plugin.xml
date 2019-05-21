@@ -57,6 +57,10 @@
             <implementation-class>com.dataiku.dss.intellij.SynchronizationNotifier</implementation-class>
             <interface-class>com.dataiku.dss.intellij.SynchronizationNotifier</interface-class>
         </component>
+        <component>
+            <implementation-class>com.dataiku.dss.wt1.WT1</implementation-class>
+            <interface-class>com.dataiku.dss.wt1.WT1</interface-class>
+        </component>
     </application-components>
 
     <actions>

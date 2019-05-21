@@ -4,6 +4,7 @@ import static com.dataiku.dss.intellij.config.DssInstance.ENVIRONMENT_VARIABLE_I
 import static com.intellij.ui.SimpleTextAttributes.GRAY_ATTRIBUTES;
 import static com.intellij.ui.SimpleTextAttributes.REGULAR_ATTRIBUTES;
 import static com.intellij.ui.SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES;
+import static com.intellij.uiDesigner.core.GridConstraints.ANCHOR_SOUTHEAST;
 import static com.intellij.uiDesigner.core.GridConstraints.ANCHOR_WEST;
 import static com.intellij.uiDesigner.core.GridConstraints.FILL_HORIZONTAL;
 import static com.intellij.uiDesigner.core.GridConstraints.FILL_NONE;
@@ -48,6 +49,7 @@ public class DssSettingsPanel implements Disposable {
     private DssInstance defaultServer;
     private JSpinner pollingIntervalTextField;
     private JCheckBox automaticSynchronizationCheckBox;
+    private JCheckBox usageReportingCheckBox;
     private Label pollingIntervalLabel1;
     private Label pollingIntervalLabel2;
     private JPanel serversPanel;
@@ -93,8 +95,15 @@ public class DssSettingsPanel implements Disposable {
         }
         toolbarDecorator.setMoveUpAction(new MoveUpServerAction());
         toolbarDecorator.setMoveDownAction(new MoveDownServerAction());
-        JLabel label = new JLabel("Instances configurations are stored in ~/.dataiku/config.json");
-        serversPanel.add(label, "South");
+        JLabel instanceNoticeLabel = new JLabel("Instances configurations are stored in ~/.dataiku/config.json");
+        instanceNoticeLabel.setEnabled(false);
+        Font instanceNoticeFont = instanceNoticeLabel.getFont();
+        if (instanceNoticeFont != null) {
+            long fontSmallSize = Math.round(instanceNoticeFont.getSize() * 0.8);
+            instanceNoticeLabel.setFont(instanceNoticeFont.deriveFont((float) fontSmallSize));
+        }
+
+        serversPanel.add(instanceNoticeLabel, "South");
         serversPanel.add(toolbarDecorator.createPanel(), "Center");
         JBPanel instancesPanel = new JBPanel(new BorderLayout()).withBorder(IdeBorderFactory.createTitledBorder("Instances"));
         instancesPanel.add(serversPanel);
@@ -114,9 +123,29 @@ public class DssSettingsPanel implements Disposable {
         pollingPanel.add(pollingIntervalLabel2);
         synchronizationSubPanel.add(pollingPanel, newConstraints(1, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED, SIZEPOLICY_FIXED));
 
-        mainPanel = new JPanel(new GridLayoutManager(2, 1));
+        JPanel otherPanel = new JBPanel(new BorderLayout()).withBorder(IdeBorderFactory.createTitledBorder("Other"));
+        JPanel otherSubPanel = new JPanel(new GridLayoutManager(1, 2));
+        otherPanel.add(otherSubPanel);
+        usageReportingCheckBox = new JCheckBox("Usage reporting");
+        otherSubPanel.add(usageReportingCheckBox, newConstraints(0, 0, FILL_NONE, ANCHOR_WEST, SIZEPOLICY_FIXED, SIZEPOLICY_FIXED));
+
+        JPanel noticePanel = new JPanel(new BorderLayout());
+        JLabel notice = new JLabel("Submit usage information to Dataiku. Collected data is only used to help us improve DSS");
+        notice.setEnabled(false);
+        Font noticeFont = notice.getFont();
+        if (noticeFont != null) {
+            long fontSmallSize = Math.round(noticeFont.getSize() * 0.8);
+            int gap = (int) (noticeFont.getSize() - fontSmallSize);
+            notice.setFont(noticeFont.deriveFont((float) fontSmallSize));
+            noticePanel.setBorder(BorderFactory.createEmptyBorder(gap / 2, 0, gap - (gap / 2), 0));
+        }
+        noticePanel.add(notice);
+        otherSubPanel.add(noticePanel, newConstraints(0, 1, FILL_HORIZONTAL, ANCHOR_SOUTHEAST, SIZEPOLICY_WANT_GROW, SIZEPOLICY_FIXED));
+
+        mainPanel = new JPanel(new GridLayoutManager(3, 1));
         mainPanel.add(synchronizationPanel, newConstraints(0, 0, FILL_HORIZONTAL, ANCHOR_WEST, SIZEPOLICY_FIXED, SIZEPOLICY_FIXED));
         mainPanel.add(instancesPanel, newConstraints(1, 0, FILL_VERTICAL | FILL_HORIZONTAL, ANCHOR_WEST, SIZEPOLICY_CAN_GROW | SIZEPOLICY_WANT_GROW, SIZEPOLICY_CAN_GROW | SIZEPOLICY_WANT_GROW));
+        mainPanel.add(otherPanel, newConstraints(2, 0, FILL_HORIZONTAL, ANCHOR_WEST, SIZEPOLICY_FIXED, SIZEPOLICY_FIXED));
 
         automaticSynchronizationCheckBox.addActionListener(e -> updatePollingIntervalState());
     }
@@ -150,7 +179,8 @@ public class DssSettingsPanel implements Disposable {
         return automaticSynchronizationCheckBox.isSelected() != settings.isBackgroundSynchronizationEnabled() ||
                 getPollingIntervalValue() != settings.getBackgroundSynchronizationPollIntervalInSeconds() ||
                 !servers.equals(settings.getDssInstances()) ||
-                !Objects.equals(defaultServer, settings.getDefaultInstances());
+                !Objects.equals(defaultServer, settings.getDefaultInstance()) ||
+                usageReportingCheckBox.isSelected() != settings.isTrackingEnabled();
     }
 
     public void save(@NotNull DssSettings settings) {
@@ -159,7 +189,8 @@ public class DssSettingsPanel implements Disposable {
                     new ArrayList<>(servers),
                     defaultServer,
                     automaticSynchronizationCheckBox.isSelected(),
-                    getPollingIntervalValue());
+                    getPollingIntervalValue(),
+                    usageReportingCheckBox.isSelected());
         } catch (IOException e) {
             Messages.showErrorDialog("Unable to save ~/.dataiku/config.json. For more details, check the logs.", "Cannot Save Configuration");
         }
@@ -174,10 +205,11 @@ public class DssSettingsPanel implements Disposable {
         if (!servers.isEmpty()) {
             serverList.setSelectedValue(servers.get(0), true);
         }
-        defaultServer = settings.getDefaultInstances();
+        defaultServer = settings.getDefaultInstance();
         automaticSynchronizationCheckBox.setSelected(settings.isBackgroundSynchronizationEnabled());
         pollingIntervalTextField.setModel(new SpinnerNumberModel(settings.getBackgroundSynchronizationPollIntervalInSeconds(), 10, 3600, 10));
         updatePollingIntervalState();
+        usageReportingCheckBox.setSelected(settings.isTrackingEnabled());
     }
 
     public void dispose() {
