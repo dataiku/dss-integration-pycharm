@@ -1,6 +1,6 @@
 package com.dataiku.dss.intellij;
 
-import static org.apache.commons.codec.Charsets.UTF_8;
+import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.IOException;
 

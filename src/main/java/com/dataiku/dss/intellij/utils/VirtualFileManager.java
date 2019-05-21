@@ -1,6 +1,6 @@
 package com.dataiku.dss.intellij.utils;
 
-import static org.apache.commons.codec.Charsets.UTF_8;
+import static com.google.common.base.Charsets.UTF_8;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,7 +9,6 @@ import java.nio.charset.Charset;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.google.common.base.Charsets;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
@@ -35,7 +34,7 @@ public class VirtualFileManager {
     //----------------------------------------------------------------------------------------------------------------------------------------------------------
 
     public static String readVirtualFile(VirtualFile file) throws IOException {
-        return new String(readVirtualFileAsByteArray(file), Charsets.UTF_8);
+        return new String(readVirtualFileAsByteArray(file), UTF_8);
     }
 
     public static byte[] readVirtualFileAsByteArray(VirtualFile file) throws IOException {

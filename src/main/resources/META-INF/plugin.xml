@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.dataiku.dss.intellij</id>
     <name>Dataiku DSS</name>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <vendor email="support@dataiku.com" url="http://www.dataiku.com">Dataiku</vendor>
 
     <description><![CDATA[
@@ -72,7 +72,7 @@
         </action>
         <action id="com.dataiku.dss.intellij.actions.synchronize.SynchronizeAction" class="com.dataiku.dss.intellij.actions.synchronize.SynchronizeAction"
                 text="Synchronize with DSS..." description="Synchronize Dataiku DSS Recipes and Plugins with DSS instance"
-                icon="AllIcons.Actions.SynchronizeFS">
+                icon="AllIcons.Actions.Refresh">
             <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Synchronize"/>
         </action>
     </actions>
