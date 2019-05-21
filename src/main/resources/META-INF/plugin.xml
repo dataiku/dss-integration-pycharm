@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.dataiku.dss.intellij</id>
     <name>Dataiku DSS</name>
-    <version>0.9.9</version>
+    <version>1.0.0-SNAPSHOT</version>
     <vendor email="support@dataiku.com" url="http://www.dataiku.com">Dataiku</vendor>
 
     <description><![CDATA[
@@ -9,8 +9,9 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        0.9.9: In case of conflict, users can resolve them with the standard merge dialog.<br>
-        0.9.1: Background synchronization can be enabled/disabled.<br>
+        1.0.0: Initial release<br>
+        0.9.9: In case of conflict, users can resolve them with the standard merge dialog<br>
+        0.9.1: Background synchronization can be enabled/disabled<br>
         0.9.0: Almost ready!
     ]]>
     </change-notes>
