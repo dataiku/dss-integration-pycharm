@@ -1,8 +1,8 @@
 package com.dataiku.dss.model;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static com.google.common.base.Charsets.ISO_8859_1;
+import static com.google.common.base.Charsets.UTF_8;
 import static java.util.Arrays.asList;
-import static org.apache.commons.codec.Charsets.UTF_8;
 import static org.apache.commons.codec.binary.Base64.encodeBase64;
 
 import java.io.IOException;
