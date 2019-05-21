@@ -1,10 +1,10 @@
 # Dataiku DSS PyCharm Plugin
 
-This plugin helps you develop Recipes and DSS Plugins written in Python
-directly from your favorite IDE from Jetbrains.
+This plugin helps you develop [Dataiku DSS](https://www.dataiku.com) Recipes and Plugins in Python
+directly from PyCharm.
 
-It has been developed for PyCharm, but also works on IDEA IntelliJ with the
-Python plugin installed.
+*Note: It has been developed for PyCharm, but also works on IDEA IntelliJ with the
+Python plugin installed.*
 
 ## Features
 
