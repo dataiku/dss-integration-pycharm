@@ -19,7 +19,6 @@ dependencies {
 // See https://github.com/JetBrains/gradle-intellij-plugin/
 intellij {
     version '2017.2'
-    pluginName 'Dataiku DSS'
     updateSinceUntilBuild false
 }
 patchPluginXml {

@@ -19,7 +19,7 @@ one and finally upload it back to DSS.
 ## Installation
 
 You can install Dataiku DSS PyCharm Plugin directly from PyCharm Preferences.
-Alternatively, you can download it from the [Jetbrains Plugin Repository](https://plugins.jetbrains.com/plugin/dataiku-dss)
+Alternatively, you can download it from the [Jetbrains Plugin Repository](https://plugins.jetbrains.com/plugin/12439-dataiku-dss)
 and manually install it.
 
 ## Configuration
