@@ -12,19 +12,19 @@ This plugin allows developers to check out Recipes that have been created in
 Dataiku DSS. Once a DSS Recipe has been opened in PyCharm, developers can edit
 it, run it locally, debug it and finally upload it back to DSS.
 
-Similarly this plugin allows developers to edit DSS plugin directly from
+Similarly this plugin allows developers to edit DSS plugins directly from
 PyCharm. Developers can edit files, add new files or folders, delete existing
-one and finally upload it back to DSS.
+ones, run their code and finally upload it back to DSS.
 
 ## Installation
 
-You can install Dataiku DSS PyCharm Plugin directly from PyCharm Preferences.
+You can install the Dataiku DSS PyCharm Plugin directly from PyCharm Preferences.
 Alternatively, you can download it from the [Jetbrains Plugin Repository](https://plugins.jetbrains.com/plugin/12439-dataiku-dss)
 and manually install it.
 
 ## Configuration
 
-To be able to open Recipe or Plugins in PyCharm, you must first declare and
+To be able to open a Recipe or Plugins content in PyCharm, you must first declare and
 configure a DSS instance.
 
 You can do it either from the PyCharm Preferences, or by manually editing
@@ -42,7 +42,7 @@ You can do it either from the PyCharm Preferences, or by manually editing
 }
 ```
 
-Alternatively, you can also specify the URL and API key to use via System
+Alternatively, you can also specify the URL and API key to use via system
 environment variables.
 
 Read [Using the APIs outside of DSS](https://doc.dataiku.com/dss/latest/python-api/outside-usage.html#setting-up-the-connection-with-dss)
@@ -50,9 +50,9 @@ for more information.
 
 ## Usage
 
-### Edit a Recipe or a DSS Plugin
+### Editing a Recipe or a DSS Plugin
 To edit a Recipe or Plugin that already exists on a DSS instance, open the
-**File** menu and select **Open Dataiku DSS...***
+**File** menu and select **Open Dataiku DSS...**
 
 ### Synchronization with DSS instance
 
@@ -66,18 +66,19 @@ the polling interval: open the **PyCharm** menu, select **Preferences...** and
 navigate to the **Dataiku DSS Settings** pane.
 
 If automatic synchronization is disabled, or if you want to synchronize your
-local copies with DSS now, you can manually trigger a synchronization. To do
+local copies with DSS immediately, you can manually trigger a synchronization. To do
 so, open the **File** menu and select **Synchronize with DSS**.
 
 ## Contributing
 
 ### How to build
+Building the plugin without running the tests and checks:
 
     ./gradlew buildPlugin
     
-Once successfully built, you can find the generated plugin is located in the `build/distributions` directory.
+After build, you can find the plugin in the `build/distributions` directory.
 
-Note that the above won't run tests and checks. To do that too, run:
+To also run tests and checks:
 
     ./gradlew check buildPlugin
 
@@ -87,14 +88,13 @@ For the complete list of tasks, see:
 
 ### How to develop in IntelliJ
 
-Import the project as a Gradle project, or directly open the `dss-integration-pycharm.iml` Project file.
-
+Import the project as a Gradle project, or directly open the `dss-integration-pycharm.iml` *Project* file.
 
 ### How to release
 
     ./gradlew release
 
-Deploy on Jetbrains plugin repository (todo try to use publish task).
+Deploy on Jetbrains plugin repository (TODO try to use a publish task).
 
 ## Copyright and License
 
