@@ -94,8 +94,6 @@ Import the project as a Gradle project, or directly open the `dss-integration-py
 
     ./gradlew release
 
-Deploy on Jetbrains plugin repository (TODO try to use a publish task).
-
 ## Copyright and License
 
 Copyright 2013-2019 Dataiku SAS.
