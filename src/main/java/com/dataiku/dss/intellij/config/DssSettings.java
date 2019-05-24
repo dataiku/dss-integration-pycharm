@@ -204,6 +204,13 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
     private void saveDataikuConfig(DataikuConfig config) throws IOException {
         try {
+            // Create ~/.dataiku directory if it does not exist.
+            if (!dataikuConfigFile.getParentFile().exists()) {
+                if (!dataikuConfigFile.getParentFile().mkdirs()) {
+                    throw new IOException("Unable to create directory: " + dataikuConfigFile.getParentFile());
+                }
+            }
+            // Save the file.
             try (FileWriter fileWriter = new FileWriter(dataikuConfigFile)) {
                 new GsonBuilder().setPrettyPrinting().create().toJson(config, fileWriter);
             }
@@ -249,11 +256,8 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
     private void addServer(String id, String label, String baseUrl, String encryptedApiKey, Boolean noCheckCertificate) {
         // Remove existing server with same name if exist.
-        DssInstance existingServer = servers.stream().filter(s -> id.equals(s.id)).findFirst().orElse(null);
-        if (existingServer != null) {
-            this.servers.remove(existingServer);
-        }
+        servers.stream().filter(s -> id.equals(s.id)).findFirst().ifPresent(servers::remove);
 
-        this.servers.add(new DssInstance(id, label, baseUrl, encryptedApiKey, noCheckCertificate != null && noCheckCertificate));
+        servers.add(new DssInstance(id, label, baseUrl, encryptedApiKey, noCheckCertificate != null && noCheckCertificate));
     }
 }

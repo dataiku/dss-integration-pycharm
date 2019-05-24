@@ -46,7 +46,7 @@ public class DssSettingsPanel implements Disposable {
     private JPanel mainPanel;
     private JBList<DssInstance> serverList;
     private final List<DssInstance> servers = new ArrayList<>();
-    private DssInstance defaultServer;
+    private DssInstance defaultInstance;
     private JSpinner pollingIntervalTextField;
     private JCheckBox automaticSynchronizationCheckBox;
     private JCheckBox usageReportingCheckBox;
@@ -179,7 +179,7 @@ public class DssSettingsPanel implements Disposable {
         return automaticSynchronizationCheckBox.isSelected() != settings.isBackgroundSynchronizationEnabled() ||
                 getPollingIntervalValue() != settings.getBackgroundSynchronizationPollIntervalInSeconds() ||
                 !servers.equals(settings.getDssInstances()) ||
-                !Objects.equals(defaultServer, settings.getDefaultInstance()) ||
+                !Objects.equals(defaultInstance, settings.getDefaultInstance()) ||
                 usageReportingCheckBox.isSelected() != settings.isTrackingEnabled();
     }
 
@@ -187,7 +187,7 @@ public class DssSettingsPanel implements Disposable {
         try {
             settings.updateConfig(
                     new ArrayList<>(servers),
-                    defaultServer,
+                    defaultInstance,
                     automaticSynchronizationCheckBox.isSelected(),
                     getPollingIntervalValue(),
                     usageReportingCheckBox.isSelected());
@@ -205,7 +205,7 @@ public class DssSettingsPanel implements Disposable {
         if (!servers.isEmpty()) {
             serverList.setSelectedValue(servers.get(0), true);
         }
-        defaultServer = settings.getDefaultInstance();
+        defaultInstance = settings.getDefaultInstance();
         automaticSynchronizationCheckBox.setSelected(settings.isBackgroundSynchronizationEnabled());
         pollingIntervalTextField.setModel(new SpinnerNumberModel(settings.getBackgroundSynchronizationPollIntervalInSeconds(), 10, 3600, 10));
         updatePollingIntervalState();
@@ -246,6 +246,11 @@ public class DssSettingsPanel implements Disposable {
                 created.id = findNextUniqueId(created.label);
                 servers.add(created);
                 ((CollectionListModel<DssInstance>) serverList.getModel()).add(created);
+                if (servers.size() == 1) {
+                    DssInstance instance = servers.get(0);
+                    defaultInstance = instance;
+                    instance.isDefault = true;
+                }
                 serverList.setSelectedIndex(serverList.getModel().getSize() - 1);
             }
         }
@@ -332,7 +337,7 @@ public class DssSettingsPanel implements Disposable {
                 servers.forEach(server -> server.isDefault = false);
 
                 selectedServer.isDefault = true;
-                defaultServer = selectedServer;
+                defaultInstance = selectedServer;
 
                 serversPanel.repaint();
             }

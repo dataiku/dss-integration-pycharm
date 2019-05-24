@@ -1,5 +1,7 @@
 package com.dataiku.dss.intellij.actions.synchronize;
 
+import static com.intellij.openapi.util.SystemInfo.isMac;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,11 +42,22 @@ public class SynchronizeAction extends AnAction implements DumbAware {
     public void actionPerformed(@NotNull AnActionEvent e) {
         final Project project = e.getProject();
         if (project == null) {
-            String msg = "Cannot synchronize DSS recipes or plugins outside a project. Create or open a project and try again.";
+            String msg = "Cannot synchronize DSS recipes or plugins outside a project.\nCreate or open a project and try again.";
             log.error(msg);
             Messages.showErrorDialog(msg, "No Active Project");
             return;
         }
+
+        DssSettings dssSettings = DssSettings.getInstance();
+        if (dssSettings.getDssInstances().isEmpty()) {
+            String preferencesMenu = isMac ? "Preferences" : "File > Settings";
+            String msg = String.format("No DSS instance defined.\nGo to %s > Dataiku DSS Settings, and configure a DSS instance.", preferencesMenu);
+
+            log.error(msg);
+            Messages.showErrorDialog(msg, "Configuration Error");
+            return;
+        }
+
         ApplicationManager.getApplication().invokeLater(() -> prepareAndShowWizard(project));
     }
 
