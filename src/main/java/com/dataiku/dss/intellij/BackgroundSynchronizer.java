@@ -341,7 +341,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                         long localVersion = monitoredFile.recipe.versionNumber;
                         if (remoteVersion == localVersion) {
                             log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS instance", monitoredFile.recipe));
-                            saveRecipeToDss(dssClient, monitoredFile, fileContent, true, remoteRecipe);
+                            saveRecipeToDss(dssClient, monitoredFile, fileContent, true);
                         } else {
                             // Conflict detected, run a global synchronization to correctly handle this corner-case.
                             scheduleSynchronization(NOW);

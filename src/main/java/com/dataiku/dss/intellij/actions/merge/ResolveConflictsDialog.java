@@ -106,7 +106,6 @@ public class ResolveConflictsDialog {
         DSSClient dssClient = dssInstance.createClient();
 
         String mergedData = new String(VirtualFileManager.readVirtualFileAsByteArray(virtualFile), Charsets.UTF_8);
-
         saveRecipeToDss(dssClient, recipeFileConflict.recipeFile, mergedData, true);
     }
 

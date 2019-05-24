@@ -10,6 +10,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.GeneralSecurityException;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
@@ -42,6 +43,9 @@ import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.google.common.base.Joiner;
 import com.google.common.io.ByteStreams;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 
 public class DSSClient {
     private static final String PUBLIC_API = "public/api";
@@ -100,22 +104,23 @@ public class DSSClient {
         return executeGet(url, RecipeAndPayload.class);
     }
 
-    public Recipe getRecipe(String projectKey, String recipeName) throws DssException {
-        return listRecipes(projectKey).stream().filter(r -> recipeName.equals(r.name)).findFirst().orElse(null);
-    }
-
     public void saveRecipeContent(String projectKey, String recipeName, String payload) throws DssException {
-        Recipe recipe = getRecipe(projectKey, recipeName);
-        if (recipe == null) {
-            throw new IllegalArgumentException(String.format("No recipe named %s found in project %s.", recipeName, projectKey));
-        }
-        RecipeAndPayload recipeAndPayload = new RecipeAndPayload();
-        recipeAndPayload.recipe = recipe;
-        recipeAndPayload.payload = payload;
-        String body = new GsonBuilder().setPrettyPrinting().create().toJson(recipeAndPayload);
+        URI url = buildUrl(PROJECTS, projectKey, RECIPES, recipeName);
 
-        URI url = buildUrl(PROJECTS, recipe.projectKey, RECIPES, recipe.name);
-        executePut(url, body);
+        // Load existing recipe & change only the payload (this way we are compatible with all versions of DSS).
+        String existingRecipeJSon = executeGet(url);
+        JsonParser parser = new JsonParser();
+        JsonObject existingRecipe = parser.parse(existingRecipeJSon).getAsJsonObject();
+        JsonPrimitive existingPayload = existingRecipe.getAsJsonPrimitive("payload");
+
+        // If the new payload is different from the existing payload, upload the new payload
+        if (existingPayload == null || !Objects.equals(existingPayload.getAsString(), payload)) {
+            existingRecipe.remove("payload");
+            existingRecipe.add("payload", new JsonPrimitive(payload));
+
+            String body = new GsonBuilder().create().toJson(existingRecipe);
+            executePut(url, body);
+        }
     }
 
     public List<Plugin> listPlugins() throws DssException {

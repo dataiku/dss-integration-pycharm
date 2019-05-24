@@ -3,9 +3,6 @@ package com.dataiku.dss.model.dss;
 public class Recipe {
     // Taggable Object
     public VersionTag versionTag;
-    public VersionTag creationTag;
-    public String description;
-    public String shortDesc;
 
     // Recipe
     public String projectKey;

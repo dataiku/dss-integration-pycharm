@@ -11,7 +11,6 @@ import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
-import com.google.common.base.Preconditions;
 import com.intellij.openapi.vfs.VirtualFile;
 
 public class SynchronizeUtils {
@@ -43,19 +42,6 @@ public class SynchronizeUtils {
     }
 
     public static void saveRecipeToDss(DSSClient dssClient, MonitoredRecipeFile monitoredFile, String fileContent, boolean flushMetadata) throws IOException {
-        DssRecipeMetadata recipe = monitoredFile.recipe;
-        RecipeAndPayload remoteRecipe = dssClient.loadRecipe(recipe.projectKey, recipe.recipeName);
-        if (remoteRecipe != null) {
-            saveRecipeToDss(dssClient, monitoredFile, fileContent, flushMetadata, remoteRecipe);
-        }
-    }
-
-    public static void saveRecipeToDss(DSSClient dssClient, MonitoredRecipeFile monitoredFile, String fileContent, boolean flushMetadata, RecipeAndPayload remoteRecipe) throws IOException {
-        Preconditions.checkNotNull(remoteRecipe);
-        if (fileContent.equals(remoteRecipe.payload)) {
-            return;
-        }
-
         // File has been updated locally, it needs to be sent to DSS.
         DssRecipeMetadata recipe = monitoredFile.recipe;
         dssClient.saveRecipeContent(recipe.projectKey, recipe.recipeName, fileContent);

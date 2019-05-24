@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.dataiku.dss.intellij</id>
     <name>Dataiku DSS</name>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <vendor email="support@dataiku.com" url="http://www.dataiku.com">Dataiku</vendor>
 
     <description><![CDATA[
@@ -9,10 +9,8 @@
     ]]></description>
 
     <change-notes><![CDATA[
-        1.0.0: Initial release<br>
-        0.9.9: In case of conflict, users can resolve them with the standard merge dialog<br>
-        0.9.1: Background synchronization can be enabled/disabled<br>
-        0.9.0: Almost ready!
+        1.0.1: Fix issue where saving a recipe on PyCharm would unlink it from the Flow in DSS<br>
+        1.0.0: Initial release
     ]]>
     </change-notes>
 

@@ -1,6 +1,5 @@
 package com.dataiku.dss.intellij;
 
-import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
 import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
 import static com.google.common.base.Charsets.UTF_8;
 
@@ -40,8 +39,6 @@ public class SynchronizeWorker {
     private static final String PYC_SUFFIX = ".pyc";
     private static final String CLASS_SUFFIX = ".class";
     private static final String DELETED_SUFFIX = ".deleted";
-    private static final String REMOTE_SUFFIX = ".remote";
-    private static final String ORIGINAL_SUFFIX = ".original";
     private final DssSettings settings;
 
     private final RecipeCache recipeCache;
@@ -108,7 +105,7 @@ public class SynchronizeWorker {
             if (localHash != originalHash) {
                 // File locally modified => Upload it to DSS
                 log.info(String.format("Recipe '%s' has been locally modified. Saving it onto the remote DSS instance", monitoredFile.recipe));
-                saveRecipeToDss(dssClient, monitoredFile, localFileContent, false);
+                SynchronizeUtils.saveRecipeToDss(dssClient, monitoredFile, localFileContent, false);
                 dirtyMetadataFiles.add(monitoredFile.metadataFile);
                 summary.dssUpdated.add(String.format("Recipe '%s.%s' saved into DSS instance.", monitoredFile.recipe.projectKey, monitoredFile.recipe.recipeName));
             } else {
@@ -332,8 +329,7 @@ public class SynchronizeWorker {
                                 summary.locallyUpdated.add(String.format("Plugin file '%s' updated with latest version from DSS instance.", pluginFile.path));
                             } else {
                                 // Conflict!! Checkout remote file as .remote and send the local version to DSS
-                                log.warn(String.format(" - Conflict detected. Uploading it and saving remote version locally with '%s' extension.", REMOTE_SUFFIX));
-
+                                log.warn(" - Conflict detected. Marking this file for future resolution.");
                                 byte[] content = VirtualFileManager.readVirtualFileAsByteArray(file);
 
                                 MonitoredPluginFileConflict conflict = new MonitoredPluginFileConflict(file, monitoredPlugin, trackedFile);
@@ -414,7 +410,8 @@ public class SynchronizeWorker {
         return newName + "(" + index + ")";
     }
 
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     private static boolean ignoreFile(String fileName) {
-        return fileName.endsWith(REMOTE_SUFFIX) || fileName.endsWith(DELETED_SUFFIX) || fileName.endsWith(PYC_SUFFIX) || fileName.endsWith(CLASS_SUFFIX);
+        return fileName.endsWith(DELETED_SUFFIX) || fileName.endsWith(PYC_SUFFIX) || fileName.endsWith(CLASS_SUFFIX);
     }
 }
