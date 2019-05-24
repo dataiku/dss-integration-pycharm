@@ -1,7 +1,5 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
-import static java.util.Arrays.asList;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
@@ -28,14 +26,15 @@ public class DataikuInternalClientInstaller {
 
     @NotNull
     public static String getInstallCommandPreview(DssInstance dssInstance) {
-        return Joiner.on(" ").join(getInstallCommandList(dssInstance, true));
+        return Joiner.on(" ").join(getInstallCommand(null, dssInstance));
     }
 
     public String getInstalledVersion(String interpreterPath) throws InterruptedException {
         Preconditions.checkNotNull(interpreterPath, "interpreterPath");
+        log.info("Checking installed version of Dataiku Internal Client in interpreter: " + interpreterPath);
         File workingDir = new File(interpreterPath).getParentFile();
         ProcessBuilder pipList = new ProcessBuilder()
-                .command(getPipCommand(false), "list")
+                .command(getPipCommand(workingDir), "list", "--format=columns")
                 .redirectErrorStream(true)
                 .directory(workingDir);
         ProcessOutcome pipListOutcome = executeProcess(pipList);
@@ -55,7 +54,7 @@ public class DataikuInternalClientInstaller {
 
         File workingDir = new File(interpreterPath).getParentFile();
         ProcessBuilder pipInstall = new ProcessBuilder()
-                .command(getInstallCommandList(dssInstance, false))
+                .command(getInstallCommand(workingDir, dssInstance))
                 .redirectErrorStream(true)
                 .directory(workingDir);
         return pipInstall.start();
@@ -64,7 +63,7 @@ public class DataikuInternalClientInstaller {
     private ProcessOutcome executeProcess(ProcessBuilder pb) throws InterruptedException {
         ProcessOutput output;
         try {
-            log.info("Executing command: " + Joiner.on(" ").join(pb.command()));
+            log.info(String.format("Executing command '%s' in working directory '%s'.", Joiner.on(" ").join(pb.command()), pb.directory()));
             Process process = pb.start();
             output = new ProcessOutput(process.getInputStream());
             Thread consumerThread = new Thread(output);
@@ -123,7 +122,7 @@ public class DataikuInternalClientInstaller {
                 synchronized (output) {
                     output.add(line);
                 }
-                log.debug(line);
+                log.info(line);
             }
         }
     }
@@ -140,22 +139,31 @@ public class DataikuInternalClientInstaller {
         return (endIndex < 0) ? baseUrl.substring(baseIndex + prefix.length()) : baseUrl.substring(baseIndex + prefix.length(), endIndex);
     }
 
+    /**
+     * Returns the command to use to launch pip, or a preview of the command (suitable to be displayed in log messages, ...)
+     *
+     * @param workingDir Directory containing the python binaries (python, pip, ...). {@code null} to get the preview.
+     */
     @NotNull
-    private static String getPipCommand(boolean forDisplay) {
-        if (forDisplay) {
+    private static String getPipCommand(File workingDir) {
+        boolean forPreview = (workingDir == null);
+        if (forPreview) {
             return "pip";
         } else {
-            return SystemInfo.isWindows ? "pip" : "./pip";
+            return SystemInfo.isWindows ? new File(workingDir, "pip.exe").getAbsolutePath() : "./pip";
         }
     }
 
-    private static List<String> getInstallCommandList(DssInstance dssInstance, boolean forDisplay) {
-        List<String> commands = new ArrayList<>(asList(getPipCommand(forDisplay), "install", "--upgrade"));
+    private static List<String> getInstallCommand(File workingDir, DssInstance dssInstance) {
+        List<String> result = new ArrayList<>();
+        result.add(getPipCommand(workingDir));
+        result.add("install");
+        result.add("--upgrade");
         if (dssInstance.noCheckCertificate) {
-            commands.add("--trusted-host=" + extractHostAndPort(dssInstance.baseUrl));
+            result.add("--trusted-host=" + extractHostAndPort(dssInstance.baseUrl));
         }
-        commands.add(clientTarGzUrl(dssInstance));
-        return commands;
+        result.add(clientTarGzUrl(dssInstance));
+        return result;
     }
 
     @NotNull
