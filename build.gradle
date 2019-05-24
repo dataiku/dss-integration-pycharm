@@ -23,7 +23,7 @@ intellij {
 }
 patchPluginXml {
     changeNotes """
-        1.0.1: Fix issue where saving a recipe on PyCharm would unlink it from the Flow in DSS<br>
+        1.0.1: Various bug fixes<br>
         1.0.0: Initial release
       """
 }
