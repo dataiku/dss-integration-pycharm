@@ -10,7 +10,7 @@ import com.google.common.io.FileWriteMode;
 import com.google.common.io.Files;
 
 public class Logger {
-    @SuppressWarnings("FieldCanBeLocal") private static final boolean DEBUG_MODE = true;
+    @SuppressWarnings("FieldCanBeLocal") private static final boolean DEBUG_MODE = false;
     private static final PrintStream ADDITIONAL_LOGGER = createAdditionalLogger();
 
     private final com.intellij.openapi.diagnostic.Logger logger;
