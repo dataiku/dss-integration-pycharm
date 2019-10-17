@@ -92,7 +92,9 @@ Import the project as a Gradle project, or directly open the `dss-integration-py
 
 ### How to release
 
-    ./gradlew release
+    ./gradlew buildPlugin
+    
+You can find the newly generated jar in `build/libs`
 
 ## Copyright and License
 
