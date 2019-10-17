@@ -34,6 +34,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.jetbrains.annotations.NotNull;
 
+import com.dataiku.dss.Logger;
 import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.FolderContent;
 import com.dataiku.dss.model.dss.Plugin;
@@ -54,6 +55,8 @@ public class DSSClient {
     private static final String PLUGINS = "plugins";
     private static final String CONTENTS = "contents";
 
+    private static final Logger log = Logger.getInstance(DSSClient.class);
+
     private final String baseUrl;
     private final String apiKey;
     private final boolean noCheckCertificate;
@@ -69,6 +72,7 @@ public class DSSClient {
             listProjects();
             return true;
         } catch (DssException e) {
+            log.info("Unable to connect to DSS", e);
             return false;
         }
     }

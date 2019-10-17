@@ -17,6 +17,8 @@ import javax.swing.*;
 import org.jetbrains.annotations.Nullable;
 
 import com.dataiku.dss.Icons;
+import com.dataiku.dss.Logger;
+import com.dataiku.dss.model.DSSClient;
 import com.intellij.ide.wizard.CommitStepException;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.Messages;
@@ -27,6 +29,8 @@ import com.intellij.uiDesigner.core.GridLayoutManager;
 public class DssInstanceDialog extends DialogWrapper {
 
     private static final String API_KEY_PLACEHOLDER = "__DATAIKU_DSS_API_KEY_PLACEHOLDER__";
+
+    private static final Logger log = Logger.getInstance(DSSClient.class);
 
     private final DssInstance server;
     private final boolean readonly;
@@ -198,6 +202,7 @@ public class DssInstanceDialog extends DialogWrapper {
         try {
             return server.createClient().canConnect();
         } catch (RuntimeException e) {
+            log.info("Unable to connect to DSS", e);
             return false;
         }
     }
