@@ -72,7 +72,7 @@ public class DSSClient {
             listProjects();
             return true;
         } catch (DssException e) {
-            log.info("Unable to connect to DSS", e);
+            log.error("Unable to connect to DSS", e);
             return false;
         }
     }
@@ -180,6 +180,8 @@ public class DSSClient {
     }
 
     private byte[] executePutAndReturnByteArray(URI url, String body) throws DssException {
+        log.debug("Executing PUT request to " + url);
+
         try (CloseableHttpClient client = createHttpClient()) {
             HttpPut request = new HttpPut(url);
             request.setEntity(new StringEntity(body));
@@ -192,7 +194,13 @@ public class DSSClient {
 
     private <T> T executeGet(URI url, Class<T> clazz) throws DssException {
         String body = executeGet(url);
-        return new GsonBuilder().create().fromJson(body, clazz);
+        try {
+            return new GsonBuilder().create().fromJson(body, clazz);
+        } catch (RuntimeException e) {
+            String errorMsg = "Unable to parse response returned by DSS as " + clazz + ":\n" + body;
+            log.warn(errorMsg);
+            throw new DssException(errorMsg);
+        }
     }
 
     @NotNull
@@ -202,6 +210,7 @@ public class DSSClient {
 
     @NotNull
     private byte[] executeGetAndReturnByteArray(URI url) throws DssException {
+        log.debug("Executing GET request to " + url);
         try {
             try (CloseableHttpClient client = createHttpClient()) {
                 HttpResponse response = executeRequest(new HttpGet(url), client);
@@ -213,6 +222,7 @@ public class DSSClient {
     }
 
     private void executeDelete(URI url) throws DssException {
+        log.debug("Executing DELETE request to " + url);
         try {
             try (CloseableHttpClient client = createHttpClient()) {
                 executeRequest(new HttpDelete(url), client);
