@@ -6,18 +6,26 @@ import static java.util.Arrays.asList;
 import static org.apache.commons.codec.binary.Base64.encodeBase64;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.net.ssl.SSLContext;
 
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.Credentials;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
@@ -29,10 +37,12 @@ import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.TrustStrategy;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.model.dss.DssException;
@@ -47,6 +57,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
+import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.vfs.VfsUtil;
+import com.intellij.util.net.HttpConfigurable;
 
 public class DSSClient {
     private static final String PUBLIC_API = "public/api";
@@ -232,7 +245,7 @@ public class DSSClient {
         }
     }
 
-    private CloseableHttpClient createHttpClient() throws GeneralSecurityException {
+    private CloseableHttpClient createHttpClient() throws GeneralSecurityException, DssException {
         HttpClientBuilder httpClientBuilder = HttpClientBuilder.create();
         if (noCheckCertificate) {
             SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
@@ -241,8 +254,40 @@ public class DSSClient {
 
             httpClientBuilder.setSSLSocketFactory(new SSLConnectionSocketFactory(sslContext));
             httpClientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
+            configureProxy(httpClientBuilder);
         }
         return httpClientBuilder.build();
+    }
+
+    public void configureProxy(HttpClientBuilder httpClientBuilder) throws DssException {
+        HttpConfigurable httpConfigurable = HttpConfigurable.getInstance();
+        if (!isHttpProxyEnabledForUrl(httpConfigurable, baseUrl)) {
+            return;
+        }
+        if (httpConfigurable.PROXY_TYPE_IS_SOCKS) {
+            throw new DssException("Socks proxy is not supported by DSS plugin");
+        }
+
+        HttpHost httpHost = new HttpHost(httpConfigurable.PROXY_HOST, httpConfigurable.PROXY_PORT);
+        httpClientBuilder.setProxy(httpHost);
+
+        if (httpConfigurable.PROXY_AUTHENTICATION) {
+            // Different ways to fetch login based on runtime version (SLI-95)
+            try {
+                Object proxyLogin = getProxyLogin(httpConfigurable);
+                if (proxyLogin != null) {
+                    String proxyUsername = proxyLogin.toString();
+                    String proxyPassword = httpConfigurable.getPlainProxyPassword();
+
+                    CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+                    credentialsProvider.setCredentials(new AuthScope(httpConfigurable.PROXY_HOST, httpConfigurable.PROXY_PORT),
+                            new UsernamePasswordCredentials(proxyUsername, proxyPassword));
+                    httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider);
+                }
+            } catch (Exception e) {
+                throw new DssException("Could not fetch value for proxy login", e);
+            }
+        }
     }
 
     @NotNull
@@ -291,5 +336,43 @@ public class DSSClient {
             result += '/';
         }
         return result;
+    }
+
+    /**
+     * Copy of {@link HttpConfigurable#isHttpProxyEnabledForUrl(String)}, which doesn't exist in IDEA 14.
+     */
+    private static boolean isHttpProxyEnabledForUrl(HttpConfigurable httpConfigurable, @Nullable String url) {
+        if (!httpConfigurable.USE_HTTP_PROXY) {
+            return false;
+        }
+        URI uri = url != null ? VfsUtil.toUri(url) : null;
+        return uri == null || !isProxyException(httpConfigurable, uri.getHost());
+    }
+
+    private static boolean isProxyException(HttpConfigurable httpConfigurable, @Nullable String uriHost) {
+        if (StringUtil.isEmptyOrSpaces(uriHost) || StringUtil.isEmptyOrSpaces(httpConfigurable.PROXY_EXCEPTIONS)) {
+            return false;
+        }
+
+        List<String> hosts = StringUtil.split(httpConfigurable.PROXY_EXCEPTIONS, ",");
+        for (String hostPattern : hosts) {
+            String regexpPattern = StringUtil.escapeToRegexp(hostPattern.trim()).replace("\\*", ".*");
+            if (Pattern.compile(regexpPattern).matcher(uriHost).matches()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static Object getProxyLogin(HttpConfigurable httpConfigurable) throws Exception {
+        try {
+            Field proxyLoginField = HttpConfigurable.class.getField("PROXY_LOGIN");
+            return proxyLoginField.get(httpConfigurable);
+        } catch (NoSuchFieldException ex) {
+            // field doesn't exist -> we are in version >= 2016.2
+            Method proxyLoginMethod = HttpConfigurable.class.getMethod("getProxyLogin");
+            return proxyLoginMethod.invoke(httpConfigurable);
+        }
     }
 }
