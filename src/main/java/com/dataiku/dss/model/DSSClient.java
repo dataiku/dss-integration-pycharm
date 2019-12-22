@@ -23,7 +23,6 @@ import org.apache.http.HttpHeaders;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.HttpClient;
@@ -61,6 +60,7 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.util.net.HttpConfigurable;
 
+@SuppressWarnings("UnstableApiUsage")
 public class DSSClient {
     private static final String PUBLIC_API = "public/api";
     private static final String PROJECTS = "projects";
@@ -80,13 +80,12 @@ public class DSSClient {
         this.noCheckCertificate = noCheckCertificate;
     }
 
-    public boolean canConnect() {
+    public void checkConnection() throws DssException {
         try {
             listProjects();
-            return true;
         } catch (DssException e) {
             log.error("Unable to connect to DSS", e);
-            return false;
+            throw e;
         }
     }
 
@@ -175,6 +174,8 @@ public class DSSClient {
             HttpPost request = new HttpPost(url);
             request.setEntity(new ByteArrayEntity(content));
             executeRequest(request, client);
+        } catch (DssException e) {
+            throw e;
         } catch (IOException | GeneralSecurityException e) {
             throw new DssException(e);
         }
@@ -200,6 +201,8 @@ public class DSSClient {
             request.setEntity(new StringEntity(body));
             HttpResponse response = executeRequest(request, client);
             return ByteStreams.toByteArray(response.getEntity().getContent());
+        } catch (DssException e) {
+            throw e;
         } catch (IOException | GeneralSecurityException e) {
             throw new DssException(e);
         }
@@ -229,6 +232,8 @@ public class DSSClient {
                 HttpResponse response = executeRequest(new HttpGet(url), client);
                 return ByteStreams.toByteArray(response.getEntity().getContent());
             }
+        } catch (DssException e) {
+            throw e;
         } catch (IOException | GeneralSecurityException e) {
             throw new DssException(e);
         }
@@ -240,6 +245,8 @@ public class DSSClient {
             try (CloseableHttpClient client = createHttpClient()) {
                 executeRequest(new HttpDelete(url), client);
             }
+        } catch (DssException e) {
+            throw e;
         } catch (IOException | GeneralSecurityException e) {
             throw new DssException(e);
         }
@@ -259,7 +266,7 @@ public class DSSClient {
         return httpClientBuilder.build();
     }
 
-    public void configureProxy(HttpClientBuilder httpClientBuilder) throws DssException {
+    private void configureProxy(HttpClientBuilder httpClientBuilder) throws DssException {
         HttpConfigurable httpConfigurable = HttpConfigurable.getInstance();
         if (!isHttpProxyEnabledForUrl(httpConfigurable, baseUrl)) {
             return;
@@ -290,6 +297,14 @@ public class DSSClient {
         }
     }
 
+    private boolean isProxyEnabled() {
+        try {
+            return isHttpProxyEnabledForUrl(HttpConfigurable.getInstance(), baseUrl);
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
     @NotNull
     private HttpResponse executeRequest(HttpRequestBase request, HttpClient client) throws DssException {
         addJsonContentTypeHeader(request);
@@ -302,7 +317,7 @@ public class DSSClient {
         }
         int statusCode = response.getStatusLine().getStatusCode();
         if (statusCode != 200) {
-            throw new DssException(statusCode, "DSS returned error code " + statusCode);
+            throw new DssException(statusCode, "DSS" + (isProxyEnabled() ? " or HTTP proxy" : "") + " returned error code " + statusCode + ".");
         }
         return response;
     }
@@ -365,6 +380,7 @@ public class DSSClient {
         return false;
     }
 
+    @SuppressWarnings("JavaReflectionMemberAccess")
     private static Object getProxyLogin(HttpConfigurable httpConfigurable) throws Exception {
         try {
             Field proxyLoginField = HttpConfigurable.class.getField("PROXY_LOGIN");

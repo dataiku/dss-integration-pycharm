@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.model.DSSClient;
+import com.dataiku.dss.model.dss.DssException;
 import com.intellij.ide.wizard.AbstractWizardStepEx;
 import com.intellij.ide.wizard.CommitStepException;
 import com.intellij.openapi.module.Module;
@@ -118,8 +119,10 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
     }
 
     private DssInstance validateDssInstance(InstanceItem instanceItem) throws CommitStepException {
-        if (!instanceItem.client.canConnect()) {
-            throw new CommitStepException("Unable to connect to the selected DSS instance. Make sure it is running and reachable from your computer.");
+        try {
+            instanceItem.client.checkConnection();
+        } catch (DssException e) {
+            throw new CommitStepException("Unable to connect to the selected DSS instance. Make sure it is running and reachable from your computer.\n\n" + e.getMessage());
         }
         return instanceItem.instance;
     }
