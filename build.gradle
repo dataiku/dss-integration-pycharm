@@ -4,7 +4,7 @@ plugins {
 }
 
 group 'com.dataiku.dss.intellij'
-version '1.0.3'
+version '1.1.0'
 
 sourceCompatibility = 1.8
 
@@ -23,6 +23,7 @@ intellij {
 }
 patchPluginXml {
     changeNotes """
+        1.1.0: Add support for HTTP proxy.<br>
         1.0.3: Add more logs to better diagnose issues.<br>
         1.0.2: Add more logs in case plugin cannot connect to DSS.<br>
         1.0.1: Various bug fixes<br>

@@ -19,6 +19,7 @@ import org.jetbrains.annotations.Nullable;
 import com.dataiku.dss.Icons;
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.model.DSSClient;
+import com.dataiku.dss.model.dss.DssException;
 import com.intellij.ide.wizard.CommitStepException;
 import com.intellij.openapi.ui.DialogWrapper;
 import com.intellij.openapi.ui.Messages;
@@ -193,17 +194,10 @@ public class DssInstanceDialog extends DialogWrapper {
         server.noCheckCertificate = disableSslCertificateCheckBox.isSelected();
 
         // Verify that we can connect to the server
-        if (!checkConnection()) {
-            throw new CommitStepException("Unable to connect to DSS using the provided URL and credentials.");
-        }
-    }
-
-    private boolean checkConnection() {
         try {
-            return server.createClient().canConnect();
-        } catch (RuntimeException e) {
-            log.info("Unable to connect to DSS", e);
-            return false;
+            server.createClient().checkConnection();
+        } catch (DssException e) {
+            throw new CommitStepException("Unable to connect to DSS using the provided URL and credentials.\n\n" + e.getMessage());
         }
     }
 

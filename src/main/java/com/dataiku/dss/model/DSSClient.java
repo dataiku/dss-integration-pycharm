@@ -8,30 +8,21 @@ import static org.apache.commons.codec.binary.Base64.encodeBase64;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import javax.net.ssl.SSLContext;
 
 import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.conn.ssl.NoopHostnameVerifier;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.conn.ssl.TrustStrategy;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.ssl.SSLContextBuilder;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
@@ -41,6 +32,8 @@ import com.dataiku.dss.model.dss.Plugin;
 import com.dataiku.dss.model.dss.Project;
 import com.dataiku.dss.model.dss.Recipe;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
+import com.dataiku.dss.model.http.HttpClientWithContext;
+import com.dataiku.dss.model.http.HttpClientWithContextBuilder;
 import com.google.common.base.Joiner;
 import com.google.common.io.ByteStreams;
 import com.google.gson.GsonBuilder;
@@ -48,6 +41,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 
+@SuppressWarnings("UnstableApiUsage")
 public class DSSClient {
     private static final String PUBLIC_API = "public/api";
     private static final String PROJECTS = "projects";
@@ -67,28 +61,25 @@ public class DSSClient {
         this.noCheckCertificate = noCheckCertificate;
     }
 
-    public boolean canConnect() {
+    public void checkConnection() throws DssException {
         try {
             listProjects();
-            return true;
         } catch (DssException e) {
             log.error("Unable to connect to DSS", e);
-            return false;
+            throw e;
         }
     }
 
     public String getDssVersion() {
-        try (CloseableHttpClient client = createHttpClient()) {
+        try (HttpClientWithContext client = createHttpClient()) {
             URI url = buildUrl(PROJECTS, "");
             HttpResponse response = executeRequest(new HttpGet(url), client);
             Header header = response.getFirstHeader("DSS-Version");
-            if (header != null) {
-                return header.getValue();
-            }
-        } catch (IOException | GeneralSecurityException e) {
+            return header != null ? header.getValue() : null;
+        } catch (IOException e) {
+            log.info("Unable to retrieve DSS version", e);
             return null;
         }
-        return null;
     }
 
     public List<Project> listProjects(String... tags) throws DssException {
@@ -158,11 +149,13 @@ public class DSSClient {
 
     public void uploadPluginFile(String pluginId, String path, byte[] content) throws DssException {
         URI url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
-        try (CloseableHttpClient client = createHttpClient()) {
+        try (HttpClientWithContext client = createHttpClient()) {
             HttpPost request = new HttpPost(url);
             request.setEntity(new ByteArrayEntity(content));
             executeRequest(request, client);
-        } catch (IOException | GeneralSecurityException e) {
+        } catch (DssException e) {
+            throw e;
+        } catch (IOException e) {
             throw new DssException(e);
         }
     }
@@ -171,6 +164,10 @@ public class DSSClient {
         String dummyFilePath = path + "/dummy" + UUID.randomUUID();
         uploadPluginFile(pluginId, dummyFilePath, new byte[0]);
         deletePluginFile(pluginId, dummyFilePath);
+    }
+
+    private HttpClientWithContext createHttpClient() throws DssException {
+        return new HttpClientWithContextBuilder(baseUrl, noCheckCertificate).build();
     }
 
     @NotNull
@@ -182,12 +179,14 @@ public class DSSClient {
     private byte[] executePutAndReturnByteArray(URI url, String body) throws DssException {
         log.debug("Executing PUT request to " + url);
 
-        try (CloseableHttpClient client = createHttpClient()) {
+        try (HttpClientWithContext client = createHttpClient()) {
             HttpPut request = new HttpPut(url);
             request.setEntity(new StringEntity(body));
             HttpResponse response = executeRequest(request, client);
             return ByteStreams.toByteArray(response.getEntity().getContent());
-        } catch (IOException | GeneralSecurityException e) {
+        } catch (DssException e) {
+            throw e;
+        } catch (IOException e) {
             throw new DssException(e);
         }
     }
@@ -212,11 +211,13 @@ public class DSSClient {
     private byte[] executeGetAndReturnByteArray(URI url) throws DssException {
         log.debug("Executing GET request to " + url);
         try {
-            try (CloseableHttpClient client = createHttpClient()) {
+            try (HttpClientWithContext client = createHttpClient()) {
                 HttpResponse response = executeRequest(new HttpGet(url), client);
                 return ByteStreams.toByteArray(response.getEntity().getContent());
             }
-        } catch (IOException | GeneralSecurityException e) {
+        } catch (DssException e) {
+            throw e;
+        } catch (IOException e) {
             throw new DssException(e);
         }
     }
@@ -224,40 +225,29 @@ public class DSSClient {
     private void executeDelete(URI url) throws DssException {
         log.debug("Executing DELETE request to " + url);
         try {
-            try (CloseableHttpClient client = createHttpClient()) {
+            try (HttpClientWithContext client = createHttpClient()) {
                 executeRequest(new HttpDelete(url), client);
             }
-        } catch (IOException | GeneralSecurityException e) {
+        } catch (DssException e) {
+            throw e;
+        } catch (IOException e) {
             throw new DssException(e);
         }
     }
 
-    private CloseableHttpClient createHttpClient() throws GeneralSecurityException {
-        HttpClientBuilder httpClientBuilder = HttpClientBuilder.create();
-        if (noCheckCertificate) {
-            SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
-            sslContextBuilder.loadTrustMaterial(null, (TrustStrategy) (chain, authType) -> true);
-            SSLContext sslContext = sslContextBuilder.build();
-
-            httpClientBuilder.setSSLSocketFactory(new SSLConnectionSocketFactory(sslContext));
-            httpClientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
-        }
-        return httpClientBuilder.build();
-    }
-
     @NotNull
-    private HttpResponse executeRequest(HttpRequestBase request, HttpClient client) throws DssException {
+    private HttpResponse executeRequest(HttpRequestBase request, HttpClientWithContext client) throws DssException {
         addJsonContentTypeHeader(request);
         addAuthorizationHeader(request);
         HttpResponse response;
         try {
-            response = client.execute(request);
+            response = client.client.execute(request, client.context);
         } catch (IOException e) {
             throw new DssException(e);
         }
         int statusCode = response.getStatusLine().getStatusCode();
         if (statusCode != 200) {
-            throw new DssException(statusCode, "DSS returned error code " + statusCode);
+            throw new DssException(statusCode, "DSS" + (client.useProxy ? " or HTTP proxy" : "") + " returned error code " + statusCode + ".");
         }
         return response;
     }
