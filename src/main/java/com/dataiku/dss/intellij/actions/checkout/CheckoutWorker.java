@@ -109,7 +109,9 @@ public class CheckoutWorker {
             MonitoredFilesIndex.getInstance().index(file, metadata, recipeMetadata);
 
             // Create the associated run configuration
-            new RunConfigurationGenerator().createScriptRunConfiguration(model.module, file, dssInstance, model.projectKey, recipe.name);
+            if (model.generateRunConfigurations) {
+                new RunConfigurationGenerator().createScriptRunConfiguration(model.module, file, dssInstance, model.projectKey, recipe.name);
+            }
             createdFileList.add(file);
         }
 

@@ -7,6 +7,7 @@ import com.intellij.openapi.util.IconLoader;
 
 public class Icons {
     public static final Icon RECIPE_PYTHON = buildIcon("/images/recipePython.png");
+    public static final Icon RECIPE_PYSPARK = buildIcon("/images/recipePySpark.png");
     public static final Icon RECIPE_R = buildIcon("/images/recipeR.png");
     public static final Icon RECIPE_SHELL = buildIcon("/images/recipeShell.png");
     public static final Icon RECIPE_SQL = buildIcon("/images/recipeSql.png");

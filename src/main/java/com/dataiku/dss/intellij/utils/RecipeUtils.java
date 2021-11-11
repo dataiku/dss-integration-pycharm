@@ -9,6 +9,7 @@ public class RecipeUtils {
     public static String extension(String type) {
         switch (type) {
         case "python":
+        case "pyspark":
             return ".py";
         case "sql_script":
             return ".sql";
@@ -25,6 +26,8 @@ public class RecipeUtils {
         switch (type) {
         case "python":
             return Icons.RECIPE_PYTHON;
+        case "pyspark":
+            return Icons.RECIPE_PYSPARK;
         case "sql_script":
             return Icons.RECIPE_SQL;
         case "r":
@@ -39,6 +42,7 @@ public class RecipeUtils {
     public static boolean isEditableRecipe(String type) {
         switch (type) {
         case "python":
+        case "pyspark":
         case "sql_script":
         case "r":
         case "shell":
