@@ -1,34 +1,21 @@
 package com.dataiku.dss.intellij;
 
-import static com.google.common.base.Charsets.UTF_8;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
-import java.util.regex.Pattern;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
-
-import org.jetbrains.annotations.NotNull;
-
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.model.metadata.DssMetadata;
-import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
-import com.dataiku.dss.model.metadata.DssPluginMetadata;
-import com.dataiku.dss.model.metadata.DssRecipeMetadata;
+import com.dataiku.dss.model.metadata.*;
 import com.google.common.base.Preconditions;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.gson.GsonBuilder;
 import com.intellij.openapi.vfs.VirtualFile;
+import org.jetbrains.annotations.NotNull;
+
+import java.io.*;
+import java.util.*;
+import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
+
+import static com.google.common.base.Charsets.UTF_8;
 
 public class MetadataFile {
     private static final Logger log = Logger.getInstance(MetadataFile.class);
@@ -75,12 +62,38 @@ public class MetadataFile {
         flush();
     }
 
+    public synchronized void addOrUpdateLibrary(DssLibraryMetadata library) throws IOException {
+        Preconditions.checkNotNull(library, "library");
+        Preconditions.checkNotNull(library.path, "library.path");
+        Preconditions.checkNotNull(library.instance, "library.instance");
+
+        // Update our recipe
+        metadata.libraries.removeIf(p -> library.projectKey.equals(p.projectKey));
+        metadata.libraries.add(library);
+
+        // Write the file back
+        flush();
+    }
+
+
     public synchronized void removePlugin(String pluginId) throws IOException {
         Preconditions.checkNotNull(pluginId, "pluginId");
 
         DssPluginMetadata pluginMetadata = metadata.getPluginById(pluginId);
         if (pluginMetadata != null) {
             metadata.plugins.remove(pluginMetadata);
+
+            // Write the file back
+            flush();
+        }
+    }
+
+    public synchronized void removeLibrary(String projectKey) throws IOException {
+        Preconditions.checkNotNull(projectKey, "projectKey");
+
+        DssLibraryMetadata libMetadata = metadata.getLibByProjectKey(projectKey);
+        if (libMetadata != null) {
+            metadata.libraries.remove(libMetadata);
 
             // Write the file back
             flush();
@@ -98,6 +111,24 @@ public class MetadataFile {
 
         pluginMetadata.files.removeIf(f -> f.path.equals(fileMetadata.path));
         pluginMetadata.files.add(fileMetadata);
+
+        // Write the file back
+        if (flush) {
+            flush();
+        }
+    }
+
+    public synchronized void addOrUpdateLibraryFile(DssLibraryFileMetadata fileMetadata, boolean flush) throws IOException {
+        Preconditions.checkNotNull(fileMetadata, "fileMetadata");
+
+        // Update our recipe
+        DssLibraryMetadata libMetadata = metadata.getLibByProjectKey(fileMetadata.projectKey);
+        if (libMetadata == null) {
+            throw new IllegalArgumentException("Untracked project library: " + fileMetadata.projectKey);
+        }
+
+        libMetadata.files.removeIf(f -> f.path.equals(fileMetadata.path));
+        libMetadata.files.add(fileMetadata);
 
         // Write the file back
         if (flush) {

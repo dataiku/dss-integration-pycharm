@@ -1,9 +1,22 @@
 package com.dataiku.dss.model;
 
-import static com.google.common.base.Charsets.ISO_8859_1;
-import static com.google.common.base.Charsets.UTF_8;
-import static java.util.Arrays.asList;
-import static org.apache.commons.codec.binary.Base64.encodeBase64;
+import com.dataiku.dss.Logger;
+import com.dataiku.dss.model.dss.*;
+import com.dataiku.dss.model.http.HttpClientWithContext;
+import com.dataiku.dss.model.http.HttpClientWithContextBuilder;
+import com.google.common.base.Joiner;
+import com.google.common.io.ByteStreams;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
+import org.apache.http.Header;
+import org.apache.http.HttpHeaders;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.*;
+import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.entity.StringEntity;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.net.URI;
@@ -13,41 +26,21 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import org.apache.http.Header;
-import org.apache.http.HttpHeaders;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpDelete;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.client.methods.HttpRequestBase;
-import org.apache.http.entity.ByteArrayEntity;
-import org.apache.http.entity.StringEntity;
-import org.jetbrains.annotations.NotNull;
-
-import com.dataiku.dss.Logger;
-import com.dataiku.dss.model.dss.DssException;
-import com.dataiku.dss.model.dss.FolderContent;
-import com.dataiku.dss.model.dss.Plugin;
-import com.dataiku.dss.model.dss.Project;
-import com.dataiku.dss.model.dss.Recipe;
-import com.dataiku.dss.model.dss.RecipeAndPayload;
-import com.dataiku.dss.model.http.HttpClientWithContext;
-import com.dataiku.dss.model.http.HttpClientWithContextBuilder;
-import com.google.common.base.Joiner;
-import com.google.common.io.ByteStreams;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
+import static com.google.common.base.Charsets.ISO_8859_1;
+import static com.google.common.base.Charsets.UTF_8;
+import static java.util.Arrays.asList;
+import static org.apache.commons.codec.binary.Base64.encodeBase64;
 
 @SuppressWarnings("UnstableApiUsage")
 public class DSSClient {
     private static final String PUBLIC_API = "public/api";
+    private static final String DIP_PUBLIC_API = "dip/publicapi/";
     private static final String PROJECTS = "projects";
     private static final String RECIPES = "recipes";
     private static final String PLUGINS = "plugins";
+    private static final String LIBRARIES = "libraries";
     private static final String CONTENTS = "contents";
+    private static final String RAW_CONTENTS = "raw-contents";
 
     private static final Logger log = Logger.getInstance(DSSClient.class);
 
@@ -72,7 +65,7 @@ public class DSSClient {
 
     public String getDssVersion() {
         try (HttpClientWithContext client = createHttpClient()) {
-            URI url = buildUrl(PROJECTS, "");
+            URI url = buildUrl(PUBLIC_API, PROJECTS, "");
             HttpResponse response = executeRequest(new HttpGet(url), client);
             Header header = response.getFirstHeader("DSS-Version");
             return header != null ? header.getValue() : null;
@@ -84,23 +77,23 @@ public class DSSClient {
 
     public List<Project> listProjects(String... tags) throws DssException {
         String tagPart = Joiner.on(',').join(tags);
-        URI url = buildUrl(PROJECTS, tagPart);
+        URI url = buildUrl(PUBLIC_API, PROJECTS, tagPart);
 
         return asList(executeGet(url, Project[].class));
     }
 
     public List<Recipe> listRecipes(String projectKey) throws DssException {
-        URI url = buildUrl(PROJECTS, projectKey, RECIPES, "");
+        URI url = buildUrl(PUBLIC_API, PROJECTS, projectKey, RECIPES, "");
         return asList(executeGet(url, Recipe[].class));
     }
 
     public RecipeAndPayload loadRecipe(String projectKey, String recipeName) throws DssException {
-        URI url = buildUrl(PROJECTS, projectKey, RECIPES, recipeName);
+        URI url = buildUrl(PUBLIC_API, PROJECTS, projectKey, RECIPES, recipeName);
         return executeGet(url, RecipeAndPayload.class);
     }
 
     public void saveRecipeContent(String projectKey, String recipeName, String payload) throws DssException {
-        URI url = buildUrl(PROJECTS, projectKey, RECIPES, recipeName);
+        URI url = buildUrl(PUBLIC_API, PROJECTS, projectKey, RECIPES, recipeName);
 
         // Load existing recipe & change only the payload (this way we are compatible with all versions of DSS).
         String existingRecipeJSon = executeGet(url);
@@ -119,7 +112,7 @@ public class DSSClient {
     }
 
     public List<Plugin> listPlugins() throws DssException {
-        URI url = buildUrl(PLUGINS, "");
+        URI url = buildUrl(PUBLIC_API, PLUGINS, "");
 
         try {
             return asList(executeGet(url, Plugin[].class));
@@ -133,22 +126,50 @@ public class DSSClient {
     }
 
     public List<FolderContent> listPluginFiles(String pluginId) throws DssException {
-        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, "");
+        URI url = buildUrl(PUBLIC_API, PLUGINS, pluginId, CONTENTS, "");
         return asList(executeGet(url, FolderContent[].class));
     }
 
+    public List<FolderContent> listLibraryFiles(String projectKey) throws DssException {
+        URI url = buildUrl(DIP_PUBLIC_API,  PROJECTS, projectKey, LIBRARIES, CONTENTS, "");
+        return asList(executeGet(url, FolderContent[].class));
+    }
+
+    public byte[] downloadLibraryFile(String projectKey, String path) throws DssException {
+        URI url = buildUrl(DIP_PUBLIC_API, PROJECTS, projectKey, LIBRARIES, RAW_CONTENTS, path);
+        return executeGetAndReturnByteArray(url);
+    }
+
     public byte[] downloadPluginFile(String pluginId, String path) throws DssException {
-        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
+        URI url = buildUrl(PUBLIC_API, PLUGINS, pluginId, CONTENTS, path);
         return executeGetAndReturnByteArray(url);
     }
 
     public void deletePluginFile(String pluginId, String path) throws DssException {
-        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
+        URI url = buildUrl(PUBLIC_API, PLUGINS, pluginId, CONTENTS, path);
+        executeDelete(url);
+    }
+
+    public void deleteLibraryFile(String projectKey, String path) throws DssException {
+        URI url = buildUrl(DIP_PUBLIC_API, PROJECTS, projectKey, LIBRARIES, CONTENTS, path);
         executeDelete(url);
     }
 
     public void uploadPluginFile(String pluginId, String path, byte[] content) throws DssException {
-        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
+        URI url = buildUrl(PUBLIC_API, PLUGINS, pluginId, CONTENTS, path);
+        try (HttpClientWithContext client = createHttpClient()) {
+            HttpPost request = new HttpPost(url);
+            request.setEntity(new ByteArrayEntity(content));
+            executeRequest(request, client);
+        } catch (DssException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new DssException(e);
+        }
+    }
+
+    public void uploadLibraryFile(String projectKey, String path, byte[] content) throws DssException {
+        URI url = buildUrl(DIP_PUBLIC_API, PROJECTS, projectKey, LIBRARIES, CONTENTS, path);
         try (HttpClientWithContext client = createHttpClient()) {
             HttpPost request = new HttpPost(url);
             request.setEntity(new ByteArrayEntity(content));
@@ -164,6 +185,12 @@ public class DSSClient {
         String dummyFilePath = path + "/dummy" + UUID.randomUUID();
         uploadPluginFile(pluginId, dummyFilePath, new byte[0]);
         deletePluginFile(pluginId, dummyFilePath);
+    }
+
+    public void createLibraryFolder(String projectKey, String path) throws DssException {
+        String dummyFilePath = path + "/dummy" + UUID.randomUUID();
+        uploadLibraryFile(projectKey, dummyFilePath, new byte[0]);
+        deleteLibraryFile(projectKey, dummyFilePath);
     }
 
     private HttpClientWithContext createHttpClient() throws DssException {
@@ -261,9 +288,9 @@ public class DSSClient {
     }
 
     @NotNull
-    private URI buildUrl(String... parts) {
+    private URI buildUrl(String apiPath, String... parts) {
         try {
-            URI baseUri = new URI(baseUrl + PUBLIC_API);
+            URI baseUri = new URI(baseUrl + apiPath);
             return new URI(
                     baseUri.getScheme(),
                     baseUri.getAuthority(),

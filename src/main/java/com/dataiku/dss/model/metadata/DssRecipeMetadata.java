@@ -1,6 +1,6 @@
 package com.dataiku.dss.model.metadata;
 
-public class DssRecipeMetadata {
+public class DssRecipeMetadata{
     public String instance;
     public String projectKey;
     public String recipeName;

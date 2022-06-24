@@ -1,24 +1,12 @@
 package com.dataiku.dss.intellij;
 
-import static com.dataiku.dss.intellij.SynchronizeUtils.renameRecipeFile;
-import static com.dataiku.dss.intellij.SynchronizeUtils.savePluginFileToDss;
-import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
-import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
-import static java.util.concurrent.TimeUnit.SECONDS;
-
-import java.io.IOException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-
-import org.jetbrains.annotations.NotNull;
-
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
+import com.dataiku.dss.model.metadata.DssLibraryFileMetadata;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ReadAction;
@@ -26,13 +14,17 @@ import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.project.VetoableProjectManagerListener;
-import com.intellij.openapi.vfs.LocalFileSystem;
-import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.vfs.VirtualFileCopyEvent;
-import com.intellij.openapi.vfs.VirtualFileEvent;
-import com.intellij.openapi.vfs.VirtualFileListener;
-import com.intellij.openapi.vfs.VirtualFileMoveEvent;
-import com.intellij.openapi.vfs.VirtualFilePropertyEvent;
+import com.intellij.openapi.vfs.*;
+import org.jetbrains.annotations.NotNull;
+
+import java.io.IOException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+
+import static com.dataiku.dss.intellij.SynchronizeUtils.*;
+import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class BackgroundSynchronizer implements ApplicationComponent {
     private static final Logger log = Logger.getInstance(BackgroundSynchronizer.class);
@@ -139,7 +131,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
     private SynchronizeRequest buildRequest(MonitoredFilesIndex monitoredFilesIndex) {
         return new SynchronizeRequest(monitoredFilesIndex.getMonitoredRecipeFiles(),
-                monitoredFilesIndex.getMonitoredPlugins());
+                monitoredFilesIndex.getMonitoredPlugins(), monitoredFilesIndex.getMonitoredLibraries());
     }
 
     private class SyncProjectManagerAdapter implements VetoableProjectManagerListener {
@@ -183,6 +175,10 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                     || monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
                 scheduleSynchronization(NOW);
             }
+            if (monitoredFilesIndex.getMonitoredLibrary(event.getOriginalFile()) != null
+                    || monitoredFilesIndex.getMonitoredLibrary(event.getFile()) != null) {
+                scheduleSynchronization(NOW);
+            }
         }
 
         @Override
@@ -191,6 +187,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             VirtualFile file = event.getFile();
             if (file.isDirectory()) {
                 MonitoredPlugin deletedPlugin = monitoredFilesIndex.getMonitoredPluginFromBaseDir(file);
+                MonitoredLibrary deletedLib = monitoredFilesIndex.getMonitoredLibraryFromBaseDir(file);
                 if (deletedPlugin != null) {
                     monitoredFilesIndex.removeFromIndex(deletedPlugin);
                     try {
@@ -198,8 +195,15 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                     } catch (IOException e) {
                         log.warn(String.format("Unable to update DSS metadata after removal of plugin '%s'", deletedPlugin.plugin.pluginId), e);
                     }
+                } else if (deletedLib != null) {
+                    monitoredFilesIndex.removeFromIndex(deletedLib);
+                    try {
+                        deletedLib.metadataFile.removeLibrary(deletedLib.library.projectKey);
+                    } catch (IOException e) {
+                        log.warn(String.format("Unable to update DSS metadata after removal of library of project '%s'", deletedLib.library.projectKey), e);
+                    }
                 } else {
-                    if (monitoredFilesIndex.getMonitoredPlugin(file) != null) {
+                    if (monitoredFilesIndex.getMonitoredPlugin(file) != null || monitoredFilesIndex.getMonitoredLibrary(file) != null) {
                         if (dssSettings.isBackgroundSynchronizationEnabled()) {
                             scheduleSynchronization(NOW);
                         }
@@ -221,6 +225,14 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                                 log.warn(String.format("Unable to update DSS metadata after removal of plugin '%s'", nestedPlugin.plugin.pluginId), e);
                             }
                         }
+                        for (MonitoredLibrary nestedLib : monitoredFilesIndex.getMonitoredLibrariesNestedUnderDir(file)) {
+                            monitoredFilesIndex.removeFromIndex(nestedLib);
+                            try {
+                                nestedLib.metadataFile.removeLibrary(nestedLib.library.projectKey);
+                            } catch (IOException e) {
+                                log.warn(String.format("Unable to update DSS metadata after removal of library form project '%s'", nestedLib.library.projectKey), e);
+                            }
+                        }
                     }
                 }
             } else {
@@ -232,7 +244,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                     } catch (IOException e) {
                         log.warn(String.format("Unable to update DSS metadata after removal of file '%s'", file), e);
                     }
-                } else if (monitoredFilesIndex.getMonitoredPlugin(file) != null) {
+                } else if (monitoredFilesIndex.getMonitoredPlugin(file) != null || monitoredFilesIndex.getMonitoredLibrary(file) != null) {
                     if (dssSettings.isBackgroundSynchronizationEnabled()) {
                         scheduleSynchronization(NOW);
                     }
@@ -246,12 +258,15 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 return;
             }
             if (monitoredFilesIndex.getMonitoredPlugin(event.getOldParent()) != null
-                    || monitoredFilesIndex.getMonitoredPlugin(event.getNewParent()) != null) {
+                    || monitoredFilesIndex.getMonitoredPlugin(event.getNewParent()) != null ||
+                    monitoredFilesIndex.getMonitoredLibrary(event.getOldParent()) != null
+                    || monitoredFilesIndex.getMonitoredLibrary(event.getNewParent()) != null            ) {
                 scheduleSynchronization(NOW);
             }
         }
 
         @Override
+        // TODO libraries
         public void propertyChanged(@NotNull VirtualFilePropertyEvent event) {
             if (!dssSettings.isBackgroundSynchronizationEnabled()) {
                 return;
@@ -295,12 +310,20 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 });
             } else {
                 MonitoredPlugin monitoredPlugin = monitoredFilesIndex.getMonitoredPlugin(modifiedFile);
+                MonitoredLibrary monitoredLibrary = monitoredFilesIndex.getMonitoredLibrary((modifiedFile));
                 if (monitoredPlugin != null) {
                     ApplicationManager.getApplication().invokeLater(() -> {
                         log.info(String.format("Detected save operation on monitored file '%s'.", modifiedFile));
                         syncModifiedPluginFile(monitoredPlugin, modifiedFile);
                     });
                 }
+                if (monitoredLibrary != null) {
+                    ApplicationManager.getApplication().invokeLater(() -> {
+                        log.info(String.format("Detected save operation on monitored file '%s'.", modifiedFile));
+                        syncModifiedLibraryFile(monitoredLibrary, modifiedFile);
+                    });
+                }
+
             }
         }
 
@@ -320,6 +343,32 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                     if (trackedFile.contentHash == remoteHash) {
                         log.info(String.format("Plugin file '%s' has been locally modified. Saving it onto the remote DSS instance", path));
                         savePluginFileToDss(dssSettings, monitoredPlugin, path, fileContent, true);
+                    } else {
+                        // Conflict detected, run a global synchronization to correctly handle this corner-case.
+                        scheduleSynchronization(NOW);
+                    }
+                }
+            } catch (IOException e) {
+                log.warn(String.format("Unable to synchronize plugin file '%s'.", path), e);
+            }
+        }
+
+        private void syncModifiedLibraryFile(MonitoredLibrary monitoredLibrary, VirtualFile modifiedFile) {
+            String path = VirtualFileManager.getRelativePath(monitoredLibrary.libraryBaseDir, modifiedFile);
+            DssLibraryFileMetadata trackedFile = monitoredLibrary.findFile(path);
+            try {
+                byte[] fileContent = ReadAction.compute(() -> VirtualFileManager.readVirtualFileAsByteArray(modifiedFile));
+                if (trackedFile == null) {
+                    // New file, send it to DSS
+                    saveLibraryFileToDss(dssSettings, monitoredLibrary, path, fileContent, true);
+                } else if (getContentHash(fileContent) != trackedFile.contentHash) {
+                    DssInstance dssInstance = dssSettings.getDssInstanceMandatory(monitoredLibrary.library.instance);
+                    DSSClient dssClient = dssInstance.createClient();
+                    byte[] remoteData = dssClient.downloadLibraryFile(monitoredLibrary.library.projectKey, trackedFile.remotePath);
+                    int remoteHash = getContentHash(remoteData);
+                    if (trackedFile.contentHash == remoteHash) {
+                        log.info(String.format("library file '%s' has been locally modified. Saving it onto the remote DSS instance", path));
+                        saveLibraryFileToDss(dssSettings, monitoredLibrary, path, fileContent, true);
                     } else {
                         // Conflict detected, run a global synchronization to correctly handle this corner-case.
                         scheduleSynchronization(NOW);

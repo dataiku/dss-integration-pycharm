@@ -1,23 +1,29 @@
 package com.dataiku.dss.intellij;
 
-import static com.google.common.base.Charsets.UTF_8;
-
-import java.io.IOException;
-
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
+import com.dataiku.dss.model.metadata.DssLibraryFileMetadata;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
 import com.intellij.openapi.vfs.VirtualFile;
+
+import java.io.IOException;
+
+import static com.google.common.base.Charsets.UTF_8;
 
 public class SynchronizeUtils {
 
     public static void savePluginFileToDss(DssSettings dssSettings, MonitoredPlugin monitoredPlugin, String path, byte[] fileContent, boolean flushMetadata) throws IOException {
         DSSClient dssClient = dssSettings.getDssClient(monitoredPlugin.plugin.instance);
         savePluginFileToDss(dssClient, monitoredPlugin, path, fileContent, flushMetadata);
+    }
+
+    public static void saveLibraryFileToDss(DssSettings dssSettings, MonitoredLibrary monitoredLib, String path, byte[] fileContent, boolean flushMetadata) throws IOException {
+        DSSClient dssClient = dssSettings.getDssClient(monitoredLib.library.instance);
+        saveLibraryFileToDss(dssClient, monitoredLib, path, fileContent, flushMetadata);
     }
 
     public static void saveRecipeToDss(DssSettings dssSettings, MonitoredRecipeFile monitoredFile, String fileContent) throws IOException {
@@ -40,6 +46,19 @@ public class SynchronizeUtils {
                 fileContent);
         monitoredPlugin.metadataFile.addOrUpdatePluginFile(pluginFileMetadata, flushMetadata);
     }
+
+    public static void saveLibraryFileToDss(DSSClient dssClient, MonitoredLibrary monitoredLib, String path, byte[] fileContent, boolean flushMetadata) throws IOException {
+        dssClient.uploadLibraryFile(monitoredLib.library.projectKey, path, fileContent);
+        DssLibraryFileMetadata libraryFileMetadata = new DssLibraryFileMetadata(
+                monitoredLib.library.instance,
+                monitoredLib.library.projectKey,
+                monitoredLib.library.projectKey + "/" + path,
+                path,
+                VirtualFileManager.getContentHash(fileContent),
+                fileContent);
+        monitoredLib.metadataFile.addOrUpdateLibraryFile(libraryFileMetadata, flushMetadata);
+    }
+
 
     public static void saveRecipeToDss(DSSClient dssClient, MonitoredRecipeFile monitoredFile, String fileContent, boolean flushMetadata) throws IOException {
         // File has been updated locally, it needs to be sent to DSS.

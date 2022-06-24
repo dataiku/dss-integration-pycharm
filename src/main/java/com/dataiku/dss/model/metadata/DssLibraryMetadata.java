@@ -4,21 +4,21 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public class DssPluginMetadata implements DssFileSystemMetadataInterface {
+public class DssLibraryMetadata implements DssFileSystemMetadataInterface {
     public String instance;
-    public String pluginId;
+    public String projectKey;
     public String path;
-    public List<DssPluginFileMetadata> files;
+    public List<DssLibraryFileMetadata> files;
 
-    public DssPluginMetadata(String instance, String pluginId, String path) {
+    public DssLibraryMetadata(String instance, String projectKey, String path) {
         this.instance = instance;
-        this.pluginId = pluginId;
+        this.projectKey = projectKey;
         this.path = path;
         this.files = new ArrayList<>();
     }
 
-    public DssPluginFileMetadata findFile(String path) {
-        for (DssPluginFileMetadata file : files) {
+    public DssLibraryFileMetadata findFile(String path) {
+        for (DssLibraryFileMetadata file : files) {
             if (path.equals(file.remotePath)) {
                 return file;
             }
@@ -27,12 +27,11 @@ public class DssPluginMetadata implements DssFileSystemMetadataInterface {
     }
 
     public void removeFile(String path) {
-        for (Iterator<DssPluginFileMetadata> iterator = files.iterator(); iterator.hasNext(); ) {
+        for (Iterator<DssLibraryFileMetadata> iterator = files.iterator(); iterator.hasNext(); ) {
             if (path.equals(iterator.next().remotePath)) {
                 iterator.remove();
                 return;
             }
         }
     }
-
 }

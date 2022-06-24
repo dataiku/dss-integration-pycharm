@@ -1,22 +1,14 @@
 package com.dataiku.dss.intellij.actions.merge;
 
-import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
-
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import org.jetbrains.annotations.NotNull;
-
 import com.dataiku.dss.Logger;
+import com.dataiku.dss.intellij.MonitoredLibrary;
 import com.dataiku.dss.intellij.MonitoredPlugin;
 import com.dataiku.dss.intellij.SynchronizeSummary;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.DSSClient;
+import com.dataiku.dss.model.metadata.DssLibraryFileMetadata;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.google.common.base.Charsets;
 import com.intellij.openapi.project.Project;
@@ -27,6 +19,15 @@ import com.intellij.openapi.vcs.merge.MergeDialogCustomizer;
 import com.intellij.openapi.vcs.merge.MergeProvider;
 import com.intellij.openapi.vcs.merge.MultipleFileMergeDialog;
 import com.intellij.openapi.vfs.VirtualFile;
+import org.jetbrains.annotations.NotNull;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
 
 public class ResolveConflictsDialog {
     private static final Logger log = Logger.getInstance(ResolveConflictsDialog.class);
@@ -88,6 +89,14 @@ public class ResolveConflictsDialog {
                     log.error("Unable to save merged plugin file.", e);
                     Messages.showDialog("Unable to save merged plugin file.", "I/O Error", new String[]{Messages.OK_BUTTON}, 0, null);
                 }
+            } else if (monitoredFileConflict instanceof  MonitoredLibraryFileConflict) {
+                try {
+                    saveMergeLibraryFile(virtualFile, (MonitoredLibraryFileConflict) monitoredFileConflict);
+                    monitoredFileConflict.resolved = true;
+                } catch (RuntimeException | IOException e) {
+                    log.error("Unable to save merged library file.", e);
+                    Messages.showDialog("Unable to save merged library file.", "I/O Error", new String[]{Messages.OK_BUTTON}, 0, null);
+                }
             }
         }
 
@@ -125,6 +134,24 @@ public class ResolveConflictsDialog {
         pluginFile.contentHash = VirtualFileManager.getContentHash(mergedData);
         plugin.metadataFile.addOrUpdatePluginFile(pluginFile, true);
     }
+
+    private void saveMergeLibraryFile(@NotNull VirtualFile virtualFile, MonitoredLibraryFileConflict libraryFileConflict) throws IOException {
+        MonitoredLibrary library = libraryFileConflict.library;
+        DssLibraryFileMetadata libraryFile = libraryFileConflict.libraryFile;
+        String instanceName = library.library.instance;
+        DssInstance dssInstance = DssSettings.getInstance().getDssInstance(instanceName);
+        if (dssInstance == null) {
+            throw new IllegalStateException(String.format("Unknown DSS instance: %s", instanceName));
+        }
+        DSSClient dssClient = dssInstance.createClient();
+        byte[] mergedData = VirtualFileManager.readVirtualFileAsByteArray(virtualFile);
+        dssClient.uploadLibraryFile(library.library.projectKey, libraryFile.path, mergedData);
+
+        libraryFile.data = mergedData;
+        libraryFile.contentHash = VirtualFileManager.getContentHash(mergedData);
+        library.metadataFile.addOrUpdateLibraryFile(libraryFile, true);
+    }
+
 
     private static Map<String, MonitoredFileConflict> indexConflicts(SynchronizeSummary summary) {
         Map<String, MonitoredFileConflict> result = new HashMap<>();

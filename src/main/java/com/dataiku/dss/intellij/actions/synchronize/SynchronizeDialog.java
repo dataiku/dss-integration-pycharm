@@ -1,24 +1,20 @@
 package com.dataiku.dss.intellij.actions.synchronize;
 
-import java.util.List;
-import javax.swing.*;
-import javax.swing.tree.DefaultTreeModel;
-import javax.swing.tree.TreeNode;
-
-import org.jetbrains.annotations.Nullable;
-
 import com.dataiku.dss.intellij.MonitoredFilesIndex;
+import com.dataiku.dss.intellij.MonitoredLibrary;
 import com.dataiku.dss.intellij.MonitoredPlugin;
 import com.dataiku.dss.intellij.MonitoredRecipeFile;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeDssInstance;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugin;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipe;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRoot;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeTree;
+import com.dataiku.dss.intellij.actions.synchronize.nodes.*;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.DialogWrapper;
+import org.jetbrains.annotations.Nullable;
+
+import javax.swing.*;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreeNode;
+import java.util.List;
 
 public class SynchronizeDialog extends DialogWrapper {
 
@@ -82,6 +78,7 @@ public class SynchronizeDialog extends DialogWrapper {
         SynchronizeNodeRoot root = new SynchronizeNodeRoot();
         addRecipes(root, monitoredFilesIndex.getMonitoredRecipeFiles());
         addPlugins(root, monitoredFilesIndex.getMonitoredPlugins());
+        addLibraries(root, monitoredFilesIndex.getMonitoredLibraries());
 
         SynchronizeModel result = new SynchronizeModel();
         result.selectionRootNode = root;
@@ -94,6 +91,16 @@ public class SynchronizeDialog extends DialogWrapper {
             if (dssInstance != null) {
                 SynchronizeNodePlugin pluginTreeNode = new SynchronizeNodePlugin(monitoredPlugin);
                 root.getOrAddInstanceNode(dssInstance).getOrAddPluginsNode().add(pluginTreeNode);
+            }
+        });
+    }
+
+    private void addLibraries(SynchronizeNodeRoot root, List<MonitoredLibrary> libraries) {
+        libraries.forEach(monitoredLibrary -> {
+            DssInstance dssInstance = DssSettings.getInstance().getDssInstance(monitoredLibrary.library.instance);
+            if (dssInstance != null) {
+                SynchronizeNodeLibrary libraryTreeNode = new SynchronizeNodeLibrary(monitoredLibrary);
+                root.getOrAddInstanceNode(dssInstance).getOrAddLibrariesNode().add(libraryTreeNode);
             }
         });
     }
