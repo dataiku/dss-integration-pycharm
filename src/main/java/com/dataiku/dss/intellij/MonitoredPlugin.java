@@ -21,7 +21,7 @@ public class MonitoredPlugin {
     }
 
     public DssPluginFileMetadata findFile(String path) {
-        return plugin.findFile(path);
+        return (DssPluginFileMetadata) plugin.findFile(path);
     }
 
     public void removeFile(String path) {

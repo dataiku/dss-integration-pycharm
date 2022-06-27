@@ -1,34 +1,16 @@
 package com.dataiku.dss.model.metadata;
 
-public class DssLibraryFileMetadata {
-    public final String instance;
+public class DssLibraryFileMetadata extends DssFileMetadata {
     public final String projectKey;
-    public final String path;
-    public final String remotePath;
-    public int contentHash;
-    public String dataBlobId;
-    public byte[] data; // Present if not flushed yet into a data-blob
 
     public DssLibraryFileMetadata(String instance, String projectKey, String path, String remotePath, int contentHash, String dataBlobId) {
-        this.instance = instance;
-        this.path = path;
+        super(instance, projectKey, path, remotePath, contentHash, dataBlobId);
         this.projectKey = projectKey;
-        this.remotePath = remotePath;
-        this.contentHash = contentHash;
-        this.dataBlobId = dataBlobId;
     }
 
     public DssLibraryFileMetadata(String instance, String projectKey, String path, String remotePath, int contentHash, byte[] data) {
-        this.instance = instance;
+        super(instance, projectKey, path, remotePath, contentHash, data);
         this.projectKey = projectKey;
-        this.path = path;
-        this.remotePath = remotePath;
-        this.contentHash = contentHash;
-        this.data = data;
     }
 
-    @Override
-    public String toString() {
-        return instance + '/' + remotePath;
-    }
 }

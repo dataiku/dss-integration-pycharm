@@ -287,9 +287,14 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                         });
                     } else {
                         MonitoredPlugin monitoredPlugin = monitoredFilesIndex.getMonitoredPlugin(file);
+                        MonitoredLibrary monitoredLibrary = monitoredFilesIndex.getMonitoredLibrary(file);
                         if (monitoredPlugin != null) {
                             log.info(String.format("Detected rename operation on file '%s' located inside monitored plugin directory.", file.getCanonicalPath()));
                             scheduleSynchronization(NOW);
+                        } else if (monitoredLibrary != null) {
+                            log.info(String.format("Detected rename operation on file '%s' located inside monitored library directory.", file.getCanonicalPath()));
+                            scheduleSynchronization(NOW);
+
                         }
                     }
                 }

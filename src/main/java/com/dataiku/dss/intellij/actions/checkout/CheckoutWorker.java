@@ -2,6 +2,7 @@ package com.dataiku.dss.intellij.actions.checkout;
 
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.*;
+import com.dataiku.dss.intellij.actions.checkout.CheckoutModel.ItemType;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.RecipeUtils;
@@ -59,7 +60,7 @@ public class CheckoutWorker {
             wt1.track("pycharm-checkout", tracked);
         }
 
-        if (model.itemType == CheckoutModel.ItemType.RECIPE) {
+        if (model.itemType == ItemType.RECIPE) {
             return checkoutRecipe(model);
         } else if (model.itemType == CheckoutModel.ItemType.PLUGIN){
             return checkoutPlugin(model);
@@ -119,6 +120,7 @@ public class CheckoutWorker {
         return createdFileList;
     }
 
+
     private List<VirtualFile> checkoutLibrary(CheckoutModel model) throws IOException {
         // Retrieve project key
         String projectKey = model.libraryProjectKey;
@@ -135,7 +137,7 @@ public class CheckoutWorker {
         // Checkout library files
         List<FolderContent> folderContents = dssClient.listLibraryFiles(projectKey);
 
-        checkoutLibraryFolder(libraryMetadata, projectKey, createdFileList, folder, folderContents);
+        checkoutFolder(libraryMetadata, projectKey, createdFileList, folder, folderContents);
 
         metadata.addOrUpdateLibrary(libraryMetadata);
 
@@ -168,7 +170,7 @@ public class CheckoutWorker {
 
             // Checkout plugin files
             List<FolderContent> folderContents = dssClient.listPluginFiles(plugin.id);
-            checkoutPluginFolder(pluginMetadata, plugin.id, createdFileList, folder, folderContents);
+            checkoutFolder(pluginMetadata, plugin.id, createdFileList, folder, folderContents);
 
             metadata.addOrUpdatePlugin(pluginMetadata);
 
@@ -181,7 +183,8 @@ public class CheckoutWorker {
         return importantFiles.isEmpty() ? createdFileList : importantFiles;
     }
 
-    private void checkoutPluginFolder(DssPluginMetadata metadata, String id, List<VirtualFile> createdFileList, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
+
+    private void checkoutFolder(DssFileSystemMetadata metadata, String id, List<VirtualFile> createdFileList, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
         for (FolderContent remoteFile : folderContents) {
             if (remoteFile.mimeType == null || "null".equals(remoteFile.mimeType)) {
                 // Folder
@@ -191,7 +194,7 @@ public class CheckoutWorker {
                 VirtualFile localFile = vFileManager.getOrCreateVirtualDirectory(parent, remoteFile.name);
 
                 // Write metadata
-                metadata.files.add(new DssPluginFileMetadata(
+                metadata.files.add(new DssFileMetadata(
                         model.server.id,
                         id,
                         id + "/" + remoteFile.path,
@@ -201,7 +204,7 @@ public class CheckoutWorker {
 
                 // Recurse if necessary
                 if (remoteFile.children != null && !remoteFile.children.isEmpty()) {
-                    checkoutPluginFolder(metadata, id, createdFileList, localFile, remoteFile.children);
+                    checkoutFolder(metadata, id, createdFileList, localFile, remoteFile.children);
                 }
             } else {
                 // Regular file
@@ -213,7 +216,7 @@ public class CheckoutWorker {
                 vFileManager.writeToVirtualFile(localFile, fileContent, UTF_8);
 
                 // Write metadata
-                metadata.files.add(new DssPluginFileMetadata(
+                metadata.files.add(new DssFileMetadata(
                         model.server.id,
                         id,
                         id + "/" + remoteFile.path,
@@ -226,50 +229,6 @@ public class CheckoutWorker {
         }
     }
 
-    private void checkoutLibraryFolder(DssLibraryMetadata metadata, String id, List<VirtualFile> createdFileList, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
-        for (FolderContent remoteFile : folderContents) {
-            if (remoteFile.mimeType == null || "null".equals(remoteFile.mimeType)) {
-                // Folder
-                log.info(String.format("Checkout plugin folder '%s' (path=%s)", remoteFile.name, remoteFile.path));
-
-                // Create folder
-                VirtualFile localFile = vFileManager.getOrCreateVirtualDirectory(parent, remoteFile.name);
-
-                // Write metadata
-                metadata.files.add(new DssLibraryFileMetadata(
-                        model.server.id,
-                        id,
-                        id + "/" + remoteFile.path,
-                        remoteFile.path,
-                        0,
-                        (byte[]) null));
-
-                // Recurse if necessary
-                if (remoteFile.children != null && !remoteFile.children.isEmpty()) {
-                    checkoutLibraryFolder(metadata, id, createdFileList, localFile, remoteFile.children);
-                }
-            } else {
-                // Regular file
-                log.info(String.format("Checkout plugin file '%s' (path=%s)", remoteFile.name, remoteFile.path));
-
-                VirtualFile localFile = vFileManager.getOrCreateVirtualFile(parent, remoteFile.name);
-
-                byte[] fileContent = remoteFile.size == 0 ? new byte[0] : model.serverClient.downloadLibraryFile(id, remoteFile.path);
-                vFileManager.writeToVirtualFile(localFile, fileContent, UTF_8);
-
-                // Write metadata
-                metadata.files.add(new DssLibraryFileMetadata(
-                        model.server.id,
-                        id,
-                        id + "/" + remoteFile.path,
-                        remoteFile.path,
-                        getContentHash(fileContent),
-                        fileContent));
-
-                createdFileList.add(localFile);
-            }
-        }
-    }
 
     private static String getFilename(Recipe recipe) {
         return recipe.name + RecipeUtils.extension(recipe.type);

@@ -67,7 +67,7 @@ public class MetadataFile {
         Preconditions.checkNotNull(library.path, "library.path");
         Preconditions.checkNotNull(library.instance, "library.instance");
 
-        // Update our recipe
+        // Update our recipes
         metadata.libraries.removeIf(p -> library.projectKey.equals(p.projectKey));
         metadata.libraries.add(library);
 
@@ -238,6 +238,12 @@ public class MetadataFile {
     }
 
     public byte[] readDataBlob(String blobId) throws IOException {
+        log.info("moments before disaster");
+        log.info(blobId);
+        log.info(BLOBS_DIRECTORY);
+        log.info(metadataFile.getCanonicalPath());
+        log.info(metadataFile.getParentFile().toString());
+
         File blobIdFile = new File(new File(metadataFile.getParentFile(), BLOBS_DIRECTORY), blobId);
         if (blobIdFile.exists()) {
             try (InputStream in = new GZIPInputStream(new FileInputStream(blobIdFile))) {

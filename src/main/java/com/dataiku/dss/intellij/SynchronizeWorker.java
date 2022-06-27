@@ -66,9 +66,6 @@ public class SynchronizeWorker {
 
         log.info("about to start synchronizing libraries");
         for (MonitoredLibrary library : request.libraries) {
-            log.info("in here !!!");
-            log.info(library.library.instance);
-            log.info("there");
             DssInstance dssInstance = settings.getDssInstance(library.library.instance);
             if (dssInstance != null) {
                 synchronizeLibrary(dssInstance, library);
@@ -458,6 +455,12 @@ public class SynchronizeWorker {
         String projectKey = monitoredLibrary.library.projectKey;
         for (FolderContent libraryFile : folderContents) {
             DssLibraryFileMetadata trackedFile = monitoredLibrary.findFile(libraryFile.path);
+            log.info("here is the tracked file : ");
+            log.info(trackedFile.projectKey);
+            log.info(trackedFile.path);
+            log.info(trackedFile.remotePath);
+            log.info(trackedFile.dataBlobId);
+            log.info(Integer.toString(trackedFile.contentHash));
             if (libraryFile.mimeType == null || "null".equals(libraryFile.mimeType)) {
                 // Folder
                 log.info(String.format("Synchronize library folder '%s'", libraryFile.path));
@@ -603,7 +606,7 @@ public class SynchronizeWorker {
 
     private void removePluginFileMetadata(MonitoredPlugin monitoredPlugin, String path) {
         DssPluginMetadata pluginMetadata = monitoredPlugin.plugin;
-        DssPluginFileMetadata pluginFileMetadata = pluginMetadata.findFile(path);
+        DssPluginFileMetadata pluginFileMetadata = (DssPluginFileMetadata) pluginMetadata.findFile(path);
         if (pluginFileMetadata != null) {
             pluginMetadata.files.remove(pluginFileMetadata);
         }
@@ -612,7 +615,7 @@ public class SynchronizeWorker {
 
     private void removeLibraryFileMetadata(MonitoredLibrary monitoredLibrary, String path) {
         DssLibraryMetadata libraryMetadata = monitoredLibrary.library;
-        DssLibraryFileMetadata libraryFileMetadata = libraryMetadata.findFile(path);
+        DssLibraryFileMetadata libraryFileMetadata = (DssLibraryFileMetadata) libraryMetadata.findFile(path);
         if (libraryFileMetadata != null) {
             libraryMetadata.files.remove(libraryFileMetadata);
         }

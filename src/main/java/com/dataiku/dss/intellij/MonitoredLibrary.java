@@ -21,7 +21,7 @@ public class MonitoredLibrary {
     }
 
     public DssLibraryFileMetadata findFile(String path) {
-        return library.findFile(path);
+        return (DssLibraryFileMetadata) library.findFile(path);
     }
 
     public void removeFile(String path) {
