@@ -152,7 +152,6 @@ public class ResolveConflictsDialog {
         library.metadataFile.addOrUpdateLibraryFile(libraryFile, true);
     }
 
-
     private static Map<String, MonitoredFileConflict> indexConflicts(SynchronizeSummary summary) {
         Map<String, MonitoredFileConflict> result = new HashMap<>();
         summary.fileConflicts.forEach(conflict -> result.put(conflict.file.getUrl(), conflict));

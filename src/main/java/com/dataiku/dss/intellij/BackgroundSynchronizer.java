@@ -185,21 +185,13 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             // We want to de-index files
             VirtualFile file = event.getFile();
             if (file.isDirectory()) {
-                MonitoredPlugin deletedPlugin = monitoredFilesIndex.getMonitoredPluginFromBaseDir(file);
-                MonitoredLibrary deletedLib = monitoredFilesIndex.getMonitoredLibraryFromBaseDir(file);
-                if (deletedPlugin != null) {
-                    monitoredFilesIndex.removeFromIndex(deletedPlugin);
+                MonitoredFileSystem deletedFileSystem = monitoredFilesIndex.getMonitoredFileSystemFromBaseDir(file);
+                if (deletedFileSystem != null) {
+                    monitoredFilesIndex.removeFromIndex(deletedFileSystem);
                     try {
-                        deletedPlugin.metadataFile.removePlugin(deletedPlugin.plugin.pluginId);
+                        deletedFileSystem.metadataFile.removePlugin(deletedFileSystem.fsMetadata.id);
                     } catch (IOException e) {
-                        log.warn(String.format("Unable to update DSS metadata after removal of plugin '%s'", deletedPlugin.plugin.pluginId), e);
-                    }
-                } else if (deletedLib != null) {
-                    monitoredFilesIndex.removeFromIndex(deletedLib);
-                    try {
-                        deletedLib.metadataFile.removeLibrary(deletedLib.library.projectKey);
-                    } catch (IOException e) {
-                        log.warn(String.format("Unable to update DSS metadata after removal of library of project '%s'", deletedLib.library.projectKey), e);
+                        log.warn(String.format("Unable to update DSS metadata after removal of file systelm '%s'", deletedFileSystem.fsMetadata.id), e);
                     }
                 } else {
                     if (monitoredFilesIndex.getMonitoredPlugin(file) != null || monitoredFilesIndex.getMonitoredLibrary(file) != null) {
@@ -216,6 +208,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                                 log.warn(String.format("Unable to update DSS metadata after removal of file '%s'", file), e);
                             }
                         }
+
                         for (MonitoredPlugin nestedPlugin : monitoredFilesIndex.getMonitoredPluginsNestedUnderDir(file)) {
                             monitoredFilesIndex.removeFromIndex(nestedPlugin);
                             try {
@@ -265,7 +258,6 @@ public class BackgroundSynchronizer implements ApplicationComponent {
         }
 
         @Override
-        // TODO libraries
         public void propertyChanged(@NotNull VirtualFilePropertyEvent event) {
             if (!dssSettings.isBackgroundSynchronizationEnabled()) {
                 return;
@@ -331,37 +323,37 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             }
         }
 
-        private void syncModifiedLibraryOrPluginFile(MonitoredFileSystemObject monitoredFSObject, VirtualFile modifiedFile) {
-            String path = VirtualFileManager.getRelativePath(monitoredFSObject.baseDir, modifiedFile);
-            DssFileMetadata trackedFile = monitoredFSObject.findFile(path);
+        private void syncModifiedLibraryOrPluginFile(MonitoredFileSystem monitoredFS, VirtualFile modifiedFile) {
+            String path = VirtualFileManager.getRelativePath(monitoredFS.baseDir, modifiedFile);
+            DssFileMetadata trackedFile = monitoredFS.findFile(path);
             try {
                 byte[] fileContent = ReadAction.compute(() -> VirtualFileManager.readVirtualFileAsByteArray(modifiedFile));
                 if (trackedFile == null) {
                     // New file, send it to DSS
-                    if (monitoredFSObject instanceof MonitoredPlugin) {
-                        savePluginFileToDss(dssSettings, (MonitoredPlugin) monitoredFSObject, path, fileContent, true);
+                    if (monitoredFS instanceof MonitoredPlugin) {
+                        savePluginFileToDss(dssSettings, (MonitoredPlugin) monitoredFS, path, fileContent, true);
                     } else {
-                        saveLibraryFileToDss(dssSettings, (MonitoredLibrary) monitoredFSObject, path, fileContent, true);
+                        saveLibraryFileToDss(dssSettings, (MonitoredLibrary) monitoredFS, path, fileContent, true);
                     }
 
                 } else if (getContentHash(fileContent) != trackedFile.contentHash) {
-                    DssInstance dssInstance = dssSettings.getDssInstanceMandatory(monitoredFSObject.fsMetadata.instance);
+                    DssInstance dssInstance = dssSettings.getDssInstanceMandatory(monitoredFS.fsMetadata.instance);
                     DSSClient dssClient = dssInstance.createClient();
 
                     byte[] remoteData;
-                    if (monitoredFSObject instanceof MonitoredPlugin) {
-                         remoteData = dssClient.downloadPluginFile(monitoredFSObject.fsMetadata.id, trackedFile.remotePath);
+                    if (monitoredFS instanceof MonitoredPlugin) {
+                         remoteData = dssClient.downloadPluginFile(monitoredFS.fsMetadata.id, trackedFile.remotePath);
                     } else {
-                        remoteData = dssClient.downloadLibraryFile(monitoredFSObject.fsMetadata.id, trackedFile.remotePath);
+                        remoteData = dssClient.downloadLibraryFile(monitoredFS.fsMetadata.id, trackedFile.remotePath);
                     }
 
                     int remoteHash = getContentHash(remoteData);
                     if (trackedFile.contentHash == remoteHash) {
                         log.info(String.format("File '%s' has been locally modified. Saving it onto the remote DSS instance", path));
-                        if (monitoredFSObject instanceof MonitoredPlugin) {
-                            savePluginFileToDss(dssSettings, (MonitoredPlugin) monitoredFSObject, path, fileContent, true);
+                        if (monitoredFS instanceof MonitoredPlugin) {
+                            savePluginFileToDss(dssSettings, (MonitoredPlugin) monitoredFS, path, fileContent, true);
                         } else {
-                            saveLibraryFileToDss(dssSettings, (MonitoredLibrary) monitoredFSObject, path, fileContent, true);
+                            saveLibraryFileToDss(dssSettings, (MonitoredLibrary) monitoredFS, path, fileContent, true);
                         }
                     } else {
                         // Conflict detected, run a global synchronization to correctly handle this corner-case.
