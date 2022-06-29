@@ -6,8 +6,7 @@ import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
-import com.dataiku.dss.model.metadata.DssLibraryFileMetadata;
-import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
+import com.dataiku.dss.model.metadata.DssFileMetadata;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.components.ApplicationComponent;
@@ -319,61 +318,44 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 if (monitoredPlugin != null) {
                     ApplicationManager.getApplication().invokeLater(() -> {
                         log.info(String.format("Detected save operation on monitored file '%s'.", modifiedFile));
-                        syncModifiedPluginFile(monitoredPlugin, modifiedFile);
+                        syncModifiedLibraryOrPluginFile(monitoredPlugin, modifiedFile);
                     });
                 }
                 if (monitoredLibrary != null) {
                     ApplicationManager.getApplication().invokeLater(() -> {
                         log.info(String.format("Detected save operation on monitored file '%s'.", modifiedFile));
-                        syncModifiedLibraryFile(monitoredLibrary, modifiedFile);
+                        syncModifiedLibraryOrPluginFile(monitoredLibrary, modifiedFile);
                     });
                 }
 
             }
         }
 
-        private void syncModifiedPluginFile(MonitoredPlugin monitoredPlugin, VirtualFile modifiedFile) {
-            String path = VirtualFileManager.getRelativePath(monitoredPlugin.pluginBaseDir, modifiedFile);
-            DssPluginFileMetadata trackedFile = monitoredPlugin.findFile(path);
+        private void syncModifiedLibraryOrPluginFile(MonitoredFileSystemObject monitoredFSObject, VirtualFile modifiedFile) {
+            String path = VirtualFileManager.getRelativePath(monitoredFSObject.baseDir, modifiedFile);
+            DssFileMetadata trackedFile = monitoredFSObject.findFile(path);
             try {
                 byte[] fileContent = ReadAction.compute(() -> VirtualFileManager.readVirtualFileAsByteArray(modifiedFile));
                 if (trackedFile == null) {
                     // New file, send it to DSS
-                    savePluginFileToDss(dssSettings, monitoredPlugin, path, fileContent, true);
-                } else if (getContentHash(fileContent) != trackedFile.contentHash) {
-                    DssInstance dssInstance = dssSettings.getDssInstanceMandatory(monitoredPlugin.plugin.instance);
-                    DSSClient dssClient = dssInstance.createClient();
-                    byte[] remoteData = dssClient.downloadPluginFile(monitoredPlugin.plugin.pluginId, trackedFile.remotePath);
-                    int remoteHash = getContentHash(remoteData);
-                    if (trackedFile.contentHash == remoteHash) {
-                        log.info(String.format("Plugin file '%s' has been locally modified. Saving it onto the remote DSS instance", path));
-                        savePluginFileToDss(dssSettings, monitoredPlugin, path, fileContent, true);
+                    if (monitoredFSObject instanceof MonitoredPlugin) {
+                        savePluginFileToDss(dssSettings, (MonitoredPlugin) monitoredFSObject, path, fileContent, true);
                     } else {
-                        // Conflict detected, run a global synchronization to correctly handle this corner-case.
-                        scheduleSynchronization(NOW);
+                        saveLibraryFileToDss(dssSettings, (MonitoredLibrary) monitoredFSObject, path, fileContent, true);
                     }
-                }
-            } catch (IOException e) {
-                log.warn(String.format("Unable to synchronize plugin file '%s'.", path), e);
-            }
-        }
 
-        private void syncModifiedLibraryFile(MonitoredLibrary monitoredLibrary, VirtualFile modifiedFile) {
-            String path = VirtualFileManager.getRelativePath(monitoredLibrary.libraryBaseDir, modifiedFile);
-            DssLibraryFileMetadata trackedFile = monitoredLibrary.findFile(path);
-            try {
-                byte[] fileContent = ReadAction.compute(() -> VirtualFileManager.readVirtualFileAsByteArray(modifiedFile));
-                if (trackedFile == null) {
-                    // New file, send it to DSS
-                    saveLibraryFileToDss(dssSettings, monitoredLibrary, path, fileContent, true);
                 } else if (getContentHash(fileContent) != trackedFile.contentHash) {
-                    DssInstance dssInstance = dssSettings.getDssInstanceMandatory(monitoredLibrary.library.instance);
+                    DssInstance dssInstance = dssSettings.getDssInstanceMandatory(monitoredFSObject.fsMetadata.instance);
                     DSSClient dssClient = dssInstance.createClient();
-                    byte[] remoteData = dssClient.downloadLibraryFile(monitoredLibrary.library.projectKey, trackedFile.remotePath);
+                    byte[] remoteData = dssClient.downloadPluginFile(monitoredFSObject.fsMetadata.id, trackedFile.remotePath);
                     int remoteHash = getContentHash(remoteData);
                     if (trackedFile.contentHash == remoteHash) {
-                        log.info(String.format("library file '%s' has been locally modified. Saving it onto the remote DSS instance", path));
-                        saveLibraryFileToDss(dssSettings, monitoredLibrary, path, fileContent, true);
+                        log.info(String.format("File '%s' has been locally modified. Saving it onto the remote DSS instance", path));
+                        if (monitoredFSObject instanceof MonitoredPlugin) {
+                            savePluginFileToDss(dssSettings, (MonitoredPlugin) monitoredFSObject, path, fileContent, true);
+                        } else {
+                            saveLibraryFileToDss(dssSettings, (MonitoredLibrary) monitoredFSObject, path, fileContent, true);
+                        }
                     } else {
                         // Conflict detected, run a global synchronization to correctly handle this corner-case.
                         scheduleSynchronization(NOW);

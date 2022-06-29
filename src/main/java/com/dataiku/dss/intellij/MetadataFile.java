@@ -180,14 +180,24 @@ public class MetadataFile {
             }
         }
         for (DssPluginMetadata plugin : metadata.plugins) {
-            List<DssPluginFileMetadata> files = plugin.files;
-            for (DssPluginFileMetadata file : files) {
+            List<DssFileMetadata> files = plugin.files;
+            for (DssFileMetadata file : files) {
                 if (file.data != null) {
                     file.dataBlobId = writeDataBlob(file.data);
                     file.data = null;
                 }
             }
         }
+        for (DssLibraryMetadata library : metadata.libraries) {
+            List<DssFileMetadata> files = library.files;
+            for (DssFileMetadata file : files) {
+                if (file.data != null) {
+                    file.dataBlobId = writeDataBlob(file.data);
+                    file.data = null;
+                }
+            }
+        }
+
     }
 
     @NotNull
@@ -199,13 +209,23 @@ public class MetadataFile {
             }
         }
         for (DssPluginMetadata plugin : metadata.plugins) {
-            List<DssPluginFileMetadata> files = plugin.files;
-            for (DssPluginFileMetadata file : files) {
+            List<DssFileMetadata> files = plugin.files;
+            for (DssFileMetadata file : files) {
                 if (file.dataBlobId != null) {
                     referencedBlobIds.add(file.dataBlobId);
                 }
             }
         }
+
+        for (DssLibraryMetadata library : metadata.libraries) {
+            List<DssFileMetadata> files = library.files;
+            for (DssFileMetadata file : files) {
+                if (file.dataBlobId != null) {
+                    referencedBlobIds.add(file.dataBlobId);
+                }
+            }
+        }
+
         return referencedBlobIds;
     }
 
@@ -238,12 +258,6 @@ public class MetadataFile {
     }
 
     public byte[] readDataBlob(String blobId) throws IOException {
-        log.info("moments before disaster");
-        log.info(blobId);
-        log.info(BLOBS_DIRECTORY);
-        log.info(metadataFile.getCanonicalPath());
-        log.info(metadataFile.getParentFile().toString());
-
         File blobIdFile = new File(new File(metadataFile.getParentFile(), BLOBS_DIRECTORY), blobId);
         if (blobIdFile.exists()) {
             try (InputStream in = new GZIPInputStream(new FileInputStream(blobIdFile))) {

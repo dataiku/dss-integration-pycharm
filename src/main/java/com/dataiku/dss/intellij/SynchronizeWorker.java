@@ -12,10 +12,10 @@ import com.dataiku.dss.model.dss.DssException;
 import com.dataiku.dss.model.dss.FolderContent;
 import com.dataiku.dss.model.dss.Recipe;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
+import com.dataiku.dss.model.metadata.DssFileMetadata;
+import com.dataiku.dss.model.metadata.DssFileSystemMetadata;
 import com.dataiku.dss.model.metadata.DssLibraryFileMetadata;
-import com.dataiku.dss.model.metadata.DssLibraryMetadata;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
-import com.dataiku.dss.model.metadata.DssPluginMetadata;
 import com.google.common.base.Preconditions;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VfsUtilCore;
@@ -60,7 +60,7 @@ public class SynchronizeWorker {
         for (MonitoredPlugin plugin : request.plugins) {
             DssInstance dssInstance = settings.getDssInstance(plugin.plugin.instance);
             if (dssInstance != null) {
-                synchronizePlugin(dssInstance, plugin);
+                synchronizeLibraryOrPlugin(dssInstance, plugin);
             }
         }
 
@@ -68,7 +68,7 @@ public class SynchronizeWorker {
         for (MonitoredLibrary library : request.libraries) {
             DssInstance dssInstance = settings.getDssInstance(library.library.instance);
             if (dssInstance != null) {
-                synchronizeLibrary(dssInstance, library);
+                synchronizeLibraryOrPlugin(dssInstance, library);
             }
         }
 
@@ -158,36 +158,28 @@ public class SynchronizeWorker {
         }
     }
 
-    private void synchronizePlugin(DssInstance dssInstance, MonitoredPlugin monitoredPlugin) throws IOException {
+    private void synchronizeLibraryOrPlugin(DssInstance dssInstance, MonitoredFileSystemObject monitoredFileSystemObject) throws IOException {
         DSSClient dssClient = dssInstance.createClient();
-        String pluginId = monitoredPlugin.plugin.pluginId;
-        List<FolderContent> folderContents = dssClient.listPluginFiles(pluginId);
+        List<FolderContent> folderContents;
+        if (monitoredFileSystemObject instanceof MonitoredLibrary) {
+            folderContents = dssClient.listLibraryFiles(monitoredFileSystemObject.fsMetadata.id);
+        }
+        else {
+            folderContents = dssClient.listPluginFiles(monitoredFileSystemObject.fsMetadata.id);
+        }
 
-        synchronizePluginFolder(dssClient, monitoredPlugin, monitoredPlugin.pluginBaseDir, folderContents);
+        synchronizeFolder(dssClient, monitoredFileSystemObject, monitoredFileSystemObject.baseDir, folderContents);
 
         // Add all files in pluginBaseDir that are not in remote plugin
         Map<String, FolderContent> indexedFolderContent = index(folderContents);
-        addOrDeleteMissingFiles(monitoredPlugin, indexedFolderContent, dssClient);
-        addOrDeleteMissingFolders(monitoredPlugin, indexedFolderContent, dssClient);
+        addOrDeleteMissingFiles(monitoredFileSystemObject, indexedFolderContent, dssClient);
+        addOrDeleteMissingFolders(monitoredFileSystemObject, indexedFolderContent, dssClient);
     }
 
-    private void synchronizeLibrary(DssInstance dssInstance, MonitoredLibrary monitoredLibrary) throws IOException {
-        DSSClient dssClient = dssInstance.createClient();
-        String projectKey = monitoredLibrary.library.projectKey;
-        List<FolderContent> folderContents = dssClient.listLibraryFiles(projectKey);
-
-        synchronizeLibraryFolder(dssClient, monitoredLibrary, monitoredLibrary.libraryBaseDir, folderContents);
-
-        // Add all files in pluginBaseDir that are not in remote plugin
-        Map<String, FolderContent> indexedFolderContent = index(folderContents);
-        addOrDeleteMissingFiles(monitoredLibrary, indexedFolderContent, dssClient);
-        addOrDeleteMissingFolders(monitoredLibrary, indexedFolderContent, dssClient);
-    }
-
-    private void addOrDeleteMissingFiles(MonitoredPlugin monitoredPlugin, Map<String, FolderContent> index, DSSClient dssClient) throws IOException {
+    private void addOrDeleteMissingFiles(MonitoredFileSystemObject monitoredFSObject, Map<String, FolderContent> index, DSSClient dssClient) throws IOException {
         List<VirtualFile> missingFiles = new ArrayList<>();
-        String baseUrl = monitoredPlugin.pluginBaseDir.getUrl();
-        VfsUtilCore.visitChildrenRecursively(monitoredPlugin.pluginBaseDir, new VirtualFileVisitor<Object>() {
+        String baseUrl = monitoredFSObject.baseDir.getUrl();
+        VfsUtilCore.visitChildrenRecursively(monitoredFSObject.baseDir, new VirtualFileVisitor<Object>() {
             @Override
             public boolean visitFile(@NotNull VirtualFile file) {
                 String fileUrl = file.getUrl();
@@ -206,13 +198,14 @@ public class SynchronizeWorker {
             byte[] content = VirtualFileManager.readVirtualFileAsByteArray(file);
             int contentHash = VirtualFileManager.getContentHash(content);
 
-            DssPluginFileMetadata trackedFile = monitoredPlugin.findFile(path);
+            DssFileMetadata trackedFile = monitoredFSObject.findFile(path);
             if (trackedFile == null) {
                 // Newly added => sent it to DSS
                 log.info(String.format("Uploading locally added plugin file '%s' (path=%s)", file.getName(), path));
-                dssClient.uploadPluginFile(monitoredPlugin.plugin.pluginId, path, content);
+                dssClient.uploadPluginFile(monitoredFSObject.fsMetadata.id, path, content);
                 summary.dssUpdated.add(String.format("Plugin file '%s' uploaded to DSS instance.", path));
-                updatePluginFileMetadata(monitoredPlugin, path, contentHash, content);
+                updateLibraryOrPluginFileMetadata(monitoredFSObject, path, contentHash, content);
+
             } else {
                 // Has been modified locally?
                 if (trackedFile.contentHash != contentHash) {
@@ -225,61 +218,16 @@ public class SynchronizeWorker {
                     vFileManager.deleteVirtualFile(file);
                     summary.locallyDeleted.add(String.format("Plugin file '%s' locally deleted because it has been removed from DSS instance.", path));
                 }
-                removePluginFileMetadata(monitoredPlugin, path);
+                removeLibraryOrPluginFileMetadata(monitoredFSObject, path);
             }
         }
     }
 
-    private void addOrDeleteMissingFiles(MonitoredLibrary monitoredLibrary, Map<String, FolderContent> index, DSSClient dssClient) throws IOException {
-        List<VirtualFile> missingFiles = new ArrayList<>();
-        String baseUrl = monitoredLibrary.libraryBaseDir.getUrl();
-        VfsUtilCore.visitChildrenRecursively(monitoredLibrary.libraryBaseDir, new VirtualFileVisitor<Object>() {
-            @Override
-            public boolean visitFile(@NotNull VirtualFile file) {
-                String fileUrl = file.getUrl();
-                if (fileUrl.startsWith(baseUrl) && fileUrl.length() > baseUrl.length()) {
-                    String path = fileUrl.substring(baseUrl.length() + 1);
-                    if (!index.containsKey(path) && !file.isDirectory() && !ignoreFile(file.getName())) {
-                        missingFiles.add(file);
-                    }
-                }
-                return super.visitFile(file);
-            }
-        });
-        for (VirtualFile file : missingFiles) {
-            String fileUrl = file.getUrl();
-            String path = fileUrl.substring(baseUrl.length() + 1);
-            byte[] content = VirtualFileManager.readVirtualFileAsByteArray(file);
-            int contentHash = VirtualFileManager.getContentHash(content);
 
-            DssLibraryFileMetadata trackedFile = monitoredLibrary.findFile(path);
-            if (trackedFile == null) {
-                // Newly added => sent it to DSS
-                log.info(String.format("Uploading locally added library file '%s' (path=%s)", file.getName(), path));
-                dssClient.uploadLibraryFile(monitoredLibrary.library.projectKey, path, content);
-                summary.dssUpdated.add(String.format("Lirbary file '%s' uploaded to DSS instance.", path));
-                updateLibraryFileMetadata(monitoredLibrary, path, contentHash, content);
-            } else {
-                // Has been modified locally?
-                if (trackedFile.contentHash != contentHash) {
-                    // Rename the file into ".deleted" and stop tracking it.
-                    String newName = findNonExistingFilename(file, file.getName() + DELETED_SUFFIX);
-                    vFileManager.renameVirtualFile(file, newName);
-                    summary.conflicts.add(String.format("Library file '%s' has been removed from DSS instance but modified locally. Local copy has been renamed into '%s'.", path, newName));
-                } else {
-                    // No, delete the file locally
-                    vFileManager.deleteVirtualFile(file);
-                    summary.locallyDeleted.add(String.format("Lirbary file '%s' locally deleted because it has been removed from DSS instance.", path));
-                }
-                removeLibraryFileMetadata(monitoredLibrary, path);
-            }
-        }
-    }
-
-    private void addOrDeleteMissingFolders(MonitoredPlugin monitoredPlugin, Map<String, FolderContent> index, DSSClient dssClient) throws IOException {
+    private void addOrDeleteMissingFolders(MonitoredFileSystemObject monitoredFSObject, Map<String, FolderContent> index, DSSClient dssClient) throws IOException {
         List<VirtualFile> missingFolders = new ArrayList<>();
-        String baseUrl = monitoredPlugin.pluginBaseDir.getUrl();
-        VfsUtilCore.visitChildrenRecursively(monitoredPlugin.pluginBaseDir, new VirtualFileVisitor<Object>() {
+        String baseUrl = monitoredFSObject.baseDir.getUrl();
+        VfsUtilCore.visitChildrenRecursively(monitoredFSObject.baseDir, new VirtualFileVisitor<Object>() {
             @Override
             public boolean visitFile(@NotNull VirtualFile file) {
                 String fileUrl = file.getUrl();
@@ -296,13 +244,13 @@ public class SynchronizeWorker {
             String fileUrl = folder.getUrl();
             String path = fileUrl.substring(baseUrl.length() + 1);
 
-            DssPluginFileMetadata trackedFile = monitoredPlugin.findFile(path);
+            DssFileMetadata trackedFile = monitoredFSObject.findFile(path);
             if (trackedFile == null) {
                 // Newly added => sent it to DSS
                 log.info(String.format("Uploading locally added plugin directory '%s' (path=%s)", folder.getName(), path));
-                dssClient.createPluginFolder(monitoredPlugin.plugin.pluginId, path);
+                dssClient.createPluginFolder(monitoredFSObject.fsMetadata.id, path);
                 summary.dssUpdated.add(String.format("Plugin directory '%s' created into DSS instance.", path));
-                updatePluginFileMetadata(monitoredPlugin, path, 0, null);
+                updateLibraryOrPluginFileMetadata(monitoredFSObject, path, 0, null);
             } else {
                 // Is empty
                 VirtualFile[] children = folder.getChildren();
@@ -311,99 +259,60 @@ public class SynchronizeWorker {
                     vFileManager.deleteVirtualFile(folder);
                     summary.locallyDeleted.add(String.format("Plugin directory '%s' locally deleted because it has been removed from DSS instance.", path));
                 }
-                removePluginFileMetadata(monitoredPlugin, path);
+                removeLibraryOrPluginFileMetadata(monitoredFSObject, path);
             }
         }
     }
 
-    private void addOrDeleteMissingFolders(MonitoredLibrary monitoredLibrary, Map<String, FolderContent> index, DSSClient dssClient) throws IOException {
-        List<VirtualFile> missingFolders = new ArrayList<>();
-        String baseUrl = monitoredLibrary.libraryBaseDir.getUrl();
-        VfsUtilCore.visitChildrenRecursively(monitoredLibrary.libraryBaseDir, new VirtualFileVisitor<Object>() {
-            @Override
-            public boolean visitFile(@NotNull VirtualFile file) {
-                String fileUrl = file.getUrl();
-                if (fileUrl.startsWith(baseUrl) && fileUrl.length() > baseUrl.length()) {
-                    String path = fileUrl.substring(baseUrl.length() + 1);
-                    if (!index.containsKey(path) && file.isDirectory() && !ignoreFile(file.getName())) {
-                        missingFolders.add(file);
-                    }
-                }
-                return super.visitFile(file);
-            }
-        });
-        for (VirtualFile folder : missingFolders) {
-            String fileUrl = folder.getUrl();
-            String path = fileUrl.substring(baseUrl.length() + 1);
 
-            DssLibraryFileMetadata trackedFile = monitoredLibrary.findFile(path);
-            if (trackedFile == null) {
-                // Newly added => sent it to DSS
-                log.info(String.format("Uploading locally added library directory '%s' (path=%s)", folder.getName(), path));
-                dssClient.createLibraryFolder(monitoredLibrary.library.projectKey, path);
-                summary.dssUpdated.add(String.format("Library directory '%s' created into DSS instance.", path));
-                updateLibraryFileMetadata(monitoredLibrary, path, 0, null);
-            } else {
-                // Is empty
-                VirtualFile[] children = folder.getChildren();
-                if (children == null || children.length == 0) {
-                    // No, delete the file locally
-                    vFileManager.deleteVirtualFile(folder);
-                    summary.locallyDeleted.add(String.format("Library directory '%s' locally deleted because it has been removed from DSS instance.", path));
-                }
-                removeLibraryFileMetadata(monitoredLibrary, path);
-            }
-        }
-    }
-
-    private void synchronizePluginFolder(DSSClient dssClient, MonitoredPlugin monitoredPlugin, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
-        String pluginId = monitoredPlugin.plugin.pluginId;
-        for (FolderContent pluginFile : folderContents) {
-            DssPluginFileMetadata trackedFile = monitoredPlugin.findFile(pluginFile.path);
-            if (pluginFile.mimeType == null || "null".equals(pluginFile.mimeType)) {
+    private void synchronizeFolder(DSSClient dssClient, MonitoredFileSystemObject monitoredFSObject, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
+        String pluginId = monitoredFSObject.fsMetadata.id;
+        for (FolderContent file : folderContents) {
+            DssFileMetadata trackedFile = monitoredFSObject.findFile(file.path);
+            if (file.mimeType == null || "null".equals(file.mimeType)) {
                 // Folder
-                log.info(String.format("Synchronize plugin folder '%s'", pluginFile.path));
+                log.info(String.format("Synchronize plugin folder '%s'", file.path));
 
                 if (trackedFile == null) {
                     // Create folder
                     log.info(" - Creating folder: it has been added remotely since last synchronization.");
-                    VirtualFile file = vFileManager.getOrCreateVirtualDirectory(parent, pluginFile.name);
-                    updatePluginFileMetadata(monitoredPlugin, pluginFile.path, 0, null);
+                    VirtualFile virtualFile = vFileManager.getOrCreateVirtualDirectory(parent, file.name);
+                    updateLibraryOrPluginFileMetadata(monitoredFSObject, file.path, 0, null);
 
-                    if (pluginFile.children != null && !pluginFile.children.isEmpty()) {
-                        synchronizePluginFolder(dssClient, monitoredPlugin, file, pluginFile.children);
+                    if (file.children != null && !file.children.isEmpty()) {
+                        synchronizeFolder(dssClient, monitoredFSObject, virtualFile, file.children);
                     }
                 } else {
-                    VirtualFile file = VirtualFileManager.getVirtualFile(parent, pluginFile.name);
-                    if (file != null && file.exists() && file.isValid()) {
+                    VirtualFile virtualFile = VirtualFileManager.getVirtualFile(parent, file.name);
+                    if (virtualFile != null && virtualFile.exists() && virtualFile.isValid()) {
                         // Recurse if necessary
-                        if (pluginFile.children != null && !pluginFile.children.isEmpty()) {
-                            synchronizePluginFolder(dssClient, monitoredPlugin, file, pluginFile.children);
+                        if (file.children != null && !file.children.isEmpty()) {
+                            synchronizeFolder(dssClient, monitoredFSObject, virtualFile, file.children);
                         }
                     } else {
                         // Directory has been locally deleted since last synchronization.
-                        deletePluginFile(dssClient, monitoredPlugin, pluginId, pluginFile);
+                        deleteLibraryOrPluginFile(dssClient, monitoredFSObject, pluginId, file);
                     }
                 }
 
             } else {
                 // Regular file
-                log.info(String.format("Synchronize plugin file '%s'", pluginFile.path));
+                log.info(String.format("Synchronize plugin file '%s'", file.path));
 
-                byte[] fileContent = pluginFile.size == 0 ? new byte[0] : dssClient.downloadPluginFile(pluginId, pluginFile.path);
+                byte[] fileContent = file.size == 0 ? new byte[0] : dssClient.downloadPluginFile(pluginId, file.path);
                 if (trackedFile == null) {
                     log.info(" - Creating file: it has been added remotely since last synchronization.");
-                    VirtualFile file = vFileManager.getOrCreateVirtualFile(parent, pluginFile.name);
-                    vFileManager.writeToVirtualFile(file, fileContent, UTF_8);
-                    updatePluginFileMetadata(monitoredPlugin, pluginFile.path, getContentHash(fileContent), fileContent);
-                    summary.locallyUpdated.add(String.format("Plugin file '%s' downloaded from DSS instance.", pluginFile.path));
+                    VirtualFile virtualFile = vFileManager.getOrCreateVirtualFile(parent, file.name);
+                    vFileManager.writeToVirtualFile(virtualFile, fileContent, UTF_8);
+                    updateLibraryOrPluginFileMetadata(monitoredFSObject, file.path, getContentHash(fileContent), fileContent);
+                    summary.locallyUpdated.add(String.format("Plugin file '%s' downloaded from DSS instance.", file.path));
                 } else {
-                    VirtualFile file = VirtualFileManager.getVirtualFile(parent, pluginFile.name);
-                    if (file == null || !file.exists() || !file.isValid()) {
+                    VirtualFile virtualFile = VirtualFileManager.getVirtualFile(parent, file.name);
+                    if (virtualFile == null || !virtualFile.exists() || !virtualFile.isValid()) {
                         // File locally deleted.
-                        deletePluginFile(dssClient, monitoredPlugin, pluginId, pluginFile);
+                        deleteLibraryOrPluginFile(dssClient, monitoredFSObject, pluginId, file);
                     } else {
-                        int localHash = getContentHash(file);
+                        int localHash = getContentHash(virtualFile);
                         int originalHash = trackedFile.contentHash;
                         int remoteHash = getContentHash(fileContent);
                         if (remoteHash == originalHash) {
@@ -411,10 +320,10 @@ public class SynchronizeWorker {
                             if (localHash != originalHash) {
                                 // File locally modified => Upload it to DSS
                                 log.info(" - Uploading file. It has been locally modified and left untouched remotely since last synchronization.");
-                                byte[] content = VirtualFileManager.readVirtualFileAsByteArray(file);
-                                dssClient.uploadPluginFile(pluginId, pluginFile.path, content);
-                                updatePluginFileMetadata(monitoredPlugin, pluginFile.path, localHash, content);
-                                summary.dssUpdated.add(String.format("Plugin file '%s' saved into DSS instance.", pluginFile.path));
+                                byte[] content = VirtualFileManager.readVirtualFileAsByteArray(virtualFile);
+                                dssClient.uploadPluginFile(pluginId, file.path, content);
+                                updateLibraryOrPluginFileMetadata(monitoredFSObject, file.path, localHash, content);
+                                summary.dssUpdated.add(String.format("Plugin file '%s' saved into DSS instance.", file.path));
                             } else {
                                 // All files are identical, nothing to do.
                                 log.info(" - Files are identical.");
@@ -424,25 +333,31 @@ public class SynchronizeWorker {
                             if (remoteHash == localHash) {
                                 // Both files have been changed in the same way. Just update the metadata on our side.
                                 log.info(" - Updated identically both locally and remotely since last synchronization.");
-                                updatePluginFileMetadata(monitoredPlugin, pluginFile.path, remoteHash, fileContent);
+                                updateLibraryOrPluginFileMetadata(monitoredFSObject, file.path, remoteHash, fileContent);
                             } else if (localHash == originalHash) {
                                 // File has not been modified locally, retrieve the remote version.
                                 log.info(" - Updating local file. It has been updated remotely but not locally.");
-                                vFileManager.writeToVirtualFile(file, fileContent, null);
-                                updatePluginFileMetadata(monitoredPlugin, pluginFile.path, remoteHash, fileContent);
-                                summary.locallyUpdated.add(String.format("Plugin file '%s' updated with latest version from DSS instance.", pluginFile.path));
+                                vFileManager.writeToVirtualFile(virtualFile, fileContent, null);
+                                updateLibraryOrPluginFileMetadata(monitoredFSObject, file.path, remoteHash, fileContent);
+                                summary.locallyUpdated.add(String.format("Plugin file '%s' updated with latest version from DSS instance.", file.path));
                             } else {
                                 // Conflict!! Checkout remote file as .remote and send the local version to DSS
                                 log.warn(" - Conflict detected. Marking this file for future resolution.");
-                                byte[] content = VirtualFileManager.readVirtualFileAsByteArray(file);
-
-                                MonitoredPluginFileConflict conflict = new MonitoredPluginFileConflict(file, monitoredPlugin, trackedFile);
-                                conflict.localData = content;
-                                conflict.remoteData = fileContent;
-                                conflict.originalData = monitoredPlugin.metadataFile.readDataBlob(trackedFile.dataBlobId);
-                                summary.fileConflicts.add(conflict);
-
-                                summary.conflicts.add(String.format("Plugin file '%s' has been modified both locally and remotely..", pluginFile.path));
+                                byte[] content = VirtualFileManager.readVirtualFileAsByteArray(virtualFile);
+                                if (monitoredFSObject instanceof MonitoredPlugin) {
+                                    MonitoredPluginFileConflict conflict = new MonitoredPluginFileConflict(virtualFile, (MonitoredPlugin) monitoredFSObject, new DssPluginFileMetadata(trackedFile.instance, trackedFile.id, trackedFile.path, trackedFile.remotePath, trackedFile.contentHash, trackedFile.dataBlobId));
+                                    conflict.localData = content;
+                                    conflict.remoteData = fileContent;
+                                    conflict.originalData = monitoredFSObject.metadataFile.readDataBlob(trackedFile.dataBlobId);
+                                    summary.fileConflicts.add(conflict);
+                                } else {
+                                    MonitoredLibraryFileConflict conflict = new MonitoredLibraryFileConflict(virtualFile, (MonitoredLibrary) monitoredFSObject, new DssLibraryFileMetadata(trackedFile.instance, trackedFile.id, trackedFile.path, trackedFile.remotePath, trackedFile.contentHash, trackedFile.dataBlobId));
+                                    conflict.localData = content;
+                                    conflict.remoteData = fileContent;
+                                    conflict.originalData = monitoredFSObject.metadataFile.readDataBlob(trackedFile.dataBlobId);
+                                    summary.fileConflicts.add(conflict);
+                                }
+                                summary.conflicts.add(String.format("File '%s' has been modified both locally and remotely..", file.path));
                             }
                         }
                     }
@@ -451,175 +366,56 @@ public class SynchronizeWorker {
         }
     }
 
-    private void synchronizeLibraryFolder(DSSClient dssClient, MonitoredLibrary monitoredLibrary, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
-        String projectKey = monitoredLibrary.library.projectKey;
-        for (FolderContent libraryFile : folderContents) {
-            DssLibraryFileMetadata trackedFile = monitoredLibrary.findFile(libraryFile.path);
-            log.info("here is the tracked file : ");
-            log.info(trackedFile.projectKey);
-            log.info(trackedFile.path);
-            log.info(trackedFile.remotePath);
-            log.info(trackedFile.dataBlobId);
-            log.info(Integer.toString(trackedFile.contentHash));
-            if (libraryFile.mimeType == null || "null".equals(libraryFile.mimeType)) {
-                // Folder
-                log.info(String.format("Synchronize library folder '%s'", libraryFile.path));
 
-                if (trackedFile == null) {
-                    // Create folder
-                    log.info(" - Creating folder: it has been added remotely since last synchronization.");
-                    VirtualFile file = vFileManager.getOrCreateVirtualDirectory(parent, libraryFile.name);
-                    updateLibraryFileMetadata(monitoredLibrary, libraryFile.path, 0, null);
-
-                    if (libraryFile.children != null && !libraryFile.children.isEmpty()) {
-                        synchronizeLibraryFolder(dssClient, monitoredLibrary, file, libraryFile.children);
-                    }
-                } else {
-                    VirtualFile file = VirtualFileManager.getVirtualFile(parent, libraryFile.name);
-                    if (file != null && file.exists() && file.isValid()) {
-                        // Recurse if necessary
-                        if (libraryFile.children != null && !libraryFile.children.isEmpty()) {
-                            synchronizeLibraryFolder(dssClient, monitoredLibrary, file, libraryFile.children);
-                        }
-                    } else {
-                        // Directory has been locally deleted since last synchronization.
-                        deleteLibraryFile(dssClient, monitoredLibrary, projectKey, libraryFile);
-                    }
-                }
-
-            } else {
-                // Regular file
-                log.info(String.format("Synchronize library file '%s'", libraryFile.path));
-
-                byte[] fileContent = libraryFile.size == 0 ? new byte[0] : dssClient.downloadLibraryFile(projectKey, libraryFile.path);
-                if (trackedFile == null) {
-                    log.info(" - Creating file: it has been added remotely since last synchronization.");
-                    VirtualFile file = vFileManager.getOrCreateVirtualFile(parent, libraryFile.name);
-                    vFileManager.writeToVirtualFile(file, fileContent, UTF_8);
-                    updateLibraryFileMetadata(monitoredLibrary, libraryFile.path, getContentHash(fileContent), fileContent);
-                    summary.locallyUpdated.add(String.format("Library file '%s' downloaded from DSS instance.", libraryFile.path));
-                } else {
-                    VirtualFile file = VirtualFileManager.getVirtualFile(parent, libraryFile.name);
-                    if (file == null || !file.exists() || !file.isValid()) {
-                        // File locally deleted.
-                        deleteLibraryFile(dssClient, monitoredLibrary, projectKey, libraryFile);
-                    } else {
-                        int localHash = getContentHash(file);
-                        int originalHash = trackedFile.contentHash;
-                        int remoteHash = getContentHash(fileContent);
-                        if (remoteHash == originalHash) {
-                            // No change on remote server since last synchronization.
-                            if (localHash != originalHash) {
-                                // File locally modified => Upload it to DSS
-                                log.info(" - Uploading file. It has been locally modified and left untouched remotely since last synchronization.");
-                                byte[] content = VirtualFileManager.readVirtualFileAsByteArray(file);
-                                dssClient.uploadLibraryFile(projectKey, libraryFile.path, content);
-                                updateLibraryFileMetadata(monitoredLibrary, libraryFile.path, localHash, content);
-                                summary.dssUpdated.add(String.format("Library file '%s' saved into DSS instance.", libraryFile.path));
-                            } else {
-                                // All files are identical, nothing to do.
-                                log.info(" - Files are identical.");
-                            }
-                        } else {
-                            // Changed on remote server since last synchronization
-                            if (remoteHash == localHash) {
-                                // Both files have been changed in the same way. Just update the metadata on our side.
-                                log.info(" - Updated identically both locally and remotely since last synchronization.");
-                                updateLibraryFileMetadata(monitoredLibrary, libraryFile.path, remoteHash, fileContent);
-                            } else if (localHash == originalHash) {
-                                // File has not been modified locally, retrieve the remote version.
-                                log.info(" - Updating local file. It has been updated remotely but not locally.");
-                                vFileManager.writeToVirtualFile(file, fileContent, null);
-                                updateLibraryFileMetadata(monitoredLibrary, libraryFile.path, remoteHash, fileContent);
-                                summary.locallyUpdated.add(String.format("Library file '%s' updated with latest version from DSS instance.", libraryFile.path));
-                            } else {
-                                // Conflict!! Checkout remote file as .remote and send the local version to DSS
-                                log.warn(" - Conflict detected. Marking this file for future resolution.");
-                                byte[] content = VirtualFileManager.readVirtualFileAsByteArray(file);
-
-                                MonitoredLibraryFileConflict conflict = new MonitoredLibraryFileConflict(file, monitoredLibrary, trackedFile);
-                                conflict.localData = content;
-                                conflict.remoteData = fileContent;
-                                conflict.originalData = monitoredLibrary.metadataFile.readDataBlob(trackedFile.dataBlobId);
-                                summary.fileConflicts.add(conflict);
-
-                                summary.conflicts.add(String.format("Plugin file '%s' has been modified both locally and remotely..", libraryFile.path));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private void deletePluginFile(DSSClient dssClient, MonitoredPlugin monitoredPlugin, String pluginId, FolderContent pluginFile) throws DssException {
-        List<FolderContent> children = pluginFile.children;
+    private void deleteLibraryOrPluginFile(DSSClient dssClient, MonitoredFileSystemObject monitoredFSObject, String id, FolderContent file) throws DssException {
+        List<FolderContent> children = file.children;
         if (children != null) {
             for (FolderContent child : children) {
-                deletePluginFile(dssClient, monitoredPlugin, pluginId, child);
+                deleteLibraryOrPluginFile(dssClient, monitoredFSObject, id, child);
             }
         }
-        log.info(String.format("Deleting plugin file '%s' from plugin '%s'", pluginFile.path, pluginId));
-        dssClient.deletePluginFile(pluginId, pluginFile.path);
-        monitoredPlugin.removeFile(pluginFile.path);
-        summary.dssDeleted.add(String.format("Plugin file '%s' deleted from DSS instance.", pluginFile.path));
-    }
-
-    private void deleteLibraryFile(DSSClient dssClient, MonitoredLibrary monitoredLibrary, String projectKey, FolderContent libraryFile) throws DssException {
-        List<FolderContent> children = libraryFile.children;
-        if (children != null) {
-            for (FolderContent child : children) {
-                deleteLibraryFile(dssClient, monitoredLibrary, projectKey, child);
-            }
+        log.info(String.format("Deleting file '%s' from '%s'", file.path, id));
+        if (monitoredFSObject instanceof MonitoredPlugin) {
+            dssClient.deletePluginFile(id, file.path);
+        } else {
+            dssClient.deleteLibraryFile(id, file.path);
         }
-        log.info(String.format("Deleting library file '%s' from project '%s'", libraryFile.path, projectKey));
-        dssClient.deleteLibraryFile(projectKey, libraryFile.path);
-        monitoredLibrary.removeFile(libraryFile.path);
-        summary.dssDeleted.add(String.format("Library file '%s' deleted from DSS instance.", libraryFile.path));
+        monitoredFSObject.removeFile(file.path);
+        summary.dssDeleted.add(String.format("File '%s' deleted from DSS instance.", file.path));
     }
 
-    private void updatePluginFileMetadata(MonitoredPlugin monitoredPlugin, String path, int contentHash, byte[] content) throws IOException {
-        String pluginId = monitoredPlugin.plugin.pluginId;
-        DssPluginFileMetadata pluginFileMetadata = new DssPluginFileMetadata(
-                monitoredPlugin.plugin.instance,
-                pluginId,
-                pluginId + "/" + path,
-                path,
-                contentHash,
-                content);
-        monitoredPlugin.metadataFile.addOrUpdatePluginFile(pluginFileMetadata, false);
-        dirtyMetadataFiles.add(monitoredPlugin.metadataFile);
-    }
+    private void updateLibraryOrPluginFileMetadata(MonitoredFileSystemObject monitoredFSObject, String path, int contentHash, byte[] content) throws IOException {
+        String id = monitoredFSObject.fsMetadata.id;
 
-    private void updateLibraryFileMetadata(MonitoredLibrary monitoredLibrary, String path, int contentHash, byte[] content) throws IOException {
-        String projectKey = monitoredLibrary.library.projectKey;
-        DssLibraryFileMetadata libFileMetadata = new DssLibraryFileMetadata(
-                monitoredLibrary.library.instance,
-                projectKey,
-                projectKey + "/" + path,
-                path,
-                contentHash,
-                content);
-        monitoredLibrary.metadataFile.addOrUpdateLibraryFile(libFileMetadata, false);
-        dirtyMetadataFiles.add(monitoredLibrary.metadataFile);
-    }
-
-    private void removePluginFileMetadata(MonitoredPlugin monitoredPlugin, String path) {
-        DssPluginMetadata pluginMetadata = monitoredPlugin.plugin;
-        DssPluginFileMetadata pluginFileMetadata = (DssPluginFileMetadata) pluginMetadata.findFile(path);
-        if (pluginFileMetadata != null) {
-            pluginMetadata.files.remove(pluginFileMetadata);
+        if (monitoredFSObject instanceof MonitoredPlugin) {
+            DssPluginFileMetadata fileMetadata = new DssPluginFileMetadata(
+                    monitoredFSObject.fsMetadata.instance,
+                    id,
+                    id + "/" + path,
+                    path,
+                    contentHash,
+                    content);
+            monitoredFSObject.metadataFile.addOrUpdatePluginFile(fileMetadata, false);
+        } else {
+            DssLibraryFileMetadata fileMetadata = new DssLibraryFileMetadata(
+                    monitoredFSObject.fsMetadata.instance,
+                    id,
+                    id + "/" + path,
+                    path,
+                    contentHash,
+                    content);
+            monitoredFSObject.metadataFile.addOrUpdateLibraryFile(fileMetadata, false);
         }
-        dirtyMetadataFiles.add(monitoredPlugin.metadataFile);
+        dirtyMetadataFiles.add(monitoredFSObject.metadataFile);
     }
 
-    private void removeLibraryFileMetadata(MonitoredLibrary monitoredLibrary, String path) {
-        DssLibraryMetadata libraryMetadata = monitoredLibrary.library;
-        DssLibraryFileMetadata libraryFileMetadata = (DssLibraryFileMetadata) libraryMetadata.findFile(path);
-        if (libraryFileMetadata != null) {
-            libraryMetadata.files.remove(libraryFileMetadata);
+    private void removeLibraryOrPluginFileMetadata(MonitoredFileSystemObject monitoredFSObject, String path) {
+        DssFileSystemMetadata fsMetadata = monitoredFSObject.fsMetadata;
+        DssFileMetadata fileMetadata = fsMetadata.findFile(path);
+        if (fileMetadata != null) {
+            fsMetadata.files.remove(fileMetadata);
         }
-        dirtyMetadataFiles.add(monitoredLibrary.metadataFile);
+        dirtyMetadataFiles.add(monitoredFSObject.metadataFile);
     }
 
     private static Map<String, FolderContent> index(List<FolderContent> folderContents) {

@@ -68,14 +68,14 @@ public class MonitoredFilesIndex implements ApplicationComponent {
 
     public synchronized void index(MonitoredPlugin monitoredPlugin) {
         Preconditions.checkNotNull(monitoredPlugin, "monitoredPlugin");
-        log.info(String.format("Start tracking directory '%s' corresponding to plugin '%s'.", monitoredPlugin.pluginBaseDir, monitoredPlugin.plugin.pluginId));
-        monitoredPlugins.put(monitoredPlugin.pluginBaseDir.getCanonicalPath(), monitoredPlugin);
+        log.info(String.format("Start tracking directory '%s' corresponding to plugin '%s'.", monitoredPlugin.baseDir, monitoredPlugin.plugin.pluginId));
+        monitoredPlugins.put(monitoredPlugin.baseDir.getCanonicalPath(), monitoredPlugin);
     }
 
     public synchronized void index(MonitoredLibrary monitoredLibrary) {
         Preconditions.checkNotNull(monitoredLibrary, "monitoredPlugin");
-        log.info(String.format("Start tracking directory '%s' corresponding to plugin '%s'.", monitoredLibrary.libraryBaseDir, monitoredLibrary.library.projectKey));
-        monitoredLibraries.put(monitoredLibrary.libraryBaseDir.getCanonicalPath(), monitoredLibrary);
+        log.info(String.format("Start tracking directory '%s' corresponding to plugin '%s'.", monitoredLibrary.baseDir, monitoredLibrary.library.projectKey));
+        monitoredLibraries.put(monitoredLibrary.baseDir.getCanonicalPath(), monitoredLibrary);
     }
 
     public synchronized void removeFromIndex(MonitoredRecipeFile monitoredFile) {
@@ -86,14 +86,14 @@ public class MonitoredFilesIndex implements ApplicationComponent {
 
     public synchronized void removeFromIndex(MonitoredPlugin monitoredPlugin) {
         Preconditions.checkNotNull(monitoredPlugin, "monitoredPlugin");
-        log.info(String.format("Stop tracking plugin directory '%s' corresponding to plugin on instance '%s'.", monitoredPlugin.pluginBaseDir, monitoredPlugin.plugin.instance));
-        monitoredPlugins.remove(monitoredPlugin.pluginBaseDir.getCanonicalPath());
+        log.info(String.format("Stop tracking plugin directory '%s' corresponding to plugin on instance '%s'.", monitoredPlugin.baseDir, monitoredPlugin.plugin.instance));
+        monitoredPlugins.remove(monitoredPlugin.baseDir.getCanonicalPath());
     }
 
     public synchronized void removeFromIndex(MonitoredLibrary monitoredLib) {
         Preconditions.checkNotNull(monitoredLib, "monitoredLib");
-        log.info(String.format("Stop tracking library directory '%s' corresponding to project on instance '%s'.", monitoredLib.libraryBaseDir, monitoredLib.library.instance));
-        monitoredLibraries.remove(monitoredLib.libraryBaseDir.getCanonicalPath());
+        log.info(String.format("Stop tracking library directory '%s' corresponding to project on instance '%s'.", monitoredLib.baseDir, monitoredLib.library.instance));
+        monitoredLibraries.remove(monitoredLib.baseDir.getCanonicalPath());
     }
 
     public synchronized MonitoredRecipeFile getMonitoredFile(VirtualFile file) {
@@ -154,7 +154,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
 
     public synchronized MonitoredLibrary getMonitoredLibrary(VirtualFile file) {
         for (MonitoredLibrary lib : monitoredLibraries.values()) {
-            String path = VirtualFileManager.getRelativePath(lib.libraryBaseDir, file);
+            String path = VirtualFileManager.getRelativePath(lib.baseDir, file);
             if (path != null) {
                 return lib;
             }
@@ -165,7 +165,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
 
     public synchronized MonitoredPlugin getMonitoredPlugin(VirtualFile file) {
         for (MonitoredPlugin plugin : monitoredPlugins.values()) {
-            String path = VirtualFileManager.getRelativePath(plugin.pluginBaseDir, file);
+            String path = VirtualFileManager.getRelativePath(plugin.baseDir, file);
             if (path != null) {
                 return plugin;
             }
@@ -175,7 +175,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
 
     public synchronized MonitoredLibrary getMonitoredLibraryFromBaseDir(VirtualFile libBaseDir) {
         for (MonitoredLibrary lib : monitoredLibraries.values()) {
-            if (lib.libraryBaseDir.getUrl().equals(libBaseDir.getUrl())) {
+            if (lib.baseDir.getUrl().equals(libBaseDir.getUrl())) {
                 return lib;
             }
         }
@@ -184,7 +184,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
 
     public synchronized MonitoredPlugin getMonitoredPluginFromBaseDir(VirtualFile pluginBaseDir) {
         for (MonitoredPlugin plugin : monitoredPlugins.values()) {
-            if (plugin.pluginBaseDir.getUrl().equals(pluginBaseDir.getUrl())) {
+            if (plugin.baseDir.getUrl().equals(pluginBaseDir.getUrl())) {
                 return plugin;
             }
         }
@@ -221,7 +221,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         List<MonitoredPlugin> result = new ArrayList<>();
 
         for (MonitoredPlugin monitoredPlugin : monitoredPlugins.values()) {
-            String path = VirtualFileManager.getRelativePath(directory, monitoredPlugin.pluginBaseDir);
+            String path = VirtualFileManager.getRelativePath(directory, monitoredPlugin.baseDir);
             if (path != null) {
                 result.add(monitoredPlugin);
             }
@@ -234,7 +234,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         List<MonitoredLibrary> result = new ArrayList<>();
 
         for (MonitoredLibrary monitoredLibrary : monitoredLibraries.values()) {
-            String path = VirtualFileManager.getRelativePath(directory, monitoredLibrary.libraryBaseDir);
+            String path = VirtualFileManager.getRelativePath(directory, monitoredLibrary.baseDir);
             if (path != null) {
                 result.add(monitoredLibrary);
             }

@@ -1,9 +1,6 @@
 package com.dataiku.dss.intellij.actions.synchronize;
 
-import com.dataiku.dss.intellij.MonitoredFilesIndex;
-import com.dataiku.dss.intellij.MonitoredLibrary;
-import com.dataiku.dss.intellij.MonitoredPlugin;
-import com.dataiku.dss.intellij.MonitoredRecipeFile;
+import com.dataiku.dss.intellij.*;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.*;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
@@ -104,6 +101,16 @@ public class SynchronizeDialog extends DialogWrapper {
             }
         });
     }
+
+//    private void addLibrariesOrPlugins(SynchronizeNodeRoot root, List<MonitoredFileSystemObject> objs) {
+//        objs.forEach(monitoredFileSystemObject -> {
+//            DssInstance dssInstance = DssSettings.getInstance().getDssInstance(monitoredFileSystemObject.fsMetadata.instance);
+//            if (dssInstance != null) {
+//                SynchronizeNodeLibrary libraryTreeNode = new SynchronizeNodeLibrary(monitoredLibrary);
+//                root.getOrAddInstanceNode(dssInstance).getOrAddLibrariesNode().add(libraryTreeNode);
+//            }
+//        });
+//    }
 
     private void addRecipes(SynchronizeNodeRoot root, List<MonitoredRecipeFile> monitoredFiles) {
         monitoredFiles.forEach(monitoredFile -> {

@@ -1,6 +1,6 @@
 package com.dataiku.dss.model.metadata;
 
-public class DssPluginFileMetadata extends DssFileMetadata{
+public class DssPluginFileMetadata extends DssFileMetadata {
     public final String pluginId;
 
     public DssPluginFileMetadata(String instance, String pluginId, String path, String remotePath, int contentHash, String dataBlobId) {
