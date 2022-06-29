@@ -188,7 +188,7 @@ public class CheckoutWorker {
         for (FolderContent remoteFile : folderContents) {
             if (remoteFile.mimeType == null || "null".equals(remoteFile.mimeType)) {
                 // Folder
-                log.info(String.format("Checkout plugin folder '%s' (path=%s)", remoteFile.name, remoteFile.path));
+                log.info(String.format("Checkout folder '%s' (path=%s)", remoteFile.name, remoteFile.path));
 
                 // Create folder
                 VirtualFile localFile = vFileManager.getOrCreateVirtualDirectory(parent, remoteFile.name);
@@ -208,11 +208,17 @@ public class CheckoutWorker {
                 }
             } else {
                 // Regular file
-                log.info(String.format("Checkout plugin file '%s' (path=%s)", remoteFile.name, remoteFile.path));
+                log.info(String.format("Checkout file '%s' (path=%s)", remoteFile.name, remoteFile.path));
 
                 VirtualFile localFile = vFileManager.getOrCreateVirtualFile(parent, remoteFile.name);
 
-                byte[] fileContent = remoteFile.size == 0 ? new byte[0] : model.serverClient.downloadPluginFile(id, remoteFile.path);
+                byte[] fileContent;
+                if (metadata instanceof DssPluginMetadata) {
+                    fileContent = remoteFile.size == 0 ? new byte[0] : model.serverClient.downloadPluginFile(id, remoteFile.path);
+                } else {
+                    fileContent = remoteFile.size == 0 ? new byte[0] : model.serverClient.downloadLibraryFile(id, remoteFile.path);
+                }
+
                 vFileManager.writeToVirtualFile(localFile, fileContent, UTF_8);
 
                 // Write metadata

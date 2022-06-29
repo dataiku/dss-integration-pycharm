@@ -102,16 +102,6 @@ public class SynchronizeDialog extends DialogWrapper {
         });
     }
 
-//    private void addLibrariesOrPlugins(SynchronizeNodeRoot root, List<MonitoredFileSystemObject> objs) {
-//        objs.forEach(monitoredFileSystemObject -> {
-//            DssInstance dssInstance = DssSettings.getInstance().getDssInstance(monitoredFileSystemObject.fsMetadata.instance);
-//            if (dssInstance != null) {
-//                SynchronizeNodeLibrary libraryTreeNode = new SynchronizeNodeLibrary(monitoredLibrary);
-//                root.getOrAddInstanceNode(dssInstance).getOrAddLibrariesNode().add(libraryTreeNode);
-//            }
-//        });
-//    }
-
     private void addRecipes(SynchronizeNodeRoot root, List<MonitoredRecipeFile> monitoredFiles) {
         monitoredFiles.forEach(monitoredFile -> {
             DssInstance dssInstance = DssSettings.getInstance().getDssInstance(monitoredFile.recipe.instance);

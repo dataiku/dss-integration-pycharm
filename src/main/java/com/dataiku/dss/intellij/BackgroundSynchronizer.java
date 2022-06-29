@@ -347,7 +347,14 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 } else if (getContentHash(fileContent) != trackedFile.contentHash) {
                     DssInstance dssInstance = dssSettings.getDssInstanceMandatory(monitoredFSObject.fsMetadata.instance);
                     DSSClient dssClient = dssInstance.createClient();
-                    byte[] remoteData = dssClient.downloadPluginFile(monitoredFSObject.fsMetadata.id, trackedFile.remotePath);
+
+                    byte[] remoteData;
+                    if (monitoredFSObject instanceof MonitoredPlugin) {
+                         remoteData = dssClient.downloadPluginFile(monitoredFSObject.fsMetadata.id, trackedFile.remotePath);
+                    } else {
+                        remoteData = dssClient.downloadLibraryFile(monitoredFSObject.fsMetadata.id, trackedFile.remotePath);
+                    }
+
                     int remoteHash = getContentHash(remoteData);
                     if (trackedFile.contentHash == remoteHash) {
                         log.info(String.format("File '%s' has been locally modified. Saving it onto the remote DSS instance", path));
