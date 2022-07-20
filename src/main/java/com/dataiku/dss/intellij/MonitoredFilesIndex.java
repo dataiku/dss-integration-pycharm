@@ -24,7 +24,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
 
     private final Map<String/*Path of file*/, MonitoredRecipeFile> monitoredRecipeFiles = new HashMap<>();
     private final Map<String/*Path of plugin base directory*/, MonitoredPlugin> monitoredPlugins = new HashMap<>();
-    private final Map<String/*Path of plugin base directory*/, MonitoredLibrary> monitoredLibraries = new HashMap<>();
+    private final Map<String/*Path of library base directory*/, MonitoredLibrary> monitoredLibraries = new HashMap<>();
     private final MetadataFilesIndex metadataFilesIndex;
 
     public static MonitoredFilesIndex getInstance() {

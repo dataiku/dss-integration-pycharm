@@ -68,6 +68,8 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
                 return CheckoutStep2Plugin.ID;
             case "Library":
                 return CheckoutStep2Library.ID;
+            case "Recipe":
+                return CheckoutStep2Recipe.ID;
             default:
                 return CheckoutStep2Recipe.ID;
         }

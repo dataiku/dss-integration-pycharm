@@ -64,7 +64,6 @@ public class SynchronizeWorker {
             }
         }
 
-        log.info("about to start synchronizing libraries");
         for (MonitoredLibrary library : request.libraries) {
             DssInstance dssInstance = settings.getDssInstance(library.library.instance);
             if (dssInstance != null) {
@@ -305,7 +304,7 @@ public class SynchronizeWorker {
 
             } else {
                 // Regular file
-                log.info(String.format("Synchronize plugin file '%s'", file.path));
+                log.info(String.format("Synchronize file '%s'", file.path));
 
                 byte[] fileContent;
                 if (monitoredFS instanceof MonitoredPlugin) {
