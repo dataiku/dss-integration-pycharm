@@ -23,6 +23,7 @@ import java.util.concurrent.ScheduledFuture;
 
 import static com.dataiku.dss.intellij.SynchronizeUtils.*;
 import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
+import static com.google.common.base.Charsets.UTF_8;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class BackgroundSynchronizer implements ApplicationComponent {
@@ -342,9 +343,16 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
                     byte[] remoteData;
                     if (monitoredFS instanceof MonitoredPlugin) {
-                         remoteData = dssClient.downloadPluginFile(monitoredFS.fsMetadata.id, trackedFile.remotePath);
+                        remoteData = dssClient.downloadPluginFile(monitoredFS.fsMetadata.id, trackedFile.remotePath);
+
                     } else {
-                        remoteData = dssClient.downloadLibraryFile(monitoredFS.fsMetadata.id, trackedFile.remotePath);
+                        String remoteDataString = dssClient.downloadLibraryFile(monitoredFS.fsMetadata.id, trackedFile.remotePath).data;
+                        // Converting back to bytes to factorize code with plugin
+                        if (remoteDataString==null || "".equals(remoteDataString)) {
+                            remoteData = new byte[0];
+                        } else {
+                            remoteData = remoteDataString.getBytes(UTF_8);
+                        }
                     }
 
                     int remoteHash = getContentHash(remoteData);

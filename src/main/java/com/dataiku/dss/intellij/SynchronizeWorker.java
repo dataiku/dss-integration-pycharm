@@ -311,7 +311,13 @@ public class SynchronizeWorker {
                 if (monitoredFS instanceof MonitoredPlugin) {
                     fileContent = file.size == 0 ? new byte[0] : dssClient.downloadPluginFile(pluginId, file.path);
                 } else {
-                    fileContent = file.size == 0 ? new byte[0] : dssClient.downloadLibraryFile(pluginId, file.path);
+                    String fileContentString = file.size == 0 ? "" : dssClient.downloadLibraryFile(pluginId, file.path).data;
+                    // Converting back to bytes to factorize code with plugins
+                    if (fileContentString==null || "".equals(fileContentString)) {
+                        fileContent = new byte[0];
+                    } else {
+                        fileContent = fileContentString.getBytes(UTF_8);
+                    }
                 }
 
                 if (trackedFile == null) {

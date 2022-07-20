@@ -216,11 +216,16 @@ public class CheckoutWorker {
                 if (metadata instanceof DssPluginMetadata) {
                     fileContent = remoteFile.size == 0 ? new byte[0] : model.serverClient.downloadPluginFile(id, remoteFile.path);
                 } else {
-                    fileContent = remoteFile.size == 0 ? new byte[0] : model.serverClient.downloadLibraryFile(id, remoteFile.path);
+                    String fileContentString = remoteFile.size == 0 ? "" : model.serverClient.downloadLibraryFile(id, remoteFile.path).data;
+                    // Converting back to bytes to factorize code with plugins
+                    if (fileContentString==null || "".equals(fileContentString)) {
+                        fileContent = new byte[0];
+                    } else {
+                        fileContent = fileContentString.getBytes(UTF_8);
+                    }
                 }
 
                 vFileManager.writeToVirtualFile(localFile, fileContent, UTF_8);
-
                 // Write metadata
                 metadata.files.add(new DssFileMetadata(
                         model.server.id,

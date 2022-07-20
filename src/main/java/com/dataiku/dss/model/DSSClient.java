@@ -34,13 +34,11 @@ import static org.apache.commons.codec.binary.Base64.encodeBase64;
 @SuppressWarnings("UnstableApiUsage")
 public class DSSClient {
     private static final String PUBLIC_API = "public/api";
-    private static final String DIP_PUBLIC_API = "dip/publicapi/";
     private static final String PROJECTS = "projects";
     private static final String RECIPES = "recipes";
     private static final String PLUGINS = "plugins";
     private static final String LIBRARIES = "libraries";
     private static final String CONTENTS = "contents";
-    private static final String RAW_CONTENTS = "raw-contents";
 
     private static final Logger log = Logger.getInstance(DSSClient.class);
 
@@ -65,7 +63,7 @@ public class DSSClient {
 
     public String getDssVersion() {
         try (HttpClientWithContext client = createHttpClient()) {
-            URI url = buildUrl(PUBLIC_API, PROJECTS, "");
+            URI url = buildUrl(PROJECTS, "");
             HttpResponse response = executeRequest(new HttpGet(url), client);
             Header header = response.getFirstHeader("DSS-Version");
             return header != null ? header.getValue() : null;
@@ -77,23 +75,23 @@ public class DSSClient {
 
     public List<Project> listProjects(String... tags) throws DssException {
         String tagPart = Joiner.on(',').join(tags);
-        URI url = buildUrl(PUBLIC_API, PROJECTS, tagPart);
+        URI url = buildUrl(PROJECTS, tagPart);
 
         return asList(executeGet(url, Project[].class));
     }
 
     public List<Recipe> listRecipes(String projectKey) throws DssException {
-        URI url = buildUrl(PUBLIC_API, PROJECTS, projectKey, RECIPES, "");
+        URI url = buildUrl(PROJECTS, projectKey, RECIPES, "");
         return asList(executeGet(url, Recipe[].class));
     }
 
     public RecipeAndPayload loadRecipe(String projectKey, String recipeName) throws DssException {
-        URI url = buildUrl(PUBLIC_API, PROJECTS, projectKey, RECIPES, recipeName);
+        URI url = buildUrl(PROJECTS, projectKey, RECIPES, recipeName);
         return executeGet(url, RecipeAndPayload.class);
     }
 
     public void saveRecipeContent(String projectKey, String recipeName, String payload) throws DssException {
-        URI url = buildUrl(PUBLIC_API, PROJECTS, projectKey, RECIPES, recipeName);
+        URI url = buildUrl(PROJECTS, projectKey, RECIPES, recipeName);
 
         // Load existing recipe & change only the payload (this way we are compatible with all versions of DSS).
         String existingRecipeJSon = executeGet(url);
@@ -112,7 +110,7 @@ public class DSSClient {
     }
 
     public List<Plugin> listPlugins() throws DssException {
-        URI url = buildUrl(PUBLIC_API, PLUGINS, "");
+        URI url = buildUrl(PLUGINS, "");
 
         try {
             return asList(executeGet(url, Plugin[].class));
@@ -126,37 +124,37 @@ public class DSSClient {
     }
 
     public List<FolderContent> listPluginFiles(String pluginId) throws DssException {
-        URI url = buildUrl(PUBLIC_API, PLUGINS, pluginId, CONTENTS, "");
+        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, "");
         return asList(executeGet(url, FolderContent[].class));
     }
 
     public List<FolderContent> listLibraryFiles(String projectKey) throws DssException {
-        URI url = buildUrl(DIP_PUBLIC_API,  PROJECTS, projectKey, LIBRARIES, CONTENTS, "");
+        URI url = buildUrl(PROJECTS, projectKey, LIBRARIES, CONTENTS, "");
         return asList(executeGet(url, FolderContent[].class));
     }
 
-    public byte[] downloadLibraryFile(String projectKey, String path) throws DssException {
-        URI url = buildUrl(DIP_PUBLIC_API, PROJECTS, projectKey, LIBRARIES, RAW_CONTENTS, path);
-        return executeGetAndReturnByteArray(url);
+    public FolderContent downloadLibraryFile(String projectKey, String path) throws DssException {
+        URI url = buildUrl(PROJECTS, projectKey, LIBRARIES, CONTENTS, path);
+        return executeGet(url, FolderContent.class);
     }
 
     public byte[] downloadPluginFile(String pluginId, String path) throws DssException {
-        URI url = buildUrl(PUBLIC_API, PLUGINS, pluginId, CONTENTS, path);
+        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
         return executeGetAndReturnByteArray(url);
     }
 
     public void deletePluginFile(String pluginId, String path) throws DssException {
-        URI url = buildUrl(PUBLIC_API, PLUGINS, pluginId, CONTENTS, path);
+        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
         executeDelete(url);
     }
 
     public void deleteLibraryFile(String projectKey, String path) throws DssException {
-        URI url = buildUrl(DIP_PUBLIC_API, PROJECTS, projectKey, LIBRARIES, CONTENTS, path);
+        URI url = buildUrl(PROJECTS, projectKey, LIBRARIES, CONTENTS, path);
         executeDelete(url);
     }
 
     public void uploadPluginFile(String pluginId, String path, byte[] content) throws DssException {
-        URI url = buildUrl(PUBLIC_API, PLUGINS, pluginId, CONTENTS, path);
+        URI url = buildUrl(PLUGINS, pluginId, CONTENTS, path);
         try (HttpClientWithContext client = createHttpClient()) {
             HttpPost request = new HttpPost(url);
             request.setEntity(new ByteArrayEntity(content));
@@ -169,7 +167,7 @@ public class DSSClient {
     }
 
     public void uploadLibraryFile(String projectKey, String path, byte[] content) throws DssException {
-        URI url = buildUrl(DIP_PUBLIC_API, PROJECTS, projectKey, LIBRARIES, CONTENTS, path);
+        URI url = buildUrl(PROJECTS, projectKey, LIBRARIES, CONTENTS, path);
         try (HttpClientWithContext client = createHttpClient()) {
             HttpPost request = new HttpPost(url);
             request.setEntity(new ByteArrayEntity(content));
@@ -288,9 +286,9 @@ public class DSSClient {
     }
 
     @NotNull
-    private URI buildUrl(String apiPath, String... parts) {
+    private URI buildUrl(String... parts) {
         try {
-            URI baseUri = new URI(baseUrl + apiPath);
+            URI baseUri = new URI(baseUrl + PUBLIC_API);
             return new URI(
                     baseUri.getScheme(),
                     baseUri.getAuthority(),
