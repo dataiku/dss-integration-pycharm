@@ -160,11 +160,14 @@ public class SynchronizeWorker {
     private void synchronizeFileSystem(DssInstance dssInstance, MonitoredFileSystem monitoredFS) throws IOException {
         DSSClient dssClient = dssInstance.createClient();
         List<FolderContent> folderContents;
-        if (monitoredFS instanceof MonitoredLibrary) {
-            folderContents = dssClient.listLibraryFiles(monitoredFS.fsMetadata.id);
+        if (monitoredFS instanceof MonitoredPlugin) {
+            if(monitoredFS.fsMetadata.id == null || "".equals(monitoredFS.fsMetadata.id)) {
+                monitoredFS.fsMetadata.id = ((MonitoredPlugin) monitoredFS).plugin.pluginId;
+            }
+            folderContents = dssClient.listPluginFiles(monitoredFS.fsMetadata.id);
         }
         else {
-            folderContents = dssClient.listPluginFiles(monitoredFS.fsMetadata.id);
+            folderContents = dssClient.listLibraryFiles(monitoredFS.fsMetadata.id);
         }
 
         synchronizeFolder(dssClient, monitoredFS, monitoredFS.baseDir, folderContents);

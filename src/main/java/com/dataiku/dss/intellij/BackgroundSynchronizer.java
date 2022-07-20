@@ -343,8 +343,10 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
                     byte[] remoteData;
                     if (monitoredFS instanceof MonitoredPlugin) {
+                        if(monitoredFS.fsMetadata.id == null || "".equals(monitoredFS.fsMetadata.id)) {
+                            monitoredFS.fsMetadata.id = ((MonitoredPlugin) monitoredFS).plugin.pluginId;
+                        }
                         remoteData = dssClient.downloadPluginFile(monitoredFS.fsMetadata.id, trackedFile.remotePath);
-
                     } else {
                         String remoteDataString = dssClient.downloadLibraryFile(monitoredFS.fsMetadata.id, trackedFile.remotePath).data;
                         // Converting back to bytes to factorize code with plugin
