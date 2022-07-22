@@ -51,6 +51,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
     public void disposeComponent() {
         monitoredRecipeFiles.clear();
         monitoredPlugins.clear();
+        monitoredLibraries.clear();
     }
 
     public synchronized void index(VirtualFile monitoredFile, MetadataFile metadataFile, DssRecipeMetadata recipe) {

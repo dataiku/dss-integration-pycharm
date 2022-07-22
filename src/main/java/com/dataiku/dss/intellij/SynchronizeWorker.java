@@ -17,6 +17,7 @@ import com.dataiku.dss.model.metadata.DssFileSystemMetadata;
 import com.dataiku.dss.model.metadata.DssLibraryFileMetadata;
 import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VfsUtilCore;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -161,7 +162,7 @@ public class SynchronizeWorker {
         DSSClient dssClient = dssInstance.createClient();
         List<FolderContent> folderContents;
         if (monitoredFS instanceof MonitoredPlugin) {
-            if(monitoredFS.fsMetadata.id == null || "".equals(monitoredFS.fsMetadata.id)) {
+            if(Strings.isNullOrEmpty(monitoredFS.fsMetadata.id)) {
                 monitoredFS.fsMetadata.id = ((MonitoredPlugin) monitoredFS).plugin.pluginId;
             }
             folderContents = dssClient.listPluginFiles(monitoredFS.fsMetadata.id);

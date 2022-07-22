@@ -16,6 +16,7 @@ import com.dataiku.dss.model.metadata.*;
 import com.dataiku.dss.wt1.WT1;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.intellij.openapi.fileEditor.impl.NonProjectFileWritingAccessProvider;
 import com.intellij.openapi.roots.ModuleRootManager;
@@ -218,7 +219,7 @@ public class CheckoutWorker {
                 } else {
                     String fileContentString = remoteFile.size == 0 ? "" : model.serverClient.downloadLibraryFile(id, remoteFile.path).data;
                     // Converting back to bytes to factorize code with plugins
-                    if (fileContentString==null || "".equals(fileContentString)) {
+                    if (Strings.isNullOrEmpty(fileContentString)) {
                         fileContent = new byte[0];
                     } else {
                         fileContent = fileContentString.getBytes(UTF_8);

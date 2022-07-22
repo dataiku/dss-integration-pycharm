@@ -7,6 +7,7 @@ import com.dataiku.dss.intellij.utils.VirtualFileManager;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
 import com.dataiku.dss.model.metadata.DssFileMetadata;
+import com.google.common.base.Strings;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ReadAction;
 import com.intellij.openapi.components.ApplicationComponent;
@@ -343,14 +344,14 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
                     byte[] remoteData;
                     if (monitoredFS instanceof MonitoredPlugin) {
-                        if(monitoredFS.fsMetadata.id == null || "".equals(monitoredFS.fsMetadata.id)) {
+                        if(Strings.isNullOrEmpty(monitoredFS.fsMetadata.id)) {
                             monitoredFS.fsMetadata.id = ((MonitoredPlugin) monitoredFS).plugin.pluginId;
                         }
                         remoteData = dssClient.downloadPluginFile(monitoredFS.fsMetadata.id, trackedFile.remotePath);
                     } else {
                         String remoteDataString = dssClient.downloadLibraryFile(monitoredFS.fsMetadata.id, trackedFile.remotePath).data;
                         // Converting back to bytes to factorize code with plugin
-                        if (remoteDataString==null || "".equals(remoteDataString)) {
+                        if (Strings.isNullOrEmpty(remoteDataString)) {
                             remoteData = new byte[0];
                         } else {
                             remoteData = remoteDataString.getBytes(UTF_8);
