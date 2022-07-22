@@ -1,21 +1,8 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
-import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
-import static com.google.common.base.Charsets.UTF_8;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.jetbrains.annotations.NotNull;
-
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.DataikuDSSPlugin;
-import com.dataiku.dss.intellij.MetadataFile;
-import com.dataiku.dss.intellij.MetadataFilesIndex;
-import com.dataiku.dss.intellij.MonitoredFilesIndex;
-import com.dataiku.dss.intellij.MonitoredPlugin;
+import com.dataiku.dss.intellij.*;
+import com.dataiku.dss.intellij.actions.checkout.CheckoutModel.ItemType;
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.intellij.utils.RecipeUtils;
@@ -25,16 +12,24 @@ import com.dataiku.dss.model.dss.FolderContent;
 import com.dataiku.dss.model.dss.Plugin;
 import com.dataiku.dss.model.dss.Recipe;
 import com.dataiku.dss.model.dss.RecipeAndPayload;
-import com.dataiku.dss.model.metadata.DssPluginFileMetadata;
-import com.dataiku.dss.model.metadata.DssPluginMetadata;
-import com.dataiku.dss.model.metadata.DssRecipeMetadata;
+import com.dataiku.dss.model.metadata.*;
 import com.dataiku.dss.wt1.WT1;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.intellij.openapi.fileEditor.impl.NonProjectFileWritingAccessProvider;
 import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.vfs.VirtualFile;
+import org.jetbrains.annotations.NotNull;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
+import static com.google.common.base.Charsets.UTF_8;
 
 public class CheckoutWorker {
     private static final Logger log = Logger.getInstance(CheckoutWorker.class);
@@ -54,17 +49,24 @@ public class CheckoutWorker {
 
     public List<VirtualFile> checkout() throws IOException {
         if (dssSettings.isTrackingEnabled()) {
-            wt1.track("pycharm-checkout",
-                    model.recipes != null ?
-                            ImmutableMap.of("recipes", model.recipes.size()) :
-                            ImmutableMap.of("plugins", model.plugins.size()
-                            ));
+            ImmutableMap tracked;
+            if (model.recipes != null) {
+                tracked = ImmutableMap.of("recipes", model.recipes.size());
+            } else if (model.plugins != null) {
+                tracked = ImmutableMap.of("plugins", model.plugins.size());
+            } else {
+                tracked = ImmutableMap.of("libraries", 1);
+            }
+
+            wt1.track("pycharm-checkout", tracked);
         }
 
-        if (model.itemType == CheckoutModel.ItemType.RECIPE) {
+        if (model.itemType == ItemType.RECIPE) {
             return checkoutRecipe(model);
-        } else {
+        } else if (model.itemType == CheckoutModel.ItemType.PLUGIN){
             return checkoutPlugin(model);
+        } else {
+            return checkoutLibrary(model);
         }
     }
 
@@ -119,6 +121,35 @@ public class CheckoutWorker {
         return createdFileList;
     }
 
+
+    private List<VirtualFile> checkoutLibrary(CheckoutModel model) throws IOException {
+        // Retrieve project key
+        String projectKey = model.libraryProjectKey;
+
+        DSSClient dssClient = model.serverClient;
+        VirtualFile moduleRootFolder = getModuleRootFolder(ModuleRootManager.getInstance(model.module));
+        MetadataFile metadata = MetadataFilesIndex.getInstance().getOrCreateMetadata(moduleRootFolder);
+        List<VirtualFile> createdFileList = new ArrayList<>();
+
+        // Track library
+        DssLibraryMetadata libraryMetadata = new DssLibraryMetadata(model.server.id, projectKey, projectKey);
+        // Create folder for library
+        VirtualFile folder = vFileManager.getOrCreateVirtualDirectory(vFileManager.getOrCreateVirtualDirectory(moduleRootFolder, projectKey), "library");
+        // Checkout library files
+        List<FolderContent> folderContents = dssClient.listLibraryFiles(projectKey);
+
+        checkoutFolder(libraryMetadata, projectKey, createdFileList, folder, folderContents);
+
+        metadata.addOrUpdateLibrary(libraryMetadata);
+
+        // Monitor the library directory so that any further change in this directory is synchronized with DSS.
+        MonitoredFilesIndex.getInstance().index(new MonitoredLibrary(folder, metadata, libraryMetadata));
+
+        NonProjectFileWritingAccessProvider.allowWriting(createdFileList);
+        return createdFileList;
+
+    }
+
     private List<VirtualFile> checkoutPlugin(CheckoutModel model) throws IOException {
         Preconditions.checkNotNull(model, "item");
 
@@ -153,50 +184,63 @@ public class CheckoutWorker {
         return importantFiles.isEmpty() ? createdFileList : importantFiles;
     }
 
-    private void checkoutFolder(DssPluginMetadata pluginMetadata, String pluginId, List<VirtualFile> createdFileList, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
-        for (FolderContent pluginFile : folderContents) {
-            if (pluginFile.mimeType == null || "null".equals(pluginFile.mimeType)) {
+
+    private void checkoutFolder(DssFileSystemMetadata metadata, String id, List<VirtualFile> createdFileList, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
+        for (FolderContent remoteFile : folderContents) {
+            if (remoteFile.mimeType == null || "null".equals(remoteFile.mimeType)) {
                 // Folder
-                log.info(String.format("Checkout plugin folder '%s' (path=%s)", pluginFile.name, pluginFile.path));
+                log.info(String.format("Checkout folder '%s' (path=%s)", remoteFile.name, remoteFile.path));
 
                 // Create folder
-                VirtualFile file = vFileManager.getOrCreateVirtualDirectory(parent, pluginFile.name);
+                VirtualFile localFile = vFileManager.getOrCreateVirtualDirectory(parent, remoteFile.name);
 
                 // Write metadata
-                pluginMetadata.files.add(new DssPluginFileMetadata(
+                metadata.files.add(new DssFileMetadata(
                         model.server.id,
-                        pluginId,
-                        pluginId + "/" + pluginFile.path,
-                        pluginFile.path,
+                        id,
+                        id + "/" + remoteFile.path,
+                        remoteFile.path,
                         0,
                         (byte[]) null));
 
                 // Recurse if necessary
-                if (pluginFile.children != null && !pluginFile.children.isEmpty()) {
-                    checkoutFolder(pluginMetadata, pluginId, createdFileList, file, pluginFile.children);
+                if (remoteFile.children != null && !remoteFile.children.isEmpty()) {
+                    checkoutFolder(metadata, id, createdFileList, localFile, remoteFile.children);
                 }
             } else {
                 // Regular file
-                log.info(String.format("Checkout plugin file '%s' (path=%s)", pluginFile.name, pluginFile.path));
+                log.info(String.format("Checkout file '%s' (path=%s)", remoteFile.name, remoteFile.path));
 
-                VirtualFile file = vFileManager.getOrCreateVirtualFile(parent, pluginFile.name);
+                VirtualFile localFile = vFileManager.getOrCreateVirtualFile(parent, remoteFile.name);
 
-                byte[] fileContent = pluginFile.size == 0 ? new byte[0] : model.serverClient.downloadPluginFile(pluginId, pluginFile.path);
-                vFileManager.writeToVirtualFile(file, fileContent, UTF_8);
+                byte[] fileContent;
+                if (metadata instanceof DssPluginMetadata) {
+                    fileContent = remoteFile.size == 0 ? new byte[0] : model.serverClient.downloadPluginFile(id, remoteFile.path);
+                } else {
+                    String fileContentString = remoteFile.size == 0 ? "" : model.serverClient.downloadLibraryFile(id, remoteFile.path).data;
+                    // Converting back to bytes to factorize code with plugins
+                    if (Strings.isNullOrEmpty(fileContentString)) {
+                        fileContent = new byte[0];
+                    } else {
+                        fileContent = fileContentString.getBytes(UTF_8);
+                    }
+                }
 
+                vFileManager.writeToVirtualFile(localFile, fileContent, UTF_8);
                 // Write metadata
-                pluginMetadata.files.add(new DssPluginFileMetadata(
+                metadata.files.add(new DssFileMetadata(
                         model.server.id,
-                        pluginId,
-                        pluginId + "/" + pluginFile.path,
-                        pluginFile.path,
+                        id,
+                        id + "/" + remoteFile.path,
+                        remoteFile.path,
                         getContentHash(fileContent),
                         fileContent));
 
-                createdFileList.add(file);
+                createdFileList.add(localFile);
             }
         }
     }
+
 
     private static String getFilename(Recipe recipe) {
         return recipe.name + RecipeUtils.extension(recipe.type);

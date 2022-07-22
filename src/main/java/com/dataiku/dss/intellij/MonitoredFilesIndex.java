@@ -1,15 +1,9 @@
 package com.dataiku.dss.intellij;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import org.jetbrains.annotations.NotNull;
-
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.utils.ComponentUtils;
 import com.dataiku.dss.intellij.utils.VirtualFileManager;
+import com.dataiku.dss.model.metadata.DssLibraryMetadata;
 import com.dataiku.dss.model.metadata.DssPluginMetadata;
 import com.dataiku.dss.model.metadata.DssRecipeMetadata;
 import com.google.common.base.Preconditions;
@@ -18,12 +12,19 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.project.ProjectManager;
 import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.vfs.VirtualFile;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class MonitoredFilesIndex implements ApplicationComponent {
     private static final Logger log = Logger.getInstance(MonitoredFilesIndex.class);
 
     private final Map<String/*Path of file*/, MonitoredRecipeFile> monitoredRecipeFiles = new HashMap<>();
     private final Map<String/*Path of plugin base directory*/, MonitoredPlugin> monitoredPlugins = new HashMap<>();
+    private final Map<String/*Path of library base directory*/, MonitoredLibrary> monitoredLibraries = new HashMap<>();
     private final MetadataFilesIndex metadataFilesIndex;
 
     public static MonitoredFilesIndex getInstance() {
@@ -50,6 +51,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
     public void disposeComponent() {
         monitoredRecipeFiles.clear();
         monitoredPlugins.clear();
+        monitoredLibraries.clear();
     }
 
     public synchronized void index(VirtualFile monitoredFile, MetadataFile metadataFile, DssRecipeMetadata recipe) {
@@ -65,10 +67,15 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         monitoredRecipeFiles.put(monitoredFile.file.getCanonicalPath(), monitoredFile);
     }
 
-    public synchronized void index(MonitoredPlugin monitoredPlugin) {
-        Preconditions.checkNotNull(monitoredPlugin, "monitoredPlugin");
-        log.info(String.format("Start tracking directory '%s' corresponding to plugin '%s'.", monitoredPlugin.pluginBaseDir, monitoredPlugin.plugin.pluginId));
-        monitoredPlugins.put(monitoredPlugin.pluginBaseDir.getCanonicalPath(), monitoredPlugin);
+    public synchronized void index(MonitoredFileSystem monitoredFS) {
+        Preconditions.checkNotNull(monitoredFS, "monitoredFS");
+        log.info(String.format("Start tracking directory '%s' corresponding to element '%s'.", monitoredFS.baseDir, monitoredFS.fsMetadata.id));
+        if (monitoredFS instanceof MonitoredPlugin) {
+            monitoredPlugins.put(monitoredFS.baseDir.getCanonicalPath(), (MonitoredPlugin) monitoredFS);
+        } else {
+            monitoredLibraries.put(monitoredFS.baseDir.getCanonicalPath(), (MonitoredLibrary) monitoredFS);
+        }
+
     }
 
     public synchronized void removeFromIndex(MonitoredRecipeFile monitoredFile) {
@@ -77,10 +84,14 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         monitoredRecipeFiles.remove(monitoredFile.file.getCanonicalPath());
     }
 
-    public synchronized void removeFromIndex(MonitoredPlugin monitoredPlugin) {
-        Preconditions.checkNotNull(monitoredPlugin, "monitoredPlugin");
-        log.info(String.format("Stop tracking plugin directory '%s' corresponding to plugin on instance '%s'.", monitoredPlugin.pluginBaseDir, monitoredPlugin.plugin.instance));
-        monitoredPlugins.remove(monitoredPlugin.pluginBaseDir.getCanonicalPath());
+    public synchronized void removeFromIndex(MonitoredFileSystem monitoredFS) {
+        Preconditions.checkNotNull(monitoredFS, "monitoredFS");
+        log.info(String.format("Stop tracking directory '%s' on instance '%s'.", monitoredFS.baseDir, monitoredFS.fsMetadata.instance));
+        if (monitoredFS instanceof MonitoredPlugin) {
+            monitoredPlugins.remove(monitoredFS.baseDir.getCanonicalPath());
+        } else {
+            monitoredLibraries.remove(monitoredFS.baseDir.getCanonicalPath());
+        }
     }
 
     public synchronized MonitoredRecipeFile getMonitoredFile(VirtualFile file) {
@@ -105,6 +116,10 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         return new ArrayList<>(monitoredPlugins.values());
     }
 
+    public synchronized List<MonitoredLibrary> getMonitoredLibraries() {
+        return new ArrayList<>(monitoredLibraries.values());
+    }
+
     public synchronized void index(Project[] projects) {
         for (VirtualFile moduleContentRoot : listModulesRoot(projects)) {
             try {
@@ -122,6 +137,12 @@ public class MonitoredFilesIndex implements ApplicationComponent {
                             index(new MonitoredPlugin(pluginBaseDir, metadataFile, plugin));
                         }
                     }
+                    for (DssLibraryMetadata library : metadataFile.metadata.libraries) {
+                        VirtualFile libraryBaseDir = moduleContentRoot.findFileByRelativePath(library.path);
+                        if (libraryBaseDir != null && libraryBaseDir.isValid()) {
+                            index(new MonitoredLibrary(libraryBaseDir, metadataFile, library));
+                        }
+                    }
                 }
             } catch (RuntimeException e) {
                 log.warn(String.format("Unable to index module '%s'.", moduleContentRoot), e);
@@ -129,9 +150,20 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         }
     }
 
+
+    public synchronized MonitoredLibrary getMonitoredLibrary(VirtualFile file) {
+        for (MonitoredLibrary lib : monitoredLibraries.values()) {
+            String path = VirtualFileManager.getRelativePath(lib.baseDir, file);
+            if (path != null) {
+                return lib;
+            }
+        }
+        return null;
+    }
+
     public synchronized MonitoredPlugin getMonitoredPlugin(VirtualFile file) {
         for (MonitoredPlugin plugin : monitoredPlugins.values()) {
-            String path = VirtualFileManager.getRelativePath(plugin.pluginBaseDir, file);
+            String path = VirtualFileManager.getRelativePath(plugin.baseDir, file);
             if (path != null) {
                 return plugin;
             }
@@ -139,10 +171,15 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         return null;
     }
 
-    public synchronized MonitoredPlugin getMonitoredPluginFromBaseDir(VirtualFile pluginBaseDir) {
-        for (MonitoredPlugin plugin : monitoredPlugins.values()) {
-            if (plugin.pluginBaseDir.getUrl().equals(pluginBaseDir.getUrl())) {
-                return plugin;
+    public synchronized MonitoredFileSystem getMonitoredFileSystemFromBaseDir(VirtualFile baseDir) {
+        for (MonitoredFileSystem libraryFileSystem : monitoredLibraries.values()) {
+            if (libraryFileSystem.baseDir.getUrl().equals(baseDir.getUrl())) {
+                return libraryFileSystem;
+            }
+        }
+        for (MonitoredFileSystem pluginFileSystem : monitoredPlugins.values()) {
+            if (pluginFileSystem.baseDir.getUrl().equals(baseDir.getUrl())) {
+                return pluginFileSystem;
             }
         }
         return null;
@@ -178,7 +215,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         List<MonitoredPlugin> result = new ArrayList<>();
 
         for (MonitoredPlugin monitoredPlugin : monitoredPlugins.values()) {
-            String path = VirtualFileManager.getRelativePath(directory, monitoredPlugin.pluginBaseDir);
+            String path = VirtualFileManager.getRelativePath(directory, monitoredPlugin.baseDir);
             if (path != null) {
                 result.add(monitoredPlugin);
             }
@@ -186,5 +223,18 @@ public class MonitoredFilesIndex implements ApplicationComponent {
 
         return result;
     }
+
+    public synchronized List<MonitoredLibrary> getMonitoredLibrariesNestedUnderDir(VirtualFile directory) {
+        List<MonitoredLibrary> result = new ArrayList<>();
+
+        for (MonitoredLibrary monitoredLibrary : monitoredLibraries.values()) {
+            String path = VirtualFileManager.getRelativePath(directory, monitoredLibrary.baseDir);
+            if (path != null) {
+                result.add(monitoredLibrary);
+            }
+        }
+        return result;
+    }
+
 }
 

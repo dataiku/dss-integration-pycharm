@@ -1,7 +1,5 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
-import java.util.List;
-
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.model.DSSClient;
 import com.dataiku.dss.model.dss.Plugin;
@@ -9,11 +7,14 @@ import com.dataiku.dss.model.dss.Recipe;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.projectRoots.Sdk;
 
+import java.util.List;
+
 public class CheckoutModel {
 
     public enum ItemType {
         RECIPE,
-        PLUGIN
+        PLUGIN,
+        LIBRARY
     }
 
     public DssInstance server;
@@ -31,4 +32,7 @@ public class CheckoutModel {
 
     // Plugins
     public List<Plugin> plugins;
+
+    // Library
+    public String libraryProjectKey;
 }

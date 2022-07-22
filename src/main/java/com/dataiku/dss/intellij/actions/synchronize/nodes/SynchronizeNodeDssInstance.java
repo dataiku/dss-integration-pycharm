@@ -26,10 +26,23 @@ public class SynchronizeNodeDssInstance extends SynchronizeBaseNode {
         return listChildren(SynchronizeNodePlugins.class).stream().findAny().orElse(null);
     }
 
+    public SynchronizeNodeLibraries getLibrariesNode() {
+        return listChildren(SynchronizeNodeLibraries.class).stream().findAny().orElse(null);
+    }
+
     public SynchronizeNodePlugins getOrAddPluginsNode() {
         SynchronizeNodePlugins result = getPluginsNode();
         if (result == null) {
             result = new SynchronizeNodePlugins();
+            add(result);
+        }
+        return result;
+    }
+
+    public SynchronizeNodeLibraries getOrAddLibrariesNode() {
+        SynchronizeNodeLibraries result = getLibrariesNode();
+        if (result == null) {
+            result = new SynchronizeNodeLibraries();
             add(result);
         }
         return result;

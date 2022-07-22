@@ -1,14 +1,5 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import javax.swing.*;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
 import com.dataiku.dss.intellij.config.DssInstance;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.dataiku.dss.model.DSSClient;
@@ -20,6 +11,14 @@ import com.intellij.openapi.module.ModuleManager;
 import com.intellij.openapi.project.Project;
 import com.intellij.ui.ColoredListCellRenderer;
 import com.intellij.ui.SimpleTextAttributes;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import javax.swing.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class CheckoutStep1 extends AbstractWizardStepEx {
     public static final Object ID = "CheckoutStep1";
@@ -32,7 +31,7 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
     private JPanel panel;
 
     public CheckoutStep1(CheckoutModel model, Project project) {
-        super("Recipe or Plugin");
+        super("Recipe or Plugin or Library");
         this.model = model;
         this.project = project;
         init();
@@ -64,9 +63,16 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
     @Nullable
     @Override
     public Object getNextStepId() {
-        return "Plugin".equals(itemTypeComboBox.getSelectedItem()) ?
-                CheckoutStep2Plugin.ID :
-                CheckoutStep2Recipe.ID;
+        switch((String) itemTypeComboBox.getSelectedItem()) {
+            case "Plugin":
+                return CheckoutStep2Plugin.ID;
+            case "Library":
+                return CheckoutStep2Library.ID;
+            case "Recipe":
+                return CheckoutStep2Recipe.ID;
+            default:
+                return CheckoutStep2Recipe.ID;
+        }
     }
 
     @Nullable
@@ -133,6 +139,8 @@ public class CheckoutStep1 extends AbstractWizardStepEx {
             return CheckoutModel.ItemType.RECIPE;
         case "Plugin":
             return CheckoutModel.ItemType.PLUGIN;
+        case "Library":
+            return CheckoutModel.ItemType.LIBRARY;
         default:
             throw new CommitStepException("Unexpected item type: " + itemType);
         }

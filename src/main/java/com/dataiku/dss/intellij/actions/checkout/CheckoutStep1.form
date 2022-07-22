@@ -84,6 +84,7 @@
               <model>
                 <item value="Recipe"/>
                 <item value="Plugin"/>
+                <item value="Library"/>
               </model>
             </properties>
           </component>

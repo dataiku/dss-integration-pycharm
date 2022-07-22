@@ -1,12 +1,5 @@
 package com.dataiku.dss.intellij;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-
-import org.jetbrains.annotations.NotNull;
-
 import com.dataiku.dss.Logger;
 import com.dataiku.dss.intellij.utils.ComponentUtils;
 import com.dataiku.dss.intellij.utils.VirtualFileManager;
@@ -14,6 +7,12 @@ import com.dataiku.dss.model.metadata.DssMetadata;
 import com.google.gson.GsonBuilder;
 import com.intellij.openapi.components.ApplicationComponent;
 import com.intellij.openapi.vfs.VirtualFile;
+import org.jetbrains.annotations.NotNull;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MetadataFilesIndex implements ApplicationComponent {
     private static final Logger log = Logger.getInstance(MetadataFilesIndex.class);
@@ -62,6 +61,7 @@ public class MetadataFilesIndex implements ApplicationComponent {
                     dssMetadata.version = 1;
                     dssMetadata.recipes = new ArrayList<>();
                     dssMetadata.plugins = new ArrayList<>();
+                    dssMetadata.libraries = new ArrayList<>();
                     dssMetadataFile = new MetadataFile(moduleContentRoot, dssMetadata);
                     dssMetadataFile.flush();
                 }
@@ -83,6 +83,9 @@ public class MetadataFilesIndex implements ApplicationComponent {
         }
         if (result.recipes == null) {
             result.recipes = new ArrayList<>();
+        }
+        if (result.libraries == null) {
+            result.libraries = new ArrayList<>();
         }
         return result;
     }

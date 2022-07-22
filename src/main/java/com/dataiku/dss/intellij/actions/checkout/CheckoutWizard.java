@@ -1,12 +1,12 @@
 package com.dataiku.dss.intellij.actions.checkout;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.intellij.ide.BrowserUtil;
 import com.intellij.ide.wizard.AbstractWizardEx;
 import com.intellij.ide.wizard.AbstractWizardStepEx;
 import com.intellij.openapi.project.Project;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class CheckoutWizard {
     private final CheckoutModel model;
@@ -22,6 +22,7 @@ public class CheckoutWizard {
         steps.add(new CheckoutStep1(model, project));
         steps.add(new CheckoutStep2Recipe(model));
         steps.add(new CheckoutStep2Plugin(model));
+        steps.add(new CheckoutStep2Library(model));
         return steps;
     }
 

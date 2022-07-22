@@ -1,30 +1,9 @@
 package com.dataiku.dss.intellij.actions.synchronize;
 
-import static com.intellij.openapi.util.SystemInfo.isMac;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.jetbrains.annotations.NotNull;
-
 import com.dataiku.dss.Logger;
-import com.dataiku.dss.intellij.DataikuDSSPlugin;
-import com.dataiku.dss.intellij.MonitoredFilesIndex;
-import com.dataiku.dss.intellij.MonitoredPlugin;
-import com.dataiku.dss.intellij.MonitoredRecipeFile;
-import com.dataiku.dss.intellij.RecipeCache;
-import com.dataiku.dss.intellij.SynchronizationNotifier;
-import com.dataiku.dss.intellij.SynchronizeRequest;
-import com.dataiku.dss.intellij.SynchronizeSummary;
-import com.dataiku.dss.intellij.SynchronizeWorker;
+import com.dataiku.dss.intellij.*;
 import com.dataiku.dss.intellij.actions.merge.ResolveConflictsDialog;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeDssInstance;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugin;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodePlugins;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipe;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipeProject;
-import com.dataiku.dss.intellij.actions.synchronize.nodes.SynchronizeNodeRecipes;
+import com.dataiku.dss.intellij.actions.synchronize.nodes.*;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.AnAction;
@@ -34,6 +13,13 @@ import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.wm.impl.welcomeScreen.NewWelcomeScreen;
+import org.jetbrains.annotations.NotNull;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+import static com.intellij.openapi.util.SystemInfo.isMac;
 
 public class SynchronizeAction extends AnAction implements DumbAware {
     private static final Logger log = Logger.getInstance(SynchronizeAction.class);
@@ -99,6 +85,8 @@ public class SynchronizeAction extends AnAction implements DumbAware {
     private SynchronizeRequest buildRequest(SynchronizeModel model) {
         List<MonitoredRecipeFile> recipeFiles = new ArrayList<>();
         List<MonitoredPlugin> plugins = new ArrayList<>();
+        List<MonitoredLibrary> libraries = new ArrayList<>();
+
         for (SynchronizeNodeDssInstance instanceNode : model.selectionRootNode.getInstanceNodes()) {
             SynchronizeNodeRecipes recipesNode = instanceNode.getRecipesNode();
             if (recipesNode != null) {
@@ -119,7 +107,17 @@ public class SynchronizeAction extends AnAction implements DumbAware {
                     }
                 }
             }
+
+            SynchronizeNodeLibraries librariesNode = instanceNode.getLibrariesNode();
+            if (librariesNode != null) {
+                for (SynchronizeNodeLibrary libraryNode : librariesNode.getLibraryNodes()) {
+                    if (libraryNode.isSelected()) {
+                        libraries.add(libraryNode.monitoredLibrary);
+                    }
+                }
+            }
+
         }
-        return new SynchronizeRequest(recipeFiles, plugins);
+        return new SynchronizeRequest(recipeFiles, plugins, libraries);
     }
 }
