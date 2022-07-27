@@ -14,4 +14,10 @@ public class SynchronizeNodeLibrary extends SynchronizeBaseNode {
     public List<SynchronizeNodeLibraryContent> getContentNodes() {
         return listChildren(SynchronizeNodeLibraryContent.class);
     }
+
+    @Override
+    public String toString() {
+        return monitoredLibrary.library.projectKey;
+    }
+
 }
