@@ -134,7 +134,7 @@ public class CheckoutWorker {
         // Track library
         DssLibraryMetadata libraryMetadata = new DssLibraryMetadata(model.server.id, projectKey, projectKey);
         // Create folder for library
-        VirtualFile folder = vFileManager.getOrCreateVirtualDirectory(vFileManager.getOrCreateVirtualDirectory(moduleRootFolder, projectKey), "library");
+        VirtualFile folder = vFileManager.getOrCreateVirtualDirectory(moduleRootFolder, projectKey);
         // Checkout library files
         List<FolderContent> folderContents = dssClient.listLibraryFiles(projectKey);
 
