@@ -197,7 +197,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                             deletedFileSystem.metadataFile.removeLibrary(deletedFileSystem.fsMetadata.id);
                         }
                     } catch (IOException e) {
-                        log.warn(String.format("Unable to update DSS metadata after removal of file systelm '%s'", deletedFileSystem.fsMetadata.id), e);
+                        log.warn(String.format("Unable to update DSS metadata after removal of file system '%s'", deletedFileSystem.fsMetadata.id), e);
                     }
                 } else {
                     if (monitoredFilesIndex.getMonitoredPlugin(file) != null || monitoredFilesIndex.getMonitoredLibrary(file) != null) {
