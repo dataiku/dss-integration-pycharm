@@ -162,7 +162,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             if (!dssSettings.isBackgroundSynchronizationEnabled()) {
                 return;
             }
-            if (monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
+            if ((monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) || (monitoredFilesIndex.getMonitoredLibrary(event.getFile()) != null)) {
                 scheduleSynchronization(NOW);
             }
         }
