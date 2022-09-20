@@ -14,7 +14,6 @@ import javax.swing.tree.TreeNode;
 import java.util.List;
 
 public class SynchronizeDialog extends DialogWrapper {
-
     private final SynchronizeModel model;
 
     private SynchronizeTree selectionTree;
@@ -25,7 +24,10 @@ public class SynchronizeDialog extends DialogWrapper {
 
     SynchronizeDialog(Project project, MonitoredFilesIndex monitoredFilesIndex) {
         super(project);
-        model = buildModel(monitoredFilesIndex);
+
+        MonitoredDSSElements monitoredDSSElements = monitoredFilesIndex.getProjectMonitoredElements(project);
+
+        model = buildModel(monitoredDSSElements);
         // If there is only one DSS instance, start the tree from this node, otherwise start from the root node.
         List<SynchronizeNodeDssInstance> instanceNodes = model.selectionRootNode.getInstanceNodes();
         TreeNode rootNode = instanceNodes.size() == 1 ? instanceNodes.get(0) : model.selectionRootNode;
@@ -71,11 +73,11 @@ public class SynchronizeDialog extends DialogWrapper {
         }
     }
 
-    private SynchronizeModel buildModel(MonitoredFilesIndex monitoredFilesIndex) {
+    private SynchronizeModel buildModel(MonitoredDSSElements monitoredDSSElements) {
         SynchronizeNodeRoot root = new SynchronizeNodeRoot();
-        addRecipes(root, monitoredFilesIndex.getMonitoredRecipeFiles());
-        addPlugins(root, monitoredFilesIndex.getMonitoredPlugins());
-        addLibraries(root, monitoredFilesIndex.getMonitoredLibraries());
+        addRecipes(root, monitoredDSSElements.monitoredRecipeFiles);
+        addPlugins(root, monitoredDSSElements.monitoredPlugins);
+        addLibraries(root, monitoredDSSElements.monitoredLibraries);
 
         SynchronizeModel result = new SynchronizeModel();
         result.selectionRootNode = root;
