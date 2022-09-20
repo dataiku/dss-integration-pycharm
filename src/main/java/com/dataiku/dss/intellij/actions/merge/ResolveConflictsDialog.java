@@ -121,7 +121,7 @@ public class ResolveConflictsDialog {
     private void saveMergePluginFile(@NotNull VirtualFile virtualFile, MonitoredPluginFileConflict pluginFileConflict) throws IOException {
         MonitoredPlugin monitoredPlugin = pluginFileConflict.plugin;
         String instanceName = monitoredPlugin.plugin.instance;
-        String pluginId = monitoredPlugin.plugin.instance;
+        String pluginId = monitoredPlugin.plugin.pluginId;
         String remotePath = pluginFileConflict.pluginFile.remotePath;
         DssInstance dssInstance = DssSettings.getInstance().getDssInstance(instanceName);
         if (dssInstance == null) {
