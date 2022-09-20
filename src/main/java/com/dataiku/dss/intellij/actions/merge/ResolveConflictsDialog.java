@@ -159,7 +159,7 @@ public class ResolveConflictsDialog {
         DssLibraryFileMetadata libraryFileMetadata = new DssLibraryFileMetadata(
                 instanceName,
                 projectKey,
-                projectKey + "/library/" + remotePath,
+                projectKey + "/lib/" + remotePath,
                 remotePath,
                 VirtualFileManager.getContentHash(mergedData),
                 mergedData);
