@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
+import static com.dataiku.dss.intellij.utils.LibraryUtils.LIB_BASE_FOLDER;
 
 public class ResolveConflictsDialog {
     private static final Logger log = Logger.getInstance(ResolveConflictsDialog.class);
@@ -159,7 +160,7 @@ public class ResolveConflictsDialog {
         DssLibraryFileMetadata libraryFileMetadata = new DssLibraryFileMetadata(
                 instanceName,
                 projectKey,
-                projectKey + "/lib/" + remotePath,
+                projectKey + "/" + LIB_BASE_FOLDER + "/" +  remotePath,
                 remotePath,
                 VirtualFileManager.getContentHash(mergedData),
                 mergedData);

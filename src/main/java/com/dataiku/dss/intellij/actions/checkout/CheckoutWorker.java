@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.dataiku.dss.intellij.utils.LibraryUtils.LIB_BASE_FOLDER;
 import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
 import static com.google.common.base.Charsets.UTF_8;
 
@@ -132,13 +133,13 @@ public class CheckoutWorker {
         List<VirtualFile> createdFileList = new ArrayList<>();
 
         // Track library
-        DssLibraryMetadata libraryMetadata = new DssLibraryMetadata(model.server.id, projectKey, projectKey + "/lib/");
+        DssLibraryMetadata libraryMetadata = new DssLibraryMetadata(model.server.id, projectKey, projectKey + "/" + LIB_BASE_FOLDER + "/");
         // Create folder for library
-        VirtualFile folder = vFileManager.getOrCreateVirtualDirectory(vFileManager.getOrCreateVirtualDirectory(moduleRootFolder, projectKey), "lib");
+        VirtualFile folder = vFileManager.getOrCreateVirtualDirectory(vFileManager.getOrCreateVirtualDirectory(moduleRootFolder, projectKey), LIB_BASE_FOLDER);
         // Checkout library files
         List<FolderContent> folderContents = dssClient.listLibraryFiles(projectKey);
 
-        checkoutFolder(libraryMetadata, projectKey, projectKey + "/" + "lib", createdFileList, folder, folderContents);
+        checkoutFolder(libraryMetadata, projectKey, projectKey + "/" + LIB_BASE_FOLDER, createdFileList, folder, folderContents);
 
         metadata.addOrUpdateLibrary(libraryMetadata);
 

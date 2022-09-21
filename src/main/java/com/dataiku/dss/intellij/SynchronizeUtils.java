@@ -12,6 +12,7 @@ import com.intellij.openapi.vfs.VirtualFile;
 
 import java.io.IOException;
 
+import static com.dataiku.dss.intellij.utils.LibraryUtils.LIB_BASE_FOLDER;
 import static com.google.common.base.Charsets.UTF_8;
 
 public class SynchronizeUtils {
@@ -52,7 +53,7 @@ public class SynchronizeUtils {
         DssLibraryFileMetadata libraryFileMetadata = new DssLibraryFileMetadata(
                 monitoredLib.library.instance,
                 monitoredLib.library.projectKey,
-                monitoredLib.library.projectKey + "/" + path,
+                monitoredLib.library.projectKey + "/" + LIB_BASE_FOLDER + "/" + path,
                 path,
                 VirtualFileManager.getContentHash(fileContent),
                 fileContent);

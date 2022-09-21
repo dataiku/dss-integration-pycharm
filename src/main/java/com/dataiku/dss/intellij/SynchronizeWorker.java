@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import static com.dataiku.dss.intellij.utils.LibraryUtils.LIB_BASE_FOLDER;
 import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
 import static com.google.common.base.Charsets.UTF_8;
 
@@ -170,7 +171,6 @@ public class SynchronizeWorker {
         else {
             folderContents = dssClient.listLibraryFiles(monitoredFS.fsMetadata.id);
         }
-
         synchronizeFolder(dssClient, monitoredFS, monitoredFS.baseDir, folderContents);
 
         // Add all files in plugin or lib baseDir that are not in remote plugin or lib
@@ -429,7 +429,7 @@ public class SynchronizeWorker {
             DssLibraryFileMetadata fileMetadata = new DssLibraryFileMetadata(
                     monitoredFS.fsMetadata.instance,
                     id,
-                    id + "/" + path,
+                    id + "/" + LIB_BASE_FOLDER + "/" + path,
                     path,
                     contentHash,
                     content);
