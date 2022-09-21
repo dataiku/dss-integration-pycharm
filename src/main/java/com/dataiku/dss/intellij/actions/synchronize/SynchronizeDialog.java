@@ -24,10 +24,7 @@ public class SynchronizeDialog extends DialogWrapper {
 
     SynchronizeDialog(Project project, MonitoredFilesIndex monitoredFilesIndex) {
         super(project);
-
-        MonitoredDSSElements monitoredDSSElements = monitoredFilesIndex.getProjectMonitoredElements(project);
-
-        model = buildModel(monitoredDSSElements);
+        model = buildModel(monitoredFilesIndex);
         // If there is only one DSS instance, start the tree from this node, otherwise start from the root node.
         List<SynchronizeNodeDssInstance> instanceNodes = model.selectionRootNode.getInstanceNodes();
         TreeNode rootNode = instanceNodes.size() == 1 ? instanceNodes.get(0) : model.selectionRootNode;
@@ -73,16 +70,17 @@ public class SynchronizeDialog extends DialogWrapper {
         }
     }
 
-    private SynchronizeModel buildModel(MonitoredDSSElements monitoredDSSElements) {
+    private SynchronizeModel buildModel(MonitoredFilesIndex monitoredFilesIndex) {
         SynchronizeNodeRoot root = new SynchronizeNodeRoot();
-        addRecipes(root, monitoredDSSElements.monitoredRecipeFiles);
-        addPlugins(root, monitoredDSSElements.monitoredPlugins);
-        addLibraries(root, monitoredDSSElements.monitoredLibraries);
+        addRecipes(root, monitoredFilesIndex.getMonitoredRecipeFiles());
+        addPlugins(root, monitoredFilesIndex.getMonitoredPlugins());
+        addLibraries(root, monitoredFilesIndex.getMonitoredLibraries());
 
         SynchronizeModel result = new SynchronizeModel();
         result.selectionRootNode = root;
         return result;
     }
+
 
     private void addPlugins(SynchronizeNodeRoot root, List<MonitoredPlugin> plugins) {
         plugins.forEach(monitoredPlugin -> {

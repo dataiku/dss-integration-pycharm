@@ -150,41 +150,6 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         }
     }
 
-    public MonitoredDSSElements getProjectMonitoredElements(Project proj) {
-        ArrayList<MonitoredRecipeFile> projectRecipes = new ArrayList<>();
-        ArrayList<MonitoredPlugin> projectPlugins = new ArrayList<>();
-        ArrayList<MonitoredLibrary> projectLibraries = new ArrayList<>();
-
-        for (VirtualFile moduleContentRoot : new ArrayList<>(listModulesRoot(proj).values())) {
-            try {
-                MetadataFile metadataFile = metadataFilesIndex.getMetadata(moduleContentRoot);
-                if (metadataFile != null) {
-                    for (DssRecipeMetadata recipe : metadataFile.metadata.recipes) {
-                        VirtualFile recipeFile = moduleContentRoot.findFileByRelativePath(recipe.path);
-                        if (recipeFile != null && recipeFile.isValid()) {
-                            projectRecipes.add(new MonitoredRecipeFile(recipeFile, metadataFile, recipe));
-                        }
-                    }
-                    for (DssPluginMetadata plugin : metadataFile.metadata.plugins) {
-                        VirtualFile pluginBaseDir = moduleContentRoot.findFileByRelativePath(plugin.path);
-                        if (pluginBaseDir != null && pluginBaseDir.isValid()) {
-                            projectPlugins.add(new MonitoredPlugin(pluginBaseDir, metadataFile, plugin));
-                        }
-                    }
-                    for (DssLibraryMetadata library : metadataFile.metadata.libraries) {
-                        VirtualFile libraryBaseDir = moduleContentRoot.findFileByRelativePath(library.path);
-                        if (libraryBaseDir != null && libraryBaseDir.isValid()) {
-                            projectLibraries.add(new MonitoredLibrary(libraryBaseDir, metadataFile, library));
-                        }
-                    }
-                }
-            } catch (RuntimeException e) {
-                log.warn(String.format("Unable to fetch indexed components of project '%s'.", proj.getName()), e);
-            }
-        }
-        return new MonitoredDSSElements(projectRecipes, projectPlugins, projectLibraries);
-    }
-
     public synchronized MonitoredLibrary getMonitoredLibrary(VirtualFile file) {
         for (MonitoredLibrary lib : monitoredLibraries.values()) {
             String path = VirtualFileManager.getRelativePath(lib.baseDir, file);
