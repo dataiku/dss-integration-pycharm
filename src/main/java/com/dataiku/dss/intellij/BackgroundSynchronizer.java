@@ -162,7 +162,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             if (!dssSettings.isBackgroundSynchronizationEnabled()) {
                 return;
             }
-            if (monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) {
+            if ((monitoredFilesIndex.getMonitoredPlugin(event.getFile()) != null) || (monitoredFilesIndex.getMonitoredLibrary(event.getFile()) != null)) {
                 scheduleSynchronization(NOW);
             }
         }
@@ -191,9 +191,13 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                 if (deletedFileSystem != null) {
                     monitoredFilesIndex.removeFromIndex(deletedFileSystem);
                     try {
-                        deletedFileSystem.metadataFile.removePlugin(deletedFileSystem.fsMetadata.id);
+                        if (deletedFileSystem instanceof MonitoredPlugin) {
+                            deletedFileSystem.metadataFile.removePlugin(deletedFileSystem.fsMetadata.id);
+                        } else {
+                            deletedFileSystem.metadataFile.removeLibrary(deletedFileSystem.fsMetadata.id);
+                        }
                     } catch (IOException e) {
-                        log.warn(String.format("Unable to update DSS metadata after removal of file systelm '%s'", deletedFileSystem.fsMetadata.id), e);
+                        log.warn(String.format("Unable to update DSS metadata after removal of file system '%s'", deletedFileSystem.fsMetadata.id), e);
                     }
                 } else {
                     if (monitoredFilesIndex.getMonitoredPlugin(file) != null || monitoredFilesIndex.getMonitoredLibrary(file) != null) {
@@ -201,7 +205,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
                             scheduleSynchronization(NOW);
                         }
                     } else {
-                        // We need to enumerate all plugins & recipes to see if they are nested under the deleted directory, and act upon.
+                        // We need to enumerate all plugins & recipes & libraries to see if they are nested under the deleted directory, and act upon.
                         for (MonitoredRecipeFile nestedRecipeFile : monitoredFilesIndex.getMonitoredFilesNestedUnderDir(file)) {
                             monitoredFilesIndex.removeFromIndex(nestedRecipeFile);
                             try {

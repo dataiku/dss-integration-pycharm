@@ -14,7 +14,6 @@ import javax.swing.tree.TreeNode;
 import java.util.List;
 
 public class SynchronizeDialog extends DialogWrapper {
-
     private final SynchronizeModel model;
 
     private SynchronizeTree selectionTree;
@@ -81,6 +80,7 @@ public class SynchronizeDialog extends DialogWrapper {
         result.selectionRootNode = root;
         return result;
     }
+
 
     private void addPlugins(SynchronizeNodeRoot root, List<MonitoredPlugin> plugins) {
         plugins.forEach(monitoredPlugin -> {

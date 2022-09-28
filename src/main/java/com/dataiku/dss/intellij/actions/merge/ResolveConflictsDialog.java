@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.dataiku.dss.intellij.SynchronizeUtils.saveRecipeToDss;
+import static com.dataiku.dss.intellij.utils.LibraryUtils.LIB_BASE_FOLDER;
 
 public class ResolveConflictsDialog {
     private static final Logger log = Logger.getInstance(ResolveConflictsDialog.class);
@@ -119,37 +120,51 @@ public class ResolveConflictsDialog {
     }
 
     private void saveMergePluginFile(@NotNull VirtualFile virtualFile, MonitoredPluginFileConflict pluginFileConflict) throws IOException {
-        MonitoredPlugin plugin = pluginFileConflict.plugin;
-        DssPluginFileMetadata pluginFile = pluginFileConflict.pluginFile;
-        String instanceName = plugin.plugin.instance;
+        MonitoredPlugin monitoredPlugin = pluginFileConflict.plugin;
+        String instanceName = monitoredPlugin.plugin.instance;
+        String pluginId = monitoredPlugin.plugin.pluginId;
+        String remotePath = pluginFileConflict.pluginFile.remotePath;
         DssInstance dssInstance = DssSettings.getInstance().getDssInstance(instanceName);
         if (dssInstance == null) {
             throw new IllegalStateException(String.format("Unknown DSS instance: %s", instanceName));
         }
         DSSClient dssClient = dssInstance.createClient();
         byte[] mergedData = VirtualFileManager.readVirtualFileAsByteArray(virtualFile);
-        dssClient.uploadPluginFile(plugin.plugin.pluginId, pluginFile.path, mergedData);
 
-        pluginFile.data = mergedData;
-        pluginFile.contentHash = VirtualFileManager.getContentHash(mergedData);
-        plugin.metadataFile.addOrUpdatePluginFile(pluginFile, true);
+        dssClient.uploadPluginFile(monitoredPlugin.plugin.pluginId, pluginFileConflict.pluginFile.remotePath, mergedData);
+
+        DssPluginFileMetadata pluginFileMetadata = new DssPluginFileMetadata(
+                instanceName,
+                pluginId,
+                pluginId + "/" + remotePath,
+                remotePath,
+                VirtualFileManager.getContentHash(mergedData),
+                mergedData);
+        monitoredPlugin.metadataFile.addOrUpdatePluginFile(pluginFileMetadata, true);
     }
 
     private void saveMergeLibraryFile(@NotNull VirtualFile virtualFile, MonitoredLibraryFileConflict libraryFileConflict) throws IOException {
-        MonitoredLibrary library = libraryFileConflict.library;
+        MonitoredLibrary monitoredLibrary = libraryFileConflict.library;
         DssLibraryFileMetadata libraryFile = libraryFileConflict.libraryFile;
-        String instanceName = library.library.instance;
+        String instanceName = monitoredLibrary.library.instance;
+        String remotePath = libraryFile.remotePath;
+        String projectKey = monitoredLibrary.library.projectKey;
         DssInstance dssInstance = DssSettings.getInstance().getDssInstance(instanceName);
         if (dssInstance == null) {
             throw new IllegalStateException(String.format("Unknown DSS instance: %s", instanceName));
         }
         DSSClient dssClient = dssInstance.createClient();
         byte[] mergedData = VirtualFileManager.readVirtualFileAsByteArray(virtualFile);
-        dssClient.uploadLibraryFile(library.library.projectKey, libraryFile.path, mergedData);
+        dssClient.uploadLibraryFile(projectKey, remotePath, mergedData);
 
-        libraryFile.data = mergedData;
-        libraryFile.contentHash = VirtualFileManager.getContentHash(mergedData);
-        library.metadataFile.addOrUpdateLibraryFile(libraryFile, true);
+        DssLibraryFileMetadata libraryFileMetadata = new DssLibraryFileMetadata(
+                instanceName,
+                projectKey,
+                projectKey + "/" + LIB_BASE_FOLDER + "/" +  remotePath,
+                remotePath,
+                VirtualFileManager.getContentHash(mergedData),
+                mergedData);
+        monitoredLibrary.metadataFile.addOrUpdateLibraryFile(libraryFileMetadata, true);
     }
 
     private static Map<String, MonitoredFileConflict> indexConflicts(SynchronizeSummary summary) {

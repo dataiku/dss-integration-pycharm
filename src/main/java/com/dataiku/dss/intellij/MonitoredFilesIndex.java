@@ -150,7 +150,6 @@ public class MonitoredFilesIndex implements ApplicationComponent {
         }
     }
 
-
     public synchronized MonitoredLibrary getMonitoredLibrary(VirtualFile file) {
         for (MonitoredLibrary lib : monitoredLibraries.values()) {
             String path = VirtualFileManager.getRelativePath(lib.baseDir, file);
@@ -188,14 +187,20 @@ public class MonitoredFilesIndex implements ApplicationComponent {
     private List<VirtualFile> listModulesRoot(Project[] projects) {
         Map<String, VirtualFile> result = new HashMap<>();
         for (Project project : projects) {
-            for (VirtualFile moduleContentRoot : ProjectRootManager.getInstance(project).getContentRootsFromAllModules()) {
-                String key = moduleContentRoot.getUrl();
-                if (!result.containsKey(key)) {
-                    result.put(key, moduleContentRoot);
-                }
-            }
+            result.putAll(listModulesRoot(project));
         }
         return new ArrayList<>(result.values());
+    }
+
+    private Map<String, VirtualFile> listModulesRoot(Project project) {
+        Map<String, VirtualFile> result = new HashMap<>();
+        for (VirtualFile moduleContentRoot : ProjectRootManager.getInstance(project).getContentRootsFromAllModules()) {
+            String key = moduleContentRoot.getUrl();
+            if (!result.containsKey(key)) {
+                result.put(key, moduleContentRoot);
+            }
+        }
+        return result;
     }
 
     public synchronized List<MonitoredRecipeFile> getMonitoredFilesNestedUnderDir(VirtualFile directory) {

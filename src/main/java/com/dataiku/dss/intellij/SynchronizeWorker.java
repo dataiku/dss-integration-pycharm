@@ -29,6 +29,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import static com.dataiku.dss.intellij.utils.LibraryUtils.LIB_BASE_FOLDER;
 import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
 import static com.google.common.base.Charsets.UTF_8;
 
@@ -170,10 +171,9 @@ public class SynchronizeWorker {
         else {
             folderContents = dssClient.listLibraryFiles(monitoredFS.fsMetadata.id);
         }
-
         synchronizeFolder(dssClient, monitoredFS, monitoredFS.baseDir, folderContents);
 
-        // Add all files in pluginBaseDir that are not in remote plugin
+        // Add all files in plugin or lib baseDir that are not in remote plugin or lib
         Map<String, FolderContent> indexedFolderContent = index(folderContents);
         addOrDeleteMissingFiles(monitoredFS, indexedFolderContent, dssClient);
         addOrDeleteMissingFolders(monitoredFS, indexedFolderContent, dssClient);
@@ -303,6 +303,7 @@ public class SynchronizeWorker {
                     } else {
                         // Directory has been locally deleted since last synchronization.
                         deleteFile(dssClient, monitoredFS, pluginId, file);
+
                     }
                 }
 
@@ -408,6 +409,7 @@ public class SynchronizeWorker {
             dssClient.deleteLibraryFile(id, file.path);
         }
         monitoredFS.removeFile(file.path);
+        dirtyMetadataFiles.add(monitoredFS.metadataFile);
         summary.dssDeleted.add(String.format("File '%s' deleted from DSS instance.", file.path));
     }
 
@@ -427,7 +429,7 @@ public class SynchronizeWorker {
             DssLibraryFileMetadata fileMetadata = new DssLibraryFileMetadata(
                     monitoredFS.fsMetadata.instance,
                     id,
-                    id + "/" + path,
+                    id + "/" + LIB_BASE_FOLDER + "/" + path,
                     path,
                     contentHash,
                     content);

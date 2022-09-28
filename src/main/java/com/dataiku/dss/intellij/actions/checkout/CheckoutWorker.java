@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static com.dataiku.dss.intellij.utils.LibraryUtils.LIB_BASE_FOLDER;
 import static com.dataiku.dss.intellij.utils.VirtualFileManager.getContentHash;
 import static com.google.common.base.Charsets.UTF_8;
 
@@ -132,13 +133,13 @@ public class CheckoutWorker {
         List<VirtualFile> createdFileList = new ArrayList<>();
 
         // Track library
-        DssLibraryMetadata libraryMetadata = new DssLibraryMetadata(model.server.id, projectKey, projectKey);
+        DssLibraryMetadata libraryMetadata = new DssLibraryMetadata(model.server.id, projectKey, projectKey + "/" + LIB_BASE_FOLDER + "/");
         // Create folder for library
-        VirtualFile folder = vFileManager.getOrCreateVirtualDirectory(vFileManager.getOrCreateVirtualDirectory(moduleRootFolder, projectKey), "library");
+        VirtualFile folder = vFileManager.getOrCreateVirtualDirectory(vFileManager.getOrCreateVirtualDirectory(moduleRootFolder, projectKey), LIB_BASE_FOLDER);
         // Checkout library files
         List<FolderContent> folderContents = dssClient.listLibraryFiles(projectKey);
 
-        checkoutFolder(libraryMetadata, projectKey, createdFileList, folder, folderContents);
+        checkoutFolder(libraryMetadata, projectKey, projectKey + "/" + LIB_BASE_FOLDER, createdFileList, folder, folderContents);
 
         metadata.addOrUpdateLibrary(libraryMetadata);
 
@@ -171,7 +172,7 @@ public class CheckoutWorker {
 
             // Checkout plugin files
             List<FolderContent> folderContents = dssClient.listPluginFiles(plugin.id);
-            checkoutFolder(pluginMetadata, plugin.id, createdFileList, folder, folderContents);
+            checkoutFolder(pluginMetadata, plugin.id, plugin.id, createdFileList, folder, folderContents);
 
             metadata.addOrUpdatePlugin(pluginMetadata);
 
@@ -185,7 +186,7 @@ public class CheckoutWorker {
     }
 
 
-    private void checkoutFolder(DssFileSystemMetadata metadata, String id, List<VirtualFile> createdFileList, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
+    private void checkoutFolder(DssFileSystemMetadata metadata, String id, String localBaseDir, List<VirtualFile> createdFileList, VirtualFile parent, List<FolderContent> folderContents) throws IOException {
         for (FolderContent remoteFile : folderContents) {
             if (remoteFile.mimeType == null || "null".equals(remoteFile.mimeType)) {
                 // Folder
@@ -198,14 +199,14 @@ public class CheckoutWorker {
                 metadata.files.add(new DssFileMetadata(
                         model.server.id,
                         id,
-                        id + "/" + remoteFile.path,
+                        localBaseDir + "/" + remoteFile.path,
                         remoteFile.path,
                         0,
                         (byte[]) null));
 
                 // Recurse if necessary
                 if (remoteFile.children != null && !remoteFile.children.isEmpty()) {
-                    checkoutFolder(metadata, id, createdFileList, localFile, remoteFile.children);
+                    checkoutFolder(metadata, id, localBaseDir, createdFileList, localFile, remoteFile.children);
                 }
             } else {
                 // Regular file
@@ -231,7 +232,7 @@ public class CheckoutWorker {
                 metadata.files.add(new DssFileMetadata(
                         model.server.id,
                         id,
-                        id + "/" + remoteFile.path,
+                        localBaseDir + "/" + remoteFile.path,
                         remoteFile.path,
                         getContentHash(fileContent),
                         fileContent));
