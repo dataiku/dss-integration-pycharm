@@ -206,7 +206,7 @@ public class DSSClient {
 
         try (HttpClientWithContext client = createHttpClient()) {
             HttpPut request = new HttpPut(url);
-            request.setEntity(new StringEntity(body));
+            request.setEntity(new StringEntity(body, "UTF-8"));
             HttpResponse response = executeRequest(request, client);
             return ByteStreams.toByteArray(response.getEntity().getContent());
         } catch (DssException e) {
