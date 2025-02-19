@@ -25,14 +25,10 @@ public class MonitoredFilesIndex implements ApplicationComponent {
     private final Map<String/*Path of file*/, MonitoredRecipeFile> monitoredRecipeFiles = new HashMap<>();
     private final Map<String/*Path of plugin base directory*/, MonitoredPlugin> monitoredPlugins = new HashMap<>();
     private final Map<String/*Path of library base directory*/, MonitoredLibrary> monitoredLibraries = new HashMap<>();
-    private final MetadataFilesIndex metadataFilesIndex;
+    private MetadataFilesIndex metadataFilesIndex;
 
     public static MonitoredFilesIndex getInstance() {
         return ComponentUtils.getComponent(MonitoredFilesIndex.class);
-    }
-
-    public MonitoredFilesIndex(MetadataFilesIndex metadataFilesIndex) {
-        this.metadataFilesIndex = metadataFilesIndex;
     }
 
     @NotNull
@@ -44,6 +40,7 @@ public class MonitoredFilesIndex implements ApplicationComponent {
     @Override
     public void initComponent() {
         // Scan all open projects, then register a listener to be called whenever a project is opened/closed
+        metadataFilesIndex = MetadataFilesIndex.getInstance();
         index(ProjectManager.getInstance().getOpenProjects());
     }
 

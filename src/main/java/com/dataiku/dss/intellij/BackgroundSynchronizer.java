@@ -32,10 +32,10 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     private static final int INITIAL_DELAY = 10; // Wait for 10 seconds before triggering the first synchronization
     private static final int NOW = 0;
 
-    private final MonitoredFilesIndex monitoredFilesIndex;
-    private final SynchronizationNotifier synchronizationNotifier;
-    private final DataikuDSSPlugin dssPlugin;
-    private final DssSettings dssSettings;
+    private MonitoredFilesIndex monitoredFilesIndex;
+    private SynchronizationNotifier synchronizationNotifier;
+    private DataikuDSSPlugin dssPlugin;
+    private DssSettings dssSettings;
 
     private SyncProjectManagerAdapter projectManagerAdapter;
     private ScheduledExecutorService executorService;
@@ -44,12 +44,6 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     private VirtualFileAdapter virtualFileAdapter;
     private DssSettingsListener dssSettingsListener;
 
-    public BackgroundSynchronizer(DataikuDSSPlugin dssPlugin, DssSettings dssSettings, MonitoredFilesIndex monitoredFilesIndex, SynchronizationNotifier synchronizationNotifier) {
-        this.dssPlugin = dssPlugin;
-        this.dssSettings = dssSettings;
-        this.monitoredFilesIndex = monitoredFilesIndex;
-        this.synchronizationNotifier = synchronizationNotifier;
-    }
 
     @NotNull
     public String getComponentName() {
@@ -59,6 +53,10 @@ public class BackgroundSynchronizer implements ApplicationComponent {
     @Override
     public void initComponent() {
         log.info("Starting");
+        dssPlugin = DataikuDSSPlugin.getInstance();
+        dssSettings = DssSettings.getInstance();
+        monitoredFilesIndex = MonitoredFilesIndex.getInstance();
+        synchronizationNotifier = SynchronizationNotifier.getInstance();
         executorService = Executors.newSingleThreadScheduledExecutor();
 
         // At startup, synchronize everything, then poll DSS every X seconds if one (or more) monitored recipes has been updated on DSS side.

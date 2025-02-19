@@ -6,9 +6,9 @@ import com.dataiku.dss.intellij.actions.merge.ResolveConflictsDialog;
 import com.dataiku.dss.intellij.actions.synchronize.nodes.*;
 import com.dataiku.dss.intellij.config.DssSettings;
 import com.intellij.icons.AllIcons;
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
-import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
@@ -44,7 +44,7 @@ public class SynchronizeAction extends AnAction implements DumbAware {
             return;
         }
 
-        ApplicationManager.getApplication().invokeLater(() -> prepareAndShowWizard(project));
+        prepareAndShowWizard(project);
     }
 
     private void prepareAndShowWizard(Project project) {
@@ -72,6 +72,10 @@ public class SynchronizeAction extends AnAction implements DumbAware {
                 Messages.showErrorDialog(e.getMessage(), "Error");
             }
         }
+    }
+
+    public @NotNull ActionUpdateThread getActionUpdateThread() {
+        return ActionUpdateThread.EDT;
     }
 
     @Override
