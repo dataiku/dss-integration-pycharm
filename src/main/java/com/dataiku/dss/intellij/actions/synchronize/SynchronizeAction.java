@@ -9,6 +9,7 @@ import com.intellij.icons.AllIcons;
 import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
@@ -44,7 +45,7 @@ public class SynchronizeAction extends AnAction implements DumbAware {
             return;
         }
 
-        prepareAndShowWizard(project);
+        ApplicationManager.getApplication().invokeLater(() -> prepareAndShowWizard(project));
     }
 
     private void prepareAndShowWizard(Project project) {
