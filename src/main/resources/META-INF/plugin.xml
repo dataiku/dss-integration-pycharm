@@ -1,14 +1,14 @@
 <idea-plugin>
-<id>com.dataiku.dss.intellij</id>
-<name>Dataiku DSS</name>
-<version>2.0.0</version>
-<vendor email="support@dataiku.com" url="http://www.dataiku.com">Dataiku</vendor>
+    <id>com.dataiku.dss.intellij</id>
+    <name>Dataiku DSS</name>
+    <version>2.0.0</version>
+    <vendor email="support@dataiku.com" url="http://www.dataiku.com">Dataiku</vendor>
 
-<description><![CDATA[
+    <description><![CDATA[
         Dataiku DSS plugin to edit Recipes and Plugins directly from PyCharm or IntelliJ IDEA.
     ]]></description>
 
-<change-notes><![CDATA[
+    <change-notes><![CDATA[
         2.0.0: Fix unicode issue. ⚠️ Breaking change: this version drops IntelliJ IDEA support from 2017.2 to 2022.2<br>
         1.3.0: Add support for libraries.<br>
         1.2.0: Add support for PySpark recipes.<br>
@@ -18,66 +18,66 @@
         1.0.1: Various bug fixes<br>
         1.0.0: Initial release
     ]]>
-</change-notes>
+    </change-notes>
 
-<!--
-    We are compatible with IntelliJ IDEA and PyCharm
-    See [http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html] for more info
--->
-<depends>com.intellij.modules.vcs</depends>
+    <!--
+        We are compatible with IntelliJ IDEA and PyCharm
+        See [http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html] for more info
+    -->
+    <depends>com.intellij.modules.vcs</depends>
 
-<!--
-    We are compatible with IntelliJ IDEA and PyCharm from version 2017.2
-    See [http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html] for more info
--->
-<idea-version since-build="223"/>
+    <!--
+        We are compatible with IntelliJ IDEA and PyCharm from version 2017.2
+        See [http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/build_number_ranges.html] for more info
+    -->
+    <idea-version since-build="223"/>
 
-<extensions defaultExtensionNs="com.intellij">
-    <applicationConfigurable id="dataikuDssApp" displayName="Dataiku DSS Settings" instance="com.dataiku.dss.intellij.config.DssSettingsConfigurable"/>
-</extensions>
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationConfigurable id="dataikuDssApp" displayName="Dataiku DSS Settings" instance="com.dataiku.dss.intellij.config.DssSettingsConfigurable"/>
+    </extensions>
 
-<!-- Plugin's application components -->
-<application-components>
-    <component>
-        <implementation-class>com.dataiku.dss.intellij.DataikuDSSPlugin</implementation-class>
-        <interface-class>com.dataiku.dss.intellij.DataikuDSSPlugin</interface-class>
-    </component>
-    <component>
-        <implementation-class>com.dataiku.dss.intellij.config.DssSettings</implementation-class>
-        <interface-class>com.dataiku.dss.intellij.config.DssSettings</interface-class>
-    </component>
-    <component>
-        <implementation-class>com.dataiku.dss.intellij.MonitoredFilesIndex</implementation-class>
-        <interface-class>com.dataiku.dss.intellij.MonitoredFilesIndex</interface-class>
-    </component>
-    <component>
-        <implementation-class>com.dataiku.dss.intellij.MetadataFilesIndex</implementation-class>
-        <interface-class>com.dataiku.dss.intellij.MetadataFilesIndex</interface-class>
-    </component>
-    <component>
-        <implementation-class>com.dataiku.dss.intellij.BackgroundSynchronizer</implementation-class>
-        <interface-class>com.dataiku.dss.intellij.BackgroundSynchronizer</interface-class>
-    </component>
-    <component>
-        <implementation-class>com.dataiku.dss.intellij.SynchronizationNotifier</implementation-class>
-        <interface-class>com.dataiku.dss.intellij.SynchronizationNotifier</interface-class>
-    </component>
-    <component>
-        <implementation-class>com.dataiku.dss.wt1.WT1</implementation-class>
-        <interface-class>com.dataiku.dss.wt1.WT1</interface-class>
-    </component>
-</application-components>
+    <!-- Plugin's application components -->
+    <application-components>
+        <component>
+            <implementation-class>com.dataiku.dss.intellij.DataikuDSSPlugin</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.DataikuDSSPlugin</interface-class>
+        </component>
+        <component>
+            <implementation-class>com.dataiku.dss.intellij.config.DssSettings</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.config.DssSettings</interface-class>
+        </component>
+        <component>
+            <implementation-class>com.dataiku.dss.intellij.MonitoredFilesIndex</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.MonitoredFilesIndex</interface-class>
+        </component>
+        <component>
+            <implementation-class>com.dataiku.dss.intellij.MetadataFilesIndex</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.MetadataFilesIndex</interface-class>
+        </component>
+        <component>
+            <implementation-class>com.dataiku.dss.intellij.BackgroundSynchronizer</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.BackgroundSynchronizer</interface-class>
+        </component>
+        <component>
+            <implementation-class>com.dataiku.dss.intellij.SynchronizationNotifier</implementation-class>
+            <interface-class>com.dataiku.dss.intellij.SynchronizationNotifier</interface-class>
+        </component>
+        <component>
+            <implementation-class>com.dataiku.dss.wt1.WT1</implementation-class>
+            <interface-class>com.dataiku.dss.wt1.WT1</interface-class>
+        </component>
+    </application-components>
 
-<actions>
-    <action id="com.dataiku.dss.intellij.actions.checkout.CheckoutAction" class="com.dataiku.dss.intellij.actions.checkout.CheckoutAction"
-            text="Open Dataiku DSS..." description="Checkout a Dataiku DSS Recipe or Plugin"
-            icon="AllIcons.Actions.Menu_open">
-        <add-to-group group-id="FileOpenGroup" anchor="after" relative-to-action="OpenFile"/>
-    </action>
-    <action id="com.dataiku.dss.intellij.actions.synchronize.SynchronizeAction" class="com.dataiku.dss.intellij.actions.synchronize.SynchronizeAction"
-            text="Synchronize with DSS..." description="Synchronize Dataiku DSS Recipes and Plugins with DSS instance"
-            icon="AllIcons.Actions.Refresh">
-        <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Synchronize"/>
-    </action>
-</actions>
+    <actions>
+        <action id="com.dataiku.dss.intellij.actions.checkout.CheckoutAction" class="com.dataiku.dss.intellij.actions.checkout.CheckoutAction"
+                text="Open Dataiku DSS..." description="Checkout a Dataiku DSS Recipe or Plugin"
+                icon="AllIcons.Actions.Menu_open">
+            <add-to-group group-id="FileOpenGroup" anchor="after" relative-to-action="OpenFile"/>
+        </action>
+        <action id="com.dataiku.dss.intellij.actions.synchronize.SynchronizeAction" class="com.dataiku.dss.intellij.actions.synchronize.SynchronizeAction"
+                text="Synchronize with DSS..." description="Synchronize Dataiku DSS Recipes and Plugins with DSS instance"
+                icon="AllIcons.Actions.Refresh">
+            <add-to-group group-id="FileMenu" anchor="after" relative-to-action="Synchronize"/>
+        </action>
+    </actions>
 </idea-plugin>
