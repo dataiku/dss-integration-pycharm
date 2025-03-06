@@ -1,29 +1,38 @@
 plugins {
     id 'java'
-    id 'org.jetbrains.intellij' version '0.7.3'
+    id("org.jetbrains.intellij") version "1.17.4"
 }
 
 group 'com.dataiku.dss.intellij'
-version '1.3.1'
-
-sourceCompatibility = 1.8
+version '2.0.0'
 
 repositories {
     mavenCentral()
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testImplementation group: 'junit', name: 'junit', version: '4.13.1'
 }
 
 // See https://github.com/JetBrains/gradle-intellij-plugin/
 intellij {
-    version '2017.2'
-    updateSinceUntilBuild false
+    version = "2022.3"
+    updateSinceUntilBuild = false
 }
+
+buildSearchableOptions {
+    enabled = false
+}
+
 patchPluginXml {
-    changeNotes """
-        1.3.1: Fix unicode issue.<br>
+    changeNotes = """
+        2.0.0: Fix unicode issue. ⚠️ Breaking change: this version drops IntelliJ IDEA support from 2017.2 to 2022.2<br>
         1.3.0: Add support for libraries.<br>
         1.2.0: Add support for PySpark recipes.<br>
         1.1.0: Add support for HTTP proxy.<br>

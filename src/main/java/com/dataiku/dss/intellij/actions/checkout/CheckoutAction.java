@@ -5,6 +5,7 @@ import static com.intellij.openapi.util.SystemInfo.isMac;
 import java.io.IOException;
 import java.util.List;
 
+import com.intellij.openapi.actionSystem.ActionUpdateThread;
 import org.jetbrains.annotations.NotNull;
 
 import com.dataiku.dss.Logger;
@@ -44,6 +45,11 @@ public class CheckoutAction extends AnAction implements DumbAware {
         }
 
         ApplicationManager.getApplication().invokeLater(() -> prepareAndShowWizard(project, dssSettings));
+    }
+
+    @Override
+    public @NotNull ActionUpdateThread getActionUpdateThread() {
+        return ActionUpdateThread.EDT;
     }
 
     private void prepareAndShowWizard(Project project, DssSettings dssSettings) {

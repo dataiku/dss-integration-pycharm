@@ -11,8 +11,6 @@ import com.intellij.openapi.components.ApplicationComponent;
  * Dummy component that only acts as a requestor for all writes, and entry point for the plugin
  */
 public class DataikuDSSPlugin implements ApplicationComponent {
-    private final DssSettings settings;
-    private final WT1 wt1;
 
     @NotNull
     @Override
@@ -24,14 +22,11 @@ public class DataikuDSSPlugin implements ApplicationComponent {
         return ComponentUtils.getComponent(DataikuDSSPlugin.class);
     }
 
-    public DataikuDSSPlugin(DssSettings settings, WT1 wt1) {
-        this.settings = settings;
-        this.wt1 = wt1;
-    }
-
     @Override
     public void initComponent() {
+        DssSettings settings = DssSettings.getInstance();
         if (settings.isTrackingEnabled()) {
+            WT1 wt1 = WT1.getInstance();
             wt1.track("pycharm-start");
         }
     }
