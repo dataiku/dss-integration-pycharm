@@ -88,13 +88,13 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
     @Override
     public void loadState(@NotNull DssConfig state) {
-        log.info("DssSettings: loading state");
+        log.debug("DssSettings: loading state");
         if (state != null) {
-            log.info("DssSettings: loading state into config" + state);
+            log.debug("DssSettings: loading state into config" + state);
             config.enableBackgroundSynchronization = state.enableBackgroundSynchronization;
             config.backgroundSynchronizationPollIntervalInSeconds = state.backgroundSynchronizationPollIntervalInSeconds;
             config.trackingEnabled = state.trackingEnabled;
-            log.info("DssSettings: config updated " + config);
+            log.debug("DssSettings: config updated " + config);
         }
     }
 
@@ -106,7 +106,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
     @Override
     public void initComponent() {
-        log.info("Initializing DSS settings");
+        log.debug("Initializing DSS settings");
         try {
             loadConfigFromEnvironmentVariables();
         } catch (RuntimeException e) {
@@ -131,7 +131,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     }
 
     public void updateConfig(List<DssInstance> servers, DssInstance defaultServer, boolean enableBackgroundSync, int backgroundSyncPollingInterval, boolean trackingEnabled) throws IOException {
-        log.info("Updating DSS configuration");
+        log.debug("Updating DSS configuration");
         this.servers.clear();
         this.servers.addAll(servers);
         this.defaultServer = defaultServer;
@@ -152,7 +152,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     }
 
     public boolean isBackgroundSynchronizationEnabled() {
-        log.info("Background sync enabled: " + config.enableBackgroundSynchronization);
+        log.debug("Background sync enabled: " + config.enableBackgroundSynchronization);
         return config.enableBackgroundSynchronization;
     }
 
