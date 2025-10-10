@@ -102,17 +102,17 @@ The `<product>` is either `Idea` or `PyCharm`, and `<version>` is the version nu
 The main log file is `idea.log` or `pycharm.log`.
 
 
-The log level can be changed from the IDE: open the **Help** menu, select **Diagnostic Tools** and then **Debug Log Settings...**. Add the following lines to enable debug logging for the plugin:
+The log level can be changed from the IDE: open the **Help** menu, select **Diagnostic Tools** and then **Debug Log Settings...**. Add the following line to enable debug logging for the plugin:
 
 ```text
-    com.dataiku.dss.intellij
+com.dataiku.dss.intellij
 ```
 
-To flush logs into a separate file, add `:separate` at the end of each line.
+To flush logs into a separate file, add `:separate` at the end of the line.
 
 
 ```text
-    com.dataiku.dss.intellij:separate::trace
+com.dataiku.dss.intellij:separate::trace
 ```
 
 The log level can be reset to default by removing these lines from the dialog.
