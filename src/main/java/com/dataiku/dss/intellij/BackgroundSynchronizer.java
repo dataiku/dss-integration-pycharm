@@ -61,6 +61,7 @@ public class BackgroundSynchronizer implements ApplicationComponent {
 
         // At startup, synchronize everything, then poll DSS every X seconds if one (or more) monitored recipes has been updated on DSS side.
         if (dssSettings.isBackgroundSynchronizationEnabled()) {
+            log.debug("Background synchronization is enabled, scheduling first synchronization");
             scheduleSynchronization(INITIAL_DELAY);
         }
         // When the configuration is changed, update the polling interval or cancel the synchronization scheduling
@@ -139,13 +140,17 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             // Index all files present in newly opened project
             monitoredFilesIndex.index(new Project[]{project});
             if (dssSettings.isBackgroundSynchronizationEnabled()) {
+                log.debug("SyncProjectManagerAdapter: projectOpened, running synchronization NOW");
                 scheduleSynchronization(NOW);
             }
         }
 
         @Override
         public void projectClosingBeforeSave(@NotNull Project project) {
-            runSynchronizer();
+            if (dssSettings.isBackgroundSynchronizationEnabled()) {
+                log.debug("SyncProjectManagerAdapter: projectClosingBeforeSave, synchronizer will be run NOW");
+                runSynchronizer();
+            }
         }
 
         @Override

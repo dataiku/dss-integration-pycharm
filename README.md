@@ -90,6 +90,43 @@ For the complete list of tasks, see:
 
 Import the project as a Gradle project, or directly open the `dss-integration-pycharm.iml` *Project* file.
 
+### Debugging
+
+The log files are located in:
+- macOS: `~/Library/Logs/JetBrains/<product><version>/`
+- Linux: `~/.<product><version>/system/log/`
+- Windows: `%USERPROFILE%\. <product><version>\system\log\`
+
+The `<product>` is either `Idea` or `PyCharm`, and `<version>` is the version number of your IDE.
+
+The main log file is `idea.log` or `pycharm.log`.
+
+
+The log level can be changed from the IDE: open the **Help** menu, select **Diagnostic Tools** and then **Debug Log Settings...**. Add the following line to enable debug logging for the plugin:
+
+```text
+com.dataiku.dss.intellij
+```
+
+To flush logs into a separate file, add `:separate` at the end of the line.
+
+
+```text
+com.dataiku.dss.intellij:separate::trace
+```
+
+The log level can be reset to default by removing these lines from the dialog.
+
+The log level can also be changed by editing the `log.xml` file located in:
+- macOS: `~/Library/Preferences/<product><version>/log.xml`
+- Linux: `~/.<product><version>/config/log.xml`
+- Windows: `%USERPROFILE%\. <product><version>\config\log.xml`
+
+The plugin settings file is located in:
+- macOS: `~/Library/Preferences/<product><version>/options/dss-integration.xml`
+- Linux: `~/.<product><version>/config/options/dss-integration.xml`
+- Windows: `%USERPROFILE%\. <product><version>\config\options\dss-integration.xml`
+
 ### How to release
 
     ./gradlew buildPlugin

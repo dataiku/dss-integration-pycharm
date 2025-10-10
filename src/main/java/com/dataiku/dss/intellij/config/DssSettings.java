@@ -59,6 +59,15 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
         public DssConfig() {
         }
+
+        @Override
+        public String toString() {
+            return "DssConfig{" +
+                    "enableBackgroundSynchronization=" + enableBackgroundSynchronization +
+                    ", backgroundSynchronizationPollIntervalInSeconds=" + backgroundSynchronizationPollIntervalInSeconds +
+                    ", trackingEnabled=" + trackingEnabled +
+                    '}';
+        }
     }
 
     public DssSettings() {
@@ -68,11 +77,26 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
         return config;
     }
 
-    public void loadState(DssConfig state) {
+    @Override
+    public String toString() {
+        return "DssSettings{" +
+                "servers=" + servers +
+                ", defaultServer=" + (defaultServer != null ? defaultServer.id : "null") +
+                ", config=" + config +
+                '}';
+    }
+
+    @Override
+    public void loadState(@NotNull DssConfig state) {
+        log.debug("DssSettings: loading state");
         if (state != null) {
+            log.debug("DssSettings: loading state into config. State: " + state);
             config.enableBackgroundSynchronization = state.enableBackgroundSynchronization;
             config.backgroundSynchronizationPollIntervalInSeconds = state.backgroundSynchronizationPollIntervalInSeconds;
             config.trackingEnabled = state.trackingEnabled;
+            log.debug("DssSettings: config updated " + config);
+        } else {
+            log.debug("DssSettings: state is null. Config unchanged: " + config);
         }
     }
 
@@ -84,6 +108,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
 
     @Override
     public void initComponent() {
+        log.debug("Initializing DSS settings");
         try {
             loadConfigFromEnvironmentVariables();
         } catch (RuntimeException e) {
@@ -108,6 +133,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     }
 
     public void updateConfig(List<DssInstance> servers, DssInstance defaultServer, boolean enableBackgroundSync, int backgroundSyncPollingInterval, boolean trackingEnabled) throws IOException {
+        log.debug("Updating DSS configuration");
         this.servers.clear();
         this.servers.addAll(servers);
         this.defaultServer = defaultServer;
@@ -128,6 +154,7 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     }
 
     public boolean isBackgroundSynchronizationEnabled() {
+        log.debug("Background sync enabled: " + config.enableBackgroundSynchronization);
         return config.enableBackgroundSynchronization;
     }
 
