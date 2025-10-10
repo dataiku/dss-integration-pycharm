@@ -104,14 +104,16 @@ The main log file is `idea.log` or `pycharm.log`.
 
 The log level can be changed from the IDE: open the **Help** menu, select **Diagnostic Tools** and then **Debug Log Settings...**. Add the following lines to enable debug logging for the plugin:
 
-    #com.dataiku.dss.intellij
-    #com.dataiku.dss.intellij.recipes
-    #com.dataiku.dss.intellij.plugins
-    #com.dataiku.dss.intellij.utils
-    #com.dataiku.dss.intellij.ui
-    #com.dataiku.dss.intellij.actions
-    #com.dataiku.dss.intellij.api
-    #com.dataiku.dss.intellij.project
+```text
+    com.dataiku.dss.intellij
+```
+
+To flush logs into a separate file, add `:separate` at the end of each line.
+
+
+```text
+    com.dataiku.dss.intellij:separate::trace
+```
 
 The log level can be reset to default by removing these lines from the dialog.
 
