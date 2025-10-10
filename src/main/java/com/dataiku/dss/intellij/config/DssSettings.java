@@ -90,11 +90,13 @@ public final class DssSettings implements ApplicationComponent, PersistentStateC
     public void loadState(@NotNull DssConfig state) {
         log.debug("DssSettings: loading state");
         if (state != null) {
-            log.debug("DssSettings: loading state into config" + state);
+            log.debug("DssSettings: loading state into config. State: " + state);
             config.enableBackgroundSynchronization = state.enableBackgroundSynchronization;
             config.backgroundSynchronizationPollIntervalInSeconds = state.backgroundSynchronizationPollIntervalInSeconds;
             config.trackingEnabled = state.trackingEnabled;
             log.debug("DssSettings: config updated " + config);
+        } else {
+            log.debug("DssSettings: state is null. Config unchanged: " + config);
         }
     }
 

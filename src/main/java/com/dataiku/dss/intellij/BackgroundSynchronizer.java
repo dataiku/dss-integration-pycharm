@@ -140,14 +140,17 @@ public class BackgroundSynchronizer implements ApplicationComponent {
             // Index all files present in newly opened project
             monitoredFilesIndex.index(new Project[]{project});
             if (dssSettings.isBackgroundSynchronizationEnabled()) {
-                log.debug("SyncProjectManagerAdapter: projectOpened, scheduling synchronization NOW");
+                log.debug("SyncProjectManagerAdapter: projectOpened, running synchronization NOW");
                 scheduleSynchronization(NOW);
             }
         }
 
         @Override
         public void projectClosingBeforeSave(@NotNull Project project) {
-            runSynchronizer();
+            if (dssSettings.isBackgroundSynchronizationEnabled()) {
+                log.debug("SyncProjectManagerAdapter: projectClosingBeforeSave, synchronizer will be run NOW");
+                runSynchronizer();
+            }
         }
 
         @Override
