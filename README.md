@@ -135,7 +135,7 @@ You can find the newly generated jar in `build/libs`
 
 ## Copyright and License
 
-Copyright 2013-2019 Dataiku SAS.
+Copyright 2013-2025 Dataiku SAS.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use this work except in compliance with the License. You may obtain a copy of the License in the LICENSE file, or at:
 
